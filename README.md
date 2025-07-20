@@ -33,7 +33,7 @@ sign Magic {
 attune Magic {
     // Methods are called like class methods, e.g., fireMagic.nullify()
     spell nullify() {
-        print this + " got nullified!";
+        chant this + " got nullified!";
     }
 }
 
