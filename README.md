@@ -23,6 +23,9 @@ If all the stars align (and the bugs don't bite), Eira will evolve into a beauti
 
 ```Eira
 
+// imports!
+channel 'magic_forest/secret_knowledge';
+
 // Like structs, acts as types
 sign Magic {
     type: Int,
