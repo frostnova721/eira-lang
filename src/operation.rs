@@ -26,7 +26,26 @@ pub enum OpCode {
     // idk
     Print,
 
+    // halt!
     Halt,
+
+    // Globals
+    SetGlobal,
+    GetGlobal,
+
+    // Locals
+    SetLocal,
+    GetLocal,
+
+    // Empty value (like null, but not null)
+    Emptiness,
+
+    // Pop from locals stack
+    PopStack,
+
+    // Jump statements
+    Jump,
+    JumpIfFalse,
 }
 
 impl OpCode {
@@ -43,6 +62,14 @@ impl OpCode {
             OpCode::Equal => "OP_EQUAL",
             OpCode::Greater => "OP_GREATER",
             OpCode::Less => "OP_LESS",
+            OpCode::GetGlobal => "OP_GET_GLOBAL",
+            OpCode::SetGlobal => "OP_SET_GLOBAL",
+            OpCode::SetLocal => "OP_SET_LOCAL",
+            OpCode::GetLocal => "OP_GET_LOCAL",
+            OpCode::Emptiness => "OP_EMPTINESS",
+            OpCode::PopStack => "OP_POP_STACK",
+            OpCode::Jump => "OP_JUMP",
+            OpCode::JumpIfFalse => "OP_JUMP_FALSE",
             _ => "OP_UNKNOWN",
         }
         .to_owned()
@@ -57,11 +84,19 @@ impl OpCode {
             | OpCode::Equal
             | OpCode::Less
             | OpCode::Constant
+            | OpCode::SetGlobal
+            | OpCode::GetGlobal
+            | OpCode::SetLocal
+            | OpCode::GetLocal
+            | OpCode::JumpIfFalse
             | OpCode::Greater => 4, // opcode + dest + r1 + r2
 
-            OpCode::Negate | OpCode::Not => 3, // opcode + dest + r1
+            OpCode::Negate | OpCode::Not | OpCode::PopStack | OpCode::Jump => 3, // opcode + dest + r1
 
-            OpCode::True | OpCode::False | OpCode::Print => 2, // opcode + r1/dest
+            OpCode::True
+            | OpCode::False
+            | OpCode::Print
+            | OpCode::Emptiness => 2,// opcode + r1/dest
 
             OpCode::Halt => 1, // just the opcode
         }
@@ -71,6 +106,7 @@ impl OpCode {
 impl TryFrom<u8> for OpCode {
     type Error = ();
 
+    // Order messed up = "kaboom RICO!"
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(OpCode::Add),
@@ -87,6 +123,15 @@ impl TryFrom<u8> for OpCode {
             11 => Ok(OpCode::Constant),
             12 => Ok(OpCode::Print),
             13 => Ok(OpCode::Halt),
+            14 => Ok(OpCode::SetGlobal),
+            15 => Ok(OpCode::GetGlobal),
+            16 => Ok(OpCode::SetLocal),
+            17 => Ok(OpCode::GetLocal),
+            18 => Ok(OpCode::Emptiness),
+            19 => Ok(OpCode::PopStack),
+            20 => Ok(OpCode::Jump),
+            21 => Ok(OpCode::JumpIfFalse),
+
             _ => Err(()),
         }
     }

@@ -31,6 +31,10 @@ impl Value {
         matches!(self, Self::Emptiness)
     }
 
+    pub fn is_falsey(&self) -> bool {
+        matches!(self, Self::Bool(false))
+    }
+
     pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Number(a), Self::Number(b)) => a == b,
@@ -44,7 +48,7 @@ impl Value {
 pub fn print_value(value: Value) {
     match value {
         Value::Bool(value) => println!("{}", value),
-        Value::Emptiness => println!("empty_value"),
+        Value::Emptiness => println!("Emptiness"),
         Value::Number(value) => println!("{}", value),
         Value::String(value) => println!("{}", value),
     }

@@ -12,6 +12,7 @@ pub struct Scanner<'a> {
     pub start: usize,
     pub current: usize,
     pub line: usize,
+    interpolating: bool,
 }
 
 impl<'a> Scanner<'a> {
@@ -21,6 +22,7 @@ impl<'a> Scanner<'a> {
             current: 0,
             line: 1,
             start: 0,
+            interpolating: false,
         }
     }
 
@@ -202,7 +204,7 @@ impl<'a> Scanner<'a> {
 
             '"' => self.string(),
             // '\'' => self.string(),
-            _ => self.error_token("error"),
+            _ => self.error_token("error, met an unexpected token."),
         }
     }
 }

@@ -1,10 +1,24 @@
+use std::{collections::HashMap, vec};
 
 use crate::{
-    instruction::Instruction,
+    instruction::{self, Instruction},
     scanner::{Scanner, Token},
     token_type::TokenType,
     value::Value,
 };
+
+#[derive(Debug, Clone)]
+struct Local {
+    name: Token,
+    depth: i32,
+    mutable: bool,
+}
+
+#[derive(Debug, Clone)]
+struct Global {
+    name: Token,
+    mutable: bool,
+}
 
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
@@ -15,6 +29,10 @@ pub struct Compiler<'a> {
     pub instructions: Vec<Instruction>,
 
     current_register: u8,
+
+    scope_depth: i32,
+    locals: Vec<Local>,
+    globals: HashMap<String, Global>,
 
     current: Token,
     previous: Token,
@@ -41,10 +59,13 @@ impl<'a> Compiler<'a> {
             panic: false,
             previous: temp_token.clone(),
             scanner: Scanner::init(source),
+            scope_depth: 0,
+            locals: vec![],
+            globals: HashMap::new(),
         }
     }
 
-    pub fn compile(&mut self) -> Vec<Instruction> {
+    pub fn compile(&mut self) -> Result<Vec<Instruction>, &str> {
         self.advance();
 
         while !self.match_token(TokenType::Eof) {
@@ -53,7 +74,11 @@ impl<'a> Compiler<'a> {
 
         self.instructions.push(Instruction::Halt);
 
-        self.instructions.clone()
+        if self.error {
+            return Err("error 421");
+        }
+
+        Ok(self.instructions.to_vec())
     }
 
     fn advance(&mut self) {
@@ -164,8 +189,7 @@ impl<'a> Compiler<'a> {
             panic!("Thats a lot of constants! Max amount of constants has been reached.")
         }
         self.constants.push(value);
-        (self.constants
-            .len() - 1)
+        (self.constants.len() - 1)
             .try_into()
             .expect("Index went out of 16bit limit!")
     }
@@ -187,7 +211,9 @@ impl<'a> Compiler<'a> {
         if self.match_token(TokenType::Spell) {
             self.spell_declaration();
         } else if self.match_token(TokenType::Mark) {
-            self.variable_declaration();
+            self.variable_declaration(true);
+        } else if self.match_token(TokenType::Bind) {
+            self.variable_declaration(false);
         } else {
             self.statement();
         }
@@ -197,12 +223,91 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    fn start_scope(&mut self) {
+        self.scope_depth += 1;
+    }
+
+    fn end_scope(&mut self) {
+        self.scope_depth -= 1;
+        let mut pop_count = 0;
+
+        while self.locals.len() > 0 && self.locals[self.locals.len() - 1].depth > self.scope_depth {
+            pop_count += 1;
+            self.locals.pop();
+        }
+
+        self.write_instruction(Instruction::PopStack {
+            pop_count: pop_count,
+        });
+    }
+
+    fn block(&mut self) {
+        while !self.check(TokenType::BraceRight) && !self.check(TokenType::Eof) {
+            self.declaration();
+        }
+
+        self.consume(
+            TokenType::BraceRight,
+            "Wheres the '}'??!\nExpected '}' at the end of a block.",
+        );
+    }
+
+    fn write_jump(&mut self, instruction: Instruction) -> usize {
+        self.write_instruction(instruction);
+        self.instructions.len() - 1
+    }
+
+    fn patch_jump(&mut self, jump_index: usize) {
+        let mut offset = 0;
+
+        for i in (jump_index+1)..self.instructions.len() {
+            offset += self.instructions[i].len();
+        }
+
+        if offset > u16::MAX as usize {
+            self.throw_error("The magic is too complex(long) to jump over!");
+        }
+
+        match &mut self.instructions[jump_index] {
+            Instruction::JumpIfFalse { offset: o, ..} => *o = offset as u16,
+            Instruction::Jump { offset: o} => *o = offset as u16,
+            _ => self.throw_error("Hmmm... this error shouldnt be thrown! If you are encountering this, congrats! I see a good future in you."),
+        }
+    }
+
+    fn fate_statement(&mut self) {
+        let condition_reg = self.expression();
+        let then = self.write_jump(Instruction::JumpIfFalse {
+            condition_reg: condition_reg,
+            offset: 0xffff,
+        });
+
+        self.consume(TokenType::BraceLeft, "Expected '{' at start of fate block.");
+
+        self.block();
+
+        let else_idx = self.write_jump(Instruction::Jump { offset: 0xffff });
+
+        // patch the then part since we know where the else ends!
+        self.patch_jump(then);
+
+        if self.match_token(TokenType::Divert) {
+            self.consume(TokenType::BraceLeft, "Expected a '{' at start of divert block. Forgot to add it?");
+            self.block();
+        }
+        self.patch_jump(else_idx);
+    }
+
     fn statement(&mut self) {
         if self.match_token(TokenType::Chant) {
             self.chant_statement();
-        }
-        // else if self.match_token(TokenType::)
-        else {
+        } else if self.match_token(TokenType::BraceLeft) {
+            self.start_scope();
+            self.block();
+            self.end_scope();
+        } else if self.match_token(TokenType::Fate) {
+            self.fate_statement();
+        } else {
             self.expression_statement();
         }
     }
@@ -213,7 +318,10 @@ impl<'a> Compiler<'a> {
 
     fn grouping(&mut self, _can_assign: bool) -> u8 {
         let exp_res = self.expression();
-        self.consume(TokenType::ParenRight, "Close the bracket!\nError: Expected ')' after expression.");
+        self.consume(
+            TokenType::ParenRight,
+            "Close the bracket!\nError: Expected ')' after expression.",
+        );
         exp_res
     }
 
@@ -234,12 +342,189 @@ impl<'a> Compiler<'a> {
 
     fn string(&mut self, _can_assign: bool) -> u8 {
         let string = self.previous.lexeme.clone();
+
+        // let mut substrings: String;
+
+        // interpolate
+        // for (i, c) in string.chars().enumerate() {
+
+        // }
         self.write_constant(Value::String(string))
     }
 
     fn spell_declaration(&mut self) {}
 
-    fn variable_declaration(&mut self) {}
+    fn resolve_local(&mut self, name: &Token) -> Option<u16> {
+        for i in (0..self.locals.len()).rev() {
+            let local = &self.locals[i];
+            if self.identifiers_equal(&local.name, name) {
+                if local.depth == -1 {
+                    self.throw_error("Cannot read a local mark in its own initializer.");
+                }
+                return Some(i as u16);
+            }
+        }
+        None
+    }
+
+    fn named_variable(&mut self, name: &Token, can_assign: bool) -> u8 {
+        if can_assign && self.match_token(TokenType::Equal) {
+            self.expression();
+            let val_reg = self.get_last_allocated_register();
+
+            if let Some(slot_idx) = self.resolve_local(name) {
+                // restrict assigning to bind values
+                if !self.locals[slot_idx as usize].mutable {
+                    self.throw_error(&format!(
+                        "Rebinding the value of '{}' is forbidden!",
+                        name.lexeme
+                    ))
+                }
+
+                self.write_instruction(Instruction::SetLocal {
+                    src_reg: val_reg,
+                    slot_idx: slot_idx,
+                });
+            } else {
+                if !self.globals.contains_key(&name.lexeme) {
+                    self.throw_error(&format!(
+                        "The global variable '{}' was not declared!",
+                        name.lexeme
+                    ));
+                }
+
+                let variable = self.globals.get(&name.lexeme).unwrap();
+                if !variable.mutable {
+                    self.throw_error(&format!(
+                        "Rebinding the value of '{}' is forbidden!",
+                        name.lexeme
+                    ))
+                }
+                let const_idx = self.identifier_constant(name.clone());
+                self.write_instruction(Instruction::SetGlobal {
+                    src_reg: val_reg,
+                    const_index: const_idx,
+                });
+            }
+
+            val_reg
+        } else {
+            let dest = self.get_next_reg();
+
+            if let Some(slot_idx) = self.resolve_local(name) {
+                self.write_instruction(Instruction::GetLocal {
+                    dest: dest,
+                    slot_index: slot_idx,
+                });
+            } else {
+                let name_idx = self.identifier_constant(name.clone());
+                self.write_instruction(Instruction::GetGlobal {
+                    dest: dest,
+                    const_index: name_idx,
+                });
+            }
+            dest
+        }
+    }
+
+    fn variable(&mut self, can_assign: bool) -> u8 {
+        let var_name = &self.previous.clone();
+        self.named_variable(var_name, can_assign)
+    }
+
+    fn identifier_constant(&mut self, name: Token) -> u16 {
+        self.add_constant(Value::String(name.lexeme))
+    }
+
+    fn identifiers_equal(&self, a: &Token, b: &Token) -> bool {
+        a.lexeme == b.lexeme
+    }
+
+    fn declare_local(&mut self, name: &Token, mutable: bool) {
+        let mut duplicate_found = false;
+        for local in self.locals.iter().rev() {
+            if local.depth != -1 && local.depth < self.scope_depth {
+                break;
+            }
+            if self.identifiers_equal(name, &local.name) {
+                duplicate_found = true;
+                break;
+            }
+        }
+        if duplicate_found {
+            self.throw_error("A mark with same name already exists in the current realm!");
+        }
+
+        // make local with uninitialized state
+        self.locals.push(Local {
+            depth: -1, // -1 = undefined
+            name: name.clone(),
+            mutable: mutable,
+        });
+    }
+
+    fn variable_declaration(&mut self, mutable: bool) {
+        // get var name
+        self.consume(TokenType::Identifier, "Expected a mark name!");
+        let name = self.previous.clone();
+        if self.scope_depth > 0 {
+            self.declare_local(&name, mutable);
+        }
+
+        // self.identifier_constant(self.previous.clone())
+        // parse initialiser
+        let val_reg = if self.match_token(TokenType::Equal) {
+            self.expression()
+        } else {
+            if !mutable {
+                self.throw_error("bind values must be initialized.")
+            }
+            let reg = self.get_next_reg();
+            self.write_instruction(Instruction::Emptiness { dest: reg });
+            reg
+        };
+
+        self.consume(
+            TokenType::SemiColon,
+            "Missing ';' after the variable marking!",
+        );
+
+        // define the variable
+        if self.scope_depth > 0 {
+            self.mark_local_initialized();
+            let slot = (self.locals.len() - 1) as u16;
+            self.write_instruction(Instruction::SetLocal {
+                src_reg: val_reg,
+                slot_idx: slot,
+            });
+        } else {
+            let lex = name.lexeme.clone();
+            if self.globals.contains_key(&lex) {
+                self.throw_error("A global mark with the same name is already sealed!")
+            }
+
+            let glob = Global {
+                mutable: mutable,
+                name: name.clone(),
+            };
+
+            self.globals.insert(lex, glob);
+
+            let name_ind = self.identifier_constant(name);
+            self.write_instruction(Instruction::SetGlobal {
+                src_reg: val_reg,
+                const_index: name_ind,
+            })
+        }
+    }
+
+    fn mark_local_initialized(&mut self) {
+        if self.scope_depth == 0 {
+            return;
+        }
+        let last = self.locals.len() - 1;
+        self.locals[last].depth = self.scope_depth;
+    }
 
     fn chant_statement(&mut self) {
         self.expression();
@@ -357,10 +642,6 @@ impl<'a> Compiler<'a> {
     }
 
     fn call(&mut self, _can_assign: bool, lhs_reg: u8) -> u8 {
-        0
-    }
-
-    fn variable(&mut self, can_assign: bool) -> u8 {
         0
     }
 
@@ -561,6 +842,11 @@ impl<'a> Compiler<'a> {
                 precedence: Precedence::None,
             },
             TokenType::Mark => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::Bind => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,

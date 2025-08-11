@@ -40,6 +40,10 @@ pub enum TokenType {
     Identifier,
     Number,
     String,
+    StringStart, // starting "
+    StringEnd, // closing " 
+    InterpolateStart, // <
+    InterpolateEnd, // >
 
     Error, Eof, // well.. idk
 }

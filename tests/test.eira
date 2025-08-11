@@ -1,0 +1,7 @@
+mark a = 10;
+
+fate a >= 10 {
+    chant "great!";
+} divert {
+    chant "not very!";
+}
