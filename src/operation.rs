@@ -46,6 +46,9 @@ pub enum OpCode {
     // Jump statements
     Jump,
     JumpIfFalse,
+
+    //loop
+    Loop,
 }
 
 impl OpCode {
@@ -70,6 +73,7 @@ impl OpCode {
             OpCode::PopStack => "OP_POP_STACK",
             OpCode::Jump => "OP_JUMP",
             OpCode::JumpIfFalse => "OP_JUMP_FALSE",
+            OpCode::Loop => "OP_LOOP",
             _ => "OP_UNKNOWN",
         }
         .to_owned()
@@ -91,12 +95,16 @@ impl OpCode {
             | OpCode::JumpIfFalse
             | OpCode::Greater => 4, // opcode + dest + r1 + r2
 
-            OpCode::Negate | OpCode::Not | OpCode::PopStack | OpCode::Jump => 3, // opcode + dest + r1
+            OpCode::Negate 
+            | OpCode::Not 
+            | OpCode::PopStack 
+            | OpCode::Jump 
+            | OpCode::Loop => 3, // opcode + dest + r1
 
-            OpCode::True
-            | OpCode::False
-            | OpCode::Print
-            | OpCode::Emptiness => 2,// opcode + r1/dest
+            OpCode::True 
+            | OpCode::False 
+            | OpCode::Print 
+            | OpCode::Emptiness => 2, // opcode + r1/dest
 
             OpCode::Halt => 1, // just the opcode
         }
@@ -131,6 +139,7 @@ impl TryFrom<u8> for OpCode {
             19 => Ok(OpCode::PopStack),
             20 => Ok(OpCode::Jump),
             21 => Ok(OpCode::JumpIfFalse),
+            22 => Ok(OpCode::Loop),
 
             _ => Err(()),
         }

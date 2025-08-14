@@ -238,6 +238,7 @@ fn identifier_type(ident: &str) -> TokenType {
         "secret" => TokenType::Secret,
         "sign" => TokenType::Sign,
         "spell" => TokenType::Spell,
+        "sever" => TokenType::Sever,
         "tome" => TokenType::Tome,
         "true" => TokenType::True,
         "while" => TokenType::While,

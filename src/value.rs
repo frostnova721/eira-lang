@@ -1,8 +1,13 @@
+use std::rc::Rc;
+
+use crate::spell::{SpellObject};
+
 #[derive(Debug, Clone)]
 pub enum Value {
     Number(f64),
     String(String),
     Bool(bool),
+    Spell(Rc<SpellObject>),
     Emptiness,
 }
 
@@ -12,6 +17,7 @@ impl Value {
             Self::Number(_) => ValueType::Number,
             Self::String(_) => ValueType::String,
             Self::Bool(_) => ValueType::Bool,
+            Self::Spell(_) => ValueType::Spell,
             Self::Emptiness => ValueType::Emptiness,
         }
     }
@@ -51,6 +57,7 @@ pub fn print_value(value: Value) {
         Value::Emptiness => println!("Emptiness"),
         Value::Number(value) => println!("{}", value),
         Value::String(value) => println!("{}", value),
+        Value::Spell(spell) => println!("Spell '{}'", spell.name)
     }
 }
 
@@ -64,5 +71,6 @@ enum ValueType {
     String,
     Number,
     Bool,
+    Spell,
     Emptiness,
 }

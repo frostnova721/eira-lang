@@ -20,6 +20,11 @@ struct Global {
     mutable: bool,
 }
 
+struct LoopBlock {
+    severs: Vec<usize>,
+    flows: Vec<usize>,
+}
+
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
 
@@ -33,6 +38,8 @@ pub struct Compiler<'a> {
     scope_depth: i32,
     locals: Vec<Local>,
     globals: HashMap<String, Global>,
+
+    loop_blocks: Vec<LoopBlock>,
 
     current: Token,
     previous: Token,
@@ -62,6 +69,7 @@ impl<'a> Compiler<'a> {
             scope_depth: 0,
             locals: vec![],
             globals: HashMap::new(),
+            loop_blocks: vec![],
         }
     }
 
@@ -165,16 +173,6 @@ impl<'a> Compiler<'a> {
     }
 
     fn write_constant(&mut self, value: Value) -> u8 {
-        // let ind = self.chunk.add_constant(value);
-
-        // index is encoded in little endian format
-        // let reg = self.chunk.get_next_reg();
-        // self.write_instruction(
-        //     OpCode::Constant,
-        //     reg,
-        //     (ind & 0x00ff) as u8,
-        //     ((ind >> 8) & 0x00ff) as u8,
-        // );
         let reg = self.get_next_reg();
         let ind = self.add_constant(value);
         self.write_instruction(Instruction::Constant {
@@ -252,6 +250,19 @@ impl<'a> Compiler<'a> {
         );
     }
 
+    fn write_loop(&mut self, start_offset: usize) {
+        let body_byte_size: usize = self.instructions[start_offset..]
+            .iter()
+            .map(|instr| instr.len())
+            .sum();
+
+        // Add the size of the Loop instruction (3byte).
+        let total_offset = body_byte_size + 3;
+        self.write_instruction(Instruction::Loop {
+            offset: total_offset as u16,
+        });
+    }
+
     fn write_jump(&mut self, instruction: Instruction) -> usize {
         self.write_instruction(instruction);
         self.instructions.len() - 1
@@ -260,7 +271,7 @@ impl<'a> Compiler<'a> {
     fn patch_jump(&mut self, jump_index: usize) {
         let mut offset = 0;
 
-        for i in (jump_index+1)..self.instructions.len() {
+        for i in (jump_index + 1)..self.instructions.len() {
             offset += self.instructions[i].len();
         }
 
@@ -284,18 +295,67 @@ impl<'a> Compiler<'a> {
 
         self.consume(TokenType::BraceLeft, "Expected '{' at start of fate block.");
 
-        self.block();
-
-        let else_idx = self.write_jump(Instruction::Jump { offset: 0xffff });
-
-        // patch the then part since we know where the else ends!
-        self.patch_jump(then);
+        self.handle_block();
 
         if self.match_token(TokenType::Divert) {
-            self.consume(TokenType::BraceLeft, "Expected a '{' at start of divert block. Forgot to add it?");
-            self.block();
+            let else_idx = self.write_jump(Instruction::Jump { offset: 0xffff });
+
+            // patch the then part since we know where the else ends!
+            self.patch_jump(then);
+
+            self.consume(
+                TokenType::BraceLeft,
+                "Expected a '{' at start of divert block. Forgot to add it?",
+            );
+            self.handle_block();
+            self.patch_jump(else_idx);
+        } else {
+            self.patch_jump(then);
         }
-        self.patch_jump(else_idx);
+    }
+
+    fn loop_statement(&mut self) {
+        let start = self.instructions.len();
+        let condition_reg = self.expression();
+
+        let exit = self.write_jump(Instruction::JumpIfFalse {
+            condition_reg: condition_reg,
+            offset: 0xffff,
+        });
+
+        self.consume(TokenType::BraceLeft, "Expected '{' at start of loop block.");
+        self.loop_blocks.push(LoopBlock {
+            severs: vec![],
+            flows: vec![],
+        });
+
+        self.handle_block();
+
+        self.write_loop(start);
+
+        self.patch_jump(exit);
+
+        let severs = self.loop_blocks.pop().unwrap().severs;
+
+        for jump in severs {
+            self.patch_jump(jump);
+        }
+    }
+
+    // creates a scope, runs the block code it and clears it up
+    fn handle_block(&mut self) {
+        self.start_scope();
+        self.block();
+        self.end_scope();
+    }
+
+    fn sever_statement(&mut self) {
+        if self.loop_blocks.is_empty() {
+            return self.throw_error("Only the loops can be severed.");
+        }
+        self.consume(TokenType::SemiColon, "Expected ';' after 'sever'.");
+        let ind = self.write_jump(Instruction::Jump { offset: 0xffff });
+        self.loop_blocks.last_mut().unwrap().severs.push(ind);
     }
 
     fn statement(&mut self) {
@@ -307,6 +367,10 @@ impl<'a> Compiler<'a> {
             self.end_scope();
         } else if self.match_token(TokenType::Fate) {
             self.fate_statement();
+        } else if self.match_token(TokenType::While) {
+            self.loop_statement();
+        } else if self.match_token(TokenType::Sever) {
+            self.sever_statement();
         } else {
             self.expression_statement();
         }
@@ -798,6 +862,21 @@ impl<'a> Compiler<'a> {
             },
             // TokenType::And => ParseRule { prefix: None, infix: Some(Self::and_), precedence: Precedence::None },
             TokenType::Tome => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::Flow => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::Alias => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::Sever => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,

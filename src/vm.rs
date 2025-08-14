@@ -252,6 +252,10 @@ impl EiraVM {
                         self.ip += offset as usize;
                     }
                 },
+                OpCode::Loop => {
+                    let offset = read_u16!();
+                    self.ip -= offset as usize;
+                },
                 OpCode::Halt => break,
             }
         }

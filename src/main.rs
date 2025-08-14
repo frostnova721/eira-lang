@@ -3,20 +3,21 @@ use std::fs;
 use crate::{
     compiler::Compiler,
     debug::{print_byte_code, print_instructions},
-    disassembler::Disassembler,
+    assembler::Assembler,
     vm::EiraVM,
 };
 
 mod chunk;
 mod compiler;
 mod debug;
-mod disassembler;
+mod assembler;
 mod instruction;
 mod operation;
 mod scanner;
 mod token_type;
 mod value;
 mod vm;
+mod spell;
 
 fn main() {
     let f = fs::read_to_string("tests/test.eira");
@@ -28,12 +29,12 @@ fn main() {
             println!("Compile OK.");
             let constants = compiler.constants.clone();
             print_instructions(inst.clone(), constants.clone());
-            let bc = Disassembler::convert_to_byte_code(inst);
+            let bc = Assembler::convert_to_byte_code(inst);
             print_byte_code(bc.clone());
             let mut vm = EiraVM::init(bc, constants);
             vm.start();
         }
-        Err(e) => {
+        Err(_) => {
             // println!("Compile Error: {}", e);
             return;
         }

@@ -2,7 +2,7 @@ use std::{fmt::format, vec};
 
 use crate::operation::OpCode;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Instruction {
     Add { dest: u8, r1: u8, r2: u8 },
     Subtract { dest: u8, r1: u8, r2: u8 },
@@ -34,6 +34,8 @@ pub enum Instruction {
 
     Jump { offset: u16 },
     JumpIfFalse { condition_reg: u8, offset: u16 },
+
+    Loop { offset: u16 },
 
     Halt,
 }
@@ -104,11 +106,12 @@ impl Instruction {
             Instruction::Negate { dest: _, r1: _ } => 3,
             Instruction::Not { dest: _, r1: _ } => 3,
             Instruction::Jump { offset: _ } => 3,
+            Instruction::Loop { offset:_ } => 3,
+            Instruction::PopStack { pop_count: _ } => 3,
             Instruction::True { dest: _ } => 2,
             Instruction::False { dest: _ } => 2,
             Instruction::Print { r1: _ } => 2,
             Instruction::Emptiness { dest: _ } => 2,
-            Instruction::PopStack { pop_count: _ } => 2,
             Instruction::Halt => 1,
         }
     }
@@ -148,6 +151,7 @@ impl Instruction {
             Instruction::PopStack { pop_count } => format!("POPSTACK {}", pop_count),
             Instruction::Jump { offset } => format!("JUMP {}", offset),
             Instruction::JumpIfFalse { condition_reg, offset } => format!("JUMP_IF_FALSE {} {}", condition_reg, offset),
+            Instruction::Loop { offset } => format!("LOOP {}", offset),
             Instruction::Halt => "Halt".to_owned(),
         }
     }
@@ -195,6 +199,10 @@ impl Instruction {
             Instruction::JumpIfFalse { condition_reg, offset } => {
                 let (a,b) = self.split_u16(offset);
                 vec![OpCode::JumpIfFalse as u8, *condition_reg, a, b]
+            }
+            Instruction::Loop { offset } => {
+                let (a,b) = self.split_u16(offset);
+                vec![OpCode::Loop as u8, a, b]
             }
             Instruction::Halt => vec![OpCode::Halt as u8],
         }

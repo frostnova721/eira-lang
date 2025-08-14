@@ -21,6 +21,10 @@ pub enum TokenType {
     Origin, // super
     _Self, // this/self
     Chant, // print
+    Alias, // type aliasing
+    Glyph, // enum
+    Sever, // break
+    Flow, // continue
 
     // Symbols
     SemiColon,

@@ -1,7 +1,10 @@
-mark a = 10;
+{
+    mark a = 30000000;
 
-fate a >= 10 {
-    chant "great!";
-} divert {
-    chant "not very!";
+    while a > 0 {
+        // chant a;
+        a = a - 1;
+    }
 }
+
+chant "Done!";
