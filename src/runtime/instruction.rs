@@ -1,6 +1,6 @@
 use std::{fmt::format, vec};
 
-use crate::operation::OpCode;
+use crate::runtime::operation::OpCode;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Instruction {

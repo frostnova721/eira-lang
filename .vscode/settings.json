@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "value.h": "c"
+        "value.h": "c",
+        "object.h": "c"
     }
 }

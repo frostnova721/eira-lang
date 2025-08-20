@@ -1,10 +1,6 @@
 {
-    mark a = 30000000;
-
-    while a > 0 {
-        // chant a;
-        a = a - 1;
-    }
+    mark a = 0;
+while a < 10000000 {
+    a = a+1;
 }
-
-chant "Done!";
+}

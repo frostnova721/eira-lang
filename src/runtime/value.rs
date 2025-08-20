@@ -1,13 +1,13 @@
 use std::rc::Rc;
 
-use crate::spell::{SpellObject};
+use crate::runtime::spell::{ClosureObject, SpellObject};
 
 #[derive(Debug, Clone)]
 pub enum Value {
     Number(f64),
-    String(String),
+    String(Rc<String>),
     Bool(bool),
-    Spell(Rc<SpellObject>),
+    Closure(Rc<ClosureObject>),
     Emptiness,
 }
 
@@ -17,10 +17,11 @@ impl Value {
             Self::Number(_) => ValueType::Number,
             Self::String(_) => ValueType::String,
             Self::Bool(_) => ValueType::Bool,
-            Self::Spell(_) => ValueType::Spell,
+            Self::Closure(_) => ValueType::Closure,
             Self::Emptiness => ValueType::Emptiness,
         }
     }
+
     pub fn is_number(&self) -> bool {
         matches!(self, Self::Number(_))
     }
@@ -41,6 +42,10 @@ impl Value {
         matches!(self, Self::Bool(false))
     }
 
+    pub fn is_closure(&self) -> bool {
+        matches!(self, Self::Closure(_))
+    }
+
     pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Number(a), Self::Number(b)) => a == b,
@@ -51,13 +56,31 @@ impl Value {
     }
 }
 
+impl From<bool> for Value {
+    fn from(val: bool) -> Value {
+        Value::Bool(val)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(val: f64) -> Value {
+        Value::Number(val)
+    }
+}
+
+impl From<String> for Value {
+    fn from(val: String) -> Value {
+        Value::String(Rc::new(val))
+    }
+}
+
 pub fn print_value(value: Value) {
     match value {
         Value::Bool(value) => println!("{}", value),
         Value::Emptiness => println!("Emptiness"),
         Value::Number(value) => println!("{}", value),
         Value::String(value) => println!("{}", value),
-        Value::Spell(spell) => println!("Spell '{}'", spell.name)
+        Value::Closure(closure) => println!("Closure '{:?}'", closure.spell.name),
     }
 }
 
@@ -71,6 +94,6 @@ enum ValueType {
     String,
     Number,
     Bool,
-    Spell,
+    Closure,
     Emptiness,
 }

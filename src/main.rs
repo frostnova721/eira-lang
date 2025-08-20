@@ -1,23 +1,13 @@
-use std::fs;
-
-use crate::{
-    compiler::Compiler,
-    debug::{print_byte_code, print_instructions},
-    assembler::Assembler,
-    vm::EiraVM,
+use std::{
+    fs,
 };
 
-mod chunk;
-mod compiler;
-mod debug;
+use crate::{assembler::Assembler, debug::{print_byte_code, print_instructions}, frontend::compiler::Compiler, runtime::vm::EiraVM};
+
 mod assembler;
-mod instruction;
-mod operation;
-mod scanner;
-mod token_type;
-mod value;
-mod vm;
-mod spell;
+mod debug;
+mod frontend;
+mod runtime;
 
 fn main() {
     let f = fs::read_to_string("tests/test.eira");
@@ -27,8 +17,8 @@ fn main() {
     match instructions {
         Ok(inst) => {
             println!("Compile OK.");
-            let constants = compiler.constants.clone();
-            print_instructions(inst.clone(), constants.clone());
+            let constants = compiler.constants;
+            print_instructions(inst.clone(), &constants);
             let bc = Assembler::convert_to_byte_code(inst);
             print_byte_code(bc.clone());
             let mut vm = EiraVM::init(bc, constants);

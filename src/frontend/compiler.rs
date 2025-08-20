@@ -1,10 +1,7 @@
 use std::{collections::HashMap, vec};
 
 use crate::{
-    instruction::{self, Instruction},
-    scanner::{Scanner, Token},
-    token_type::TokenType,
-    value::Value,
+    frontend::{scanner::{Scanner, Token}, token_type::TokenType}, runtime::{instruction::{self, Instruction}, value::Value}
 };
 
 #[derive(Debug, Clone)]
@@ -197,11 +194,11 @@ impl<'a> Compiler<'a> {
             panic!("Maximum registers allocated! Register overflow?!")
         }
         self.current_register += 1;
-        self.current_register
+        self.current_register - 1
     }
 
     pub fn get_last_allocated_register(&self) -> u8 {
-        self.current_register
+        self.current_register - 1
     }
 
     // the main guys
@@ -413,7 +410,7 @@ impl<'a> Compiler<'a> {
         // for (i, c) in string.chars().enumerate() {
 
         // }
-        self.write_constant(Value::String(string))
+        self.write_constant(Value::String(string.into()))
     }
 
     fn spell_declaration(&mut self) {}
@@ -497,7 +494,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn identifier_constant(&mut self, name: Token) -> u16 {
-        self.add_constant(Value::String(name.lexeme))
+        self.add_constant(Value::String(name.lexeme.into()))
     }
 
     fn identifiers_equal(&self, a: &Token, b: &Token) -> bool {

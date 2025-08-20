@@ -1,6 +1,7 @@
-use crate::{instruction::Instruction, operation::OpCode, value::Value};
+use crate::runtime::{instruction::Instruction, operation::OpCode, value::Value};
 
-pub fn print_instructions(instructions: Vec<Instruction>, constants: Vec<Value>) {
+
+pub fn print_instructions(instructions: Vec<Instruction>, constants: &Vec<Value>) {
     println!("Constant table: {:?}", constants);
     println!("Instructions: ({})\n\n==START==\n", instructions.len());
     for inst in instructions {
