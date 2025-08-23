@@ -31,10 +31,9 @@ impl CallFrame {
         u16::from_le_bytes([a, b])
     }
 
-    pub fn read_constant(&mut self) -> Value {
+    pub fn read_constant(&mut self) -> &Value {
         let ind = self.read_u16();
-        let val = self.closure.spell.constants[ind as usize].clone();
-        return val;
+        &self.closure.spell.constants[ind as usize]
     }
 }
 
@@ -205,21 +204,22 @@ impl EiraVM {
                 }
                 OpCode::Constant => {
                     let dest = frame.read_byte();
-                    let val = frame.read_constant();
+                    let val = frame.read_constant().clone();
                     // println!("Loaded {:?}", val);
                     self.set_register(dest, val);
                 }
                 OpCode::Print => {
                     let i = frame.read_byte();
                     let val = self.get_register(i);
-                    print_value(val)
+                    print_value(val.clone())
                 }
                 OpCode::SetGlobal => {
+                    // TODO: change from hashmaps to arrays
                     let src_reg_ind = frame.read_byte();
-                    let var_name_value = frame.read_constant();
+                    let var_name_value = frame.read_constant().clone();
                     let value = self.get_register(src_reg_ind);
                     if let Value::String(name) = var_name_value {
-                        self.globals.insert(name.to_string(), value);
+                        self.globals.insert(name.to_string(), value.clone());
                     } else {
                         self.runtime_error(
                             "Fatal: A string was expected for the global variable name.",
@@ -229,7 +229,7 @@ impl EiraVM {
                 }
                 OpCode::GetGlobal => {
                     let dest_reg = frame.read_byte();
-                    let val = frame.read_constant();
+                    let val = frame.read_constant().clone();
                     if let Value::String(name) = val {
                         let global = self.globals.get(&name.to_string());
                         if let Some(value) = global {
@@ -247,26 +247,28 @@ impl EiraVM {
                 OpCode::SetLocal => {
                     let src = frame.read_byte();
                     let slot = frame.read_u16() as usize;
-                    let value = self.get_register(src);
-                    if slot < self.stack.len() {
-                        self.stack[slot] = value;
-                    } else {
-                        // fill till the slot is reached
-                        while self.stack.len() <= slot {
-                            self.stack.push(Value::Emptiness);
-                        }
-                        self.stack[slot] = value;
+
+                    if slot >= self.stack.len() {
+                        self.stack.resize(slot + 1, Value::Emptiness);
                     }
+
+                    let value =
+                        std::mem::replace(&mut self.registers[src as usize], Value::Emptiness);
+                    self.stack[slot] = value;
                 }
                 OpCode::GetLocal => {
                     let dest = frame.read_byte();
                     let slot = frame.read_u16() as usize;
-                    let val = self.stack[slot].clone();
-                    // if let Value::String(name) = val {
-                    //     // let local =
-                    //     // self.runtime_error(&format!("The mark '{}' was undefined.", val));
-                    // }
-                    self.set_register(dest, val);
+                    match &self.stack[slot] {
+                        Value::Number(n) => self.registers[dest as usize] = Value::Number(*n),
+                        Value::Bool(b) => self.registers[dest as usize] = Value::Bool(*b),
+                        Value::Emptiness => self.registers[dest as usize] = Value::Emptiness,
+                        _ => {
+                            self.registers[dest as usize] = self.stack[slot].clone()
+                        }
+                    }
+                    // let val = self.stack[slot].clone();
+                    // self.set_register(dest, val);
                 }
                 OpCode::Emptiness => {
                     let dest_reg = frame.read_byte();
@@ -305,8 +307,8 @@ impl EiraVM {
         return InterpretResult::InterpretOk;
     }
 
-    fn get_register(&self, index: u8) -> Value {
-        self.registers[index as usize].clone()
+    fn get_register(&self, index: u8) -> &Value {
+        &self.registers[index as usize]
     }
 
     fn set_register(&mut self, index: u8, value: Value) {

@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "value.h": "c",
-        "object.h": "c"
+        "object.h": "c",
+        "chunk.h": "c"
     }
 }

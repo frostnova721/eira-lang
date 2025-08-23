@@ -1,7 +1,15 @@
 use std::{collections::HashMap, vec};
 
 use crate::{
-    frontend::{scanner::{Scanner, Token}, token_type::TokenType}, runtime::{instruction::{self, Instruction}, value::Value}
+    frontend::{
+        scanner::{Scanner, Token},
+        token_type::TokenType,
+    },
+    runtime::{
+        instruction::{self, Instruction},
+        spell::SpellObject,
+        value::Value,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -38,6 +46,8 @@ pub struct Compiler<'a> {
 
     loop_blocks: Vec<LoopBlock>,
 
+    spell: SpellObject,
+
     current: Token,
     previous: Token,
 
@@ -54,6 +64,14 @@ impl<'a> Compiler<'a> {
             token_type: TokenType::Error, // temp
         };
 
+        let spell = SpellObject {
+            arity: 0,
+            bytecode: vec![],
+            constants: vec![],
+            name: None,
+            upvalue_count: 0,
+        };
+
         Compiler {
             current: temp_token.clone(),
             constants: vec![],
@@ -67,6 +85,7 @@ impl<'a> Compiler<'a> {
             locals: vec![],
             globals: HashMap::new(),
             loop_blocks: vec![],
+            spell: spell,
         }
     }
 
@@ -413,7 +432,73 @@ impl<'a> Compiler<'a> {
         self.write_constant(Value::String(string.into()))
     }
 
-    fn spell_declaration(&mut self) {}
+    fn parse_variable(&mut self, mutable: bool, msg: &str) -> u16 {
+        self.consume(TokenType::Identifier, msg);
+        self.variable_declaration(mutable);
+        if self.scope_depth > 0 {
+            return 0;
+        }
+
+        self.identifier_constant(self.previous.clone())
+    }
+
+    fn spell_declaration(&mut self) {
+        self.consume(TokenType::Identifier, "Expected spell name.");
+        let spell_name = self.previous.clone();
+    }
+
+    fn spell(&mut self, name: &Token) {
+        // let compiler = Compiler::init_compiler("");
+        // self.start_scope();
+        // self.consume(
+        //     TokenType::ParenLeft,
+        //     "Expected '(' after spell name. Forgot to add it?",
+        // );
+        // if !self.check(TokenType::ParenRight) {
+        //     loop {
+        //         if self.spell.arity >= 255 {
+        //             self.throw_error_at_current("Oops! max 255 parameters are permitted!");
+        //             return;
+        //         }
+        //         self.spell.arity += 1;
+        //         if self.scope_depth > 0 {
+        //             self.mark_local_initialized();
+        //             let slot = (self.locals.len() - 1) as u16;
+        //             self.write_instruction(Instruction::SetLocal {
+        //                 src_reg: self.get_last_allocated_register(),
+        //                 slot_idx: slot,
+        //             });
+        //         } else {
+        //             let lex = name.lexeme.clone();
+        //             if self.globals.contains_key(&lex) {
+        //                 self.throw_error("A global function with the same name is already sealed!")
+        //             }
+
+        //             let glob = Global {
+        //                 mutable: false,
+        //                 name: name.clone(),
+        //             };
+
+        //             self.globals.insert(lex, glob);
+
+        //             let name_ind = self.identifier_constant(name.clone());
+        //             self.write_instruction(Instruction::SetGlobal {
+        //                 src_reg: self.get_last_allocated_register(),
+        //                 const_index: name_ind,
+        //             })
+        //         }
+
+        //         if !self.match_token(TokenType::Comma) {
+        //             break;
+        //         }
+        //     }
+
+        //     self.consume(TokenType::ParenRight, "Expected ')' after the parameters. Forgot about it?");
+        //     self.consume(TokenType::BraceLeft, "Expected '{' before spell workings!");
+        //     self.block();
+        //     let spell = 
+        // }
+    }
 
     fn resolve_local(&mut self, name: &Token) -> Option<u16> {
         for i in (0..self.locals.len()).rev() {
