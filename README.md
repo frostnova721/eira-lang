@@ -19,6 +19,8 @@ A Programming language with some MAGIC!
 > state: confused
 
 - count to 10mil in ~380ms (in my pc btw!)
+
+    for comparison, js: ~39ms (v8 JIT hits different), dart: ~480ms (with 'dart run --snapshot=main.jit' command, java: ~337ms), for obvious reasons, im not comparing with the AOT compiled codes! (tests done by me btw)
 - rewriting the compiler to be split as parser, type check!
 - trying to design a mid type-like system!
 
@@ -75,13 +77,13 @@ tome SuperSecretMagicTome {
     // Compile time constants
     seal dragons = 0;
 
-    // Public functions
+    // Public functions [forge = public]
     forge spell fireBall(): Magic {
         chant "pooof .... BOOOM!";
         release cast Magic { type: 01, offensive: true }
     }
 
-    // Private functions
+    // Private functions [secret = private]
     secret spell summon(): Magic {
         chant "something rose up!.... A DEMON????!!!";
         release cast Magic { type: 05, offensive: false }
@@ -95,5 +97,4 @@ professional readme upon close to completion of the basic features!
 
 ## License
 
-This project is bound to the spell **GPLv3 License**! <br>
-Basically: you're free to **fork, clone, edit, and maintain** — just **don’t close-source** your modified version.
+Project bound by the spell of **GPLv3**. In mortal words: you may ****fork, clone, edit, and maintain** - just don’t close-source your modifications.
