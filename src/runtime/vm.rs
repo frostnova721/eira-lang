@@ -16,6 +16,7 @@ struct CallFrame {
     ip: usize,
     closure: Rc<ClosureObject>,
     slot_start: usize,
+    return_reg: u8,
 }
 
 impl CallFrame {
@@ -26,11 +27,25 @@ impl CallFrame {
         b
     }
 
+    #[inline(always)]
+    pub fn read_three_bytes(&mut self) -> (u8, u8, u8) {
+        let ip = self.ip;
+        let b1 = self.closure.spell.bytecode[ip];
+        let b2 = self.closure.spell.bytecode[ip + 1];
+        let b3 = self.closure.spell.bytecode[ip + 2];
+        self.ip += 3;
+        (b1, b2, b3)
+    }
+
+    #[inline(always)]
     pub fn read_u16(&mut self) -> u16 {
-        let (a, b) = (self.read_byte(), self.read_byte());
+        let a = self.closure.spell.bytecode[self.ip];
+        let b = self.closure.spell.bytecode[self.ip + 1];
+        self.ip += 2;
         u16::from_le_bytes([a, b])
     }
 
+    #[inline(always)]
     pub fn read_constant(&mut self) -> &Value {
         let ind = self.read_u16();
         &self.closure.spell.constants[ind as usize]
@@ -69,6 +84,7 @@ impl EiraVM {
             closure: Rc::new(closure),
             ip: 0,
             slot_start: 0,
+            return_reg: 0,
         };
 
         vm.frames.push(frame);
@@ -88,26 +104,16 @@ impl EiraVM {
         // }
     }
 
-    fn last_frame(&mut self) -> &CallFrame {
-        self.frames.last().expect("frames to be not empty.")
-    }
-
-    fn last_frame_mut(&mut self) -> &mut CallFrame {
-        self.frames.last_mut().expect("frames to be not empty.")
-    }
-
     pub fn start(&mut self) -> InterpretResult {
         macro_rules! binary_op {
             ($frame:expr, $op:tt) => {{
-                let dest = $frame.read_byte();
-                let r1 = $frame.read_byte();
-                let r2 = $frame.read_byte();
-                let v1 = self.get_register(r1);
-                let v2 = self.get_register(r2);
+                let (dest, r1, r2) = $frame.read_three_bytes();
+                let v1 = get_register!(r1);
+                let v2 = get_register!(r2);
 
                 match (v1, v2) {
                     (Value::Number(n1), Value::Number(n2)) => {
-                            self.set_register(dest, Value::from(n1 $op n2));
+                            set_register!(dest, Value::from(n1 $op n2));
                         },
                         _ => {
                             self.runtime_error("Operands should be 2 numbers!");
@@ -117,27 +123,38 @@ impl EiraVM {
             }};
         }
 
+        macro_rules! set_register {
+            ($index: expr, $value: expr) => {
+                self.registers[$index as usize] = $value
+            };
+        }
+
+        macro_rules! get_register {
+            ($index: expr) => {
+                &self.registers[$index as usize]
+            };
+        }
+
         loop {
             // let byte = {
             //     self.last_frame_mut().read_byte()
             // };
-            let frame = self.last_frame_mut();
+            let frame = self.frames.last_mut().unwrap();
             let op = OpCode::try_from(frame.read_byte()).unwrap();
+
             // println!("{}", &op.to_debug_string());
             match op {
                 OpCode::Add => {
-                    let dest = frame.read_byte();
-                    let r1 = frame.read_byte();
-                    let r2 = frame.read_byte();
-                    let v1 = self.get_register(r1);
-                    let v2 = self.get_register(r2);
+                    let (dest, r1, r2) = frame.read_three_bytes();
+                    let v1 = get_register!(r1);
+                    let v2 = get_register!(r2);
                     match (v1, v2) {
                         (Value::Number(n1), Value::Number(n2)) => {
-                            self.set_register(dest, Value::Number(n1 + n2));
+                            set_register!(dest, Value::Number(n1 + n2));
                         }
                         (Value::String(s1), Value::String(s2)) => {
                             let new_string = s1.to_string() + s2.as_str();
-                            self.set_register(dest, Value::String(new_string.into()));
+                            set_register!(dest, Value::String(new_string.into()));
                         }
                         _ => {
                             self.runtime_error("Operands should be 2 numbers!");
@@ -155,12 +172,10 @@ impl EiraVM {
                     binary_op!(frame, *)
                 }
                 OpCode::Equal => {
-                    let dest = frame.read_byte();
-                    let r1 = frame.read_byte();
-                    let r2 = frame.read_byte();
-                    let a = self.get_register(r1);
-                    let b = self.get_register(r2);
-                    self.set_register(dest, Value::Bool(a.equals(&b)));
+                    let (dest, r1, r2) = frame.read_three_bytes();
+                    let a = get_register!(r1);
+                    let b = get_register!(r2);
+                    set_register!(dest, Value::Bool(a.equals(&b)));
                 }
                 OpCode::Greater => {
                     binary_op!(frame, >)
@@ -170,19 +185,19 @@ impl EiraVM {
                 }
                 OpCode::False => {
                     let dest = frame.read_byte();
-                    self.set_register(dest, Value::Bool(false));
+                    set_register!(dest, Value::Bool(false));
                 }
                 OpCode::True => {
                     let dest = frame.read_byte();
-                    self.set_register(dest, Value::Bool(true));
+                    set_register!(dest, Value::Bool(true));
                 }
                 OpCode::Negate => {
                     let dest = frame.read_byte();
                     let src_ind = frame.read_byte();
-                    let source = self.get_register(src_ind);
+                    let source = get_register!(src_ind);
 
                     match source {
-                        Value::Number(n) => self.set_register(dest, Value::Number(-n)),
+                        Value::Number(n) => set_register!(dest, Value::Number(-n)),
                         _ => {
                             self.runtime_error("What???!! Negation needs a number operand.");
                             return InterpretResult::RuntimeError;
@@ -192,10 +207,10 @@ impl EiraVM {
                 OpCode::Not => {
                     let dest = frame.read_byte();
                     let src_ind = frame.read_byte();
-                    let source = self.get_register(src_ind);
+                    let source = get_register!(src_ind);
 
                     match source {
-                        Value::Bool(b) => self.set_register(dest, Value::Bool(!b)),
+                        Value::Bool(b) => set_register!(dest, Value::Bool(!b)),
                         _ => {
                             self.runtime_error("What???!! Not needs a boolean operand.");
                             return InterpretResult::RuntimeError;
@@ -206,18 +221,18 @@ impl EiraVM {
                     let dest = frame.read_byte();
                     let val = frame.read_constant().clone();
                     // println!("Loaded {:?}", val);
-                    self.set_register(dest, val);
+                    set_register!(dest, val);
                 }
                 OpCode::Print => {
                     let i = frame.read_byte();
-                    let val = self.get_register(i);
+                    let val = get_register!(i);
                     print_value(val.clone())
                 }
                 OpCode::SetGlobal => {
                     // TODO: change from hashmaps to arrays
                     let src_reg_ind = frame.read_byte();
                     let var_name_value = frame.read_constant().clone();
-                    let value = self.get_register(src_reg_ind);
+                    let value = get_register!(src_reg_ind);
                     if let Value::String(name) = var_name_value {
                         self.globals.insert(name.to_string(), value.clone());
                     } else {
@@ -233,7 +248,7 @@ impl EiraVM {
                     if let Value::String(name) = val {
                         let global = self.globals.get(&name.to_string());
                         if let Some(value) = global {
-                            self.set_register(dest_reg, value.clone());
+                            set_register!(dest_reg, value.clone());
                         } else {
                             self.runtime_error(&format!("The mark '{}' was undefined", name));
                         }
@@ -263,16 +278,14 @@ impl EiraVM {
                         Value::Number(n) => self.registers[dest as usize] = Value::Number(*n),
                         Value::Bool(b) => self.registers[dest as usize] = Value::Bool(*b),
                         Value::Emptiness => self.registers[dest as usize] = Value::Emptiness,
-                        _ => {
-                            self.registers[dest as usize] = self.stack[slot].clone()
-                        }
+                        _ => self.registers[dest as usize] = self.stack[slot].clone(),
                     }
                     // let val = self.stack[slot].clone();
-                    // self.set_register(dest, val);
+                    // set_register!(dest, val);
                 }
                 OpCode::Emptiness => {
                     let dest_reg = frame.read_byte();
-                    self.set_register(dest_reg, Value::Emptiness);
+                    set_register!(dest_reg, Value::Emptiness);
                 }
 
                 OpCode::PopStack => {
@@ -291,8 +304,8 @@ impl EiraVM {
                     let condition_reg = frame.read_byte();
                     let offset = frame.read_u16();
 
-                    if self.get_register(condition_reg).is_falsey() {
-                        let frame = self.last_frame_mut();
+                    if get_register!(condition_reg).is_falsey() {
+                        let frame = self.frames.last_mut().unwrap();
                         frame.ip += offset as usize;
                     }
                 }
@@ -305,13 +318,5 @@ impl EiraVM {
         }
 
         return InterpretResult::InterpretOk;
-    }
-
-    fn get_register(&self, index: u8) -> &Value {
-        &self.registers[index as usize]
-    }
-
-    fn set_register(&mut self, index: u8, value: Value) {
-        self.registers[index as usize] = value;
     }
 }

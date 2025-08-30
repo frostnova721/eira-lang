@@ -1,5 +1,8 @@
-pub mod compiler;
 pub mod parser;
 pub mod scanner;
 pub mod token_type;
-pub mod type_checker;
+pub mod weave_analyser;
+pub mod weaves;
+pub mod strands;
+pub mod expr;
+pub mod stmt;

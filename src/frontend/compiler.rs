@@ -145,7 +145,7 @@ impl<'a> Compiler<'a> {
         self.panic = true;
         println!(
             "Woah! Caught an incorrect magic at line: {}:{}\nError: {}",
-            pos.line, self.scanner.current, msg
+            pos.line, pos.column, msg
         );
         self.error = true;
     }

@@ -1,5 +1,5 @@
-#[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(usize)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenType {
     // Keywords
     Channel, // imports
@@ -25,6 +25,7 @@ pub enum TokenType {
     Glyph, // enum
     Sever, // break
     Flow, // continue
+    Weave, // types (more like set of behaviours)
 
     // Symbols
     SemiColon,

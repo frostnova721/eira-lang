@@ -5,13 +5,16 @@ pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
     pub line: usize,
+    pub column: usize,
 }
 
 pub struct Scanner<'a> {
     pub source: &'a str,
-    pub start: usize,
-    pub current: usize,
-    pub line: usize,
+    start: usize,
+    current: usize,
+    line: usize,
+    column: usize,
+
     interpolating: bool,
 }
 
@@ -22,6 +25,7 @@ impl<'a> Scanner<'a> {
             current: 0,
             line: 1,
             start: 0,
+            column: 0,
             interpolating: false,
         }
     }
@@ -29,6 +33,7 @@ impl<'a> Scanner<'a> {
     fn advance(&mut self) -> char {
         let ch = self.source[self.current..].chars().next().unwrap();
         self.current += ch.len_utf8();
+        self.column += ch.len_utf8();
         return ch;
     }
 
@@ -38,6 +43,7 @@ impl<'a> Scanner<'a> {
             lexeme: self.source[self.start..self.current].to_string(),
             token_type: token_type,
             line: self.line,
+            column: self.column,
         };
     }
 
@@ -46,6 +52,7 @@ impl<'a> Scanner<'a> {
             lexeme: msg.to_string(),
             line: self.line,
             token_type: TokenType::Error,
+            column: self.column,
         };
     }
 
@@ -123,6 +130,7 @@ impl<'a> Scanner<'a> {
         Token {
             lexeme: self.source[self.start + 1..self.current - 1].to_string(),
             line: self.line,
+            column: self.column,
             token_type: TokenType::String,
         }
     }
@@ -144,6 +152,7 @@ impl<'a> Scanner<'a> {
                 }
                 Some('\n') => {
                     self.line += 1;
+                    self.column = 0; //reset the char position tracker
                     self.advance();
                 }
                 Some('/') => {
@@ -160,7 +169,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn scan_token(&mut self) -> Token {
+    fn scan_token(&mut self) -> Token {
         self.eat_whitespace();
         self.start = self.current;
         if self.reached_end() {
@@ -206,6 +215,19 @@ impl<'a> Scanner<'a> {
             // '\'' => self.string(),
             _ => self.error_token("error, met an unexpected token."),
         }
+    }
+
+    pub fn tokenize(mut self) -> Vec<Token> {
+        let mut tokens: Vec<Token> = Vec::new();
+        loop {
+            let token = self.scan_token();
+            if token.token_type == TokenType::Eof {
+                tokens.push(token);
+                break;
+            }
+            tokens.push(token);
+        }
+        tokens
     }
 }
 

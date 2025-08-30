@@ -1,0 +1,14 @@
+use crate::frontend::strands::{ADDITIVE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, ORDINAL_STRAND};
+
+/// Numbers
+pub const NUMWEAVE: u64 = ADDITIVE_STRAND | MULTIPLICATIVE_STRAND | ORDINAL_STRAND | EQUATABLE_STRAND;
+
+/// Boolean representation
+pub const TRUTHWEAVE: u64 = CONDITIONAL_STRAND | EQUATABLE_STRAND;
+
+/// String representation
+pub const TEXTWEAVE: u64 = INDEXIVE_STRAND | CONCATINABLE_STRAND | EQUATABLE_STRAND;
+
+pub fn has_strand(weave: u64, strand: u64) -> bool {
+    weave & strand != 0
+}
