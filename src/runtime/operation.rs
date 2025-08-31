@@ -1,5 +1,7 @@
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+
 #[repr(u8)]
-#[derive(Debug)]
+#[derive(Debug, IntoPrimitive, TryFromPrimitive)]
 pub enum OpCode {
     // Arithematic
     Add,
@@ -22,6 +24,9 @@ pub enum OpCode {
 
     // Constants/Values
     Constant,
+
+    // Concat
+    Concat,
 
     // idk
     Print,
@@ -60,6 +65,7 @@ impl OpCode {
             OpCode::Multiply => "OP_MUL",
             OpCode::Negate => "OP_NEG",
             OpCode::Not => "OP_NOT",
+            OpCode::Concat => "OP_CONCAT",
             OpCode::Print => "OP_PRINT",
             OpCode::Subtract => "OP_SUB",
             OpCode::Equal => "OP_EQUAL",
@@ -93,55 +99,14 @@ impl OpCode {
             | OpCode::SetLocal
             | OpCode::GetLocal
             | OpCode::JumpIfFalse
+            | OpCode::Concat
             | OpCode::Greater => 4, // opcode + dest + r1 + r2
 
-            OpCode::Negate 
-            | OpCode::Not 
-            | OpCode::PopStack 
-            | OpCode::Jump 
-            | OpCode::Loop => 3, // opcode + dest + r1
+            OpCode::Negate | OpCode::Not | OpCode::PopStack | OpCode::Jump | OpCode::Loop => 3, // opcode + dest + r1
 
-            OpCode::True 
-            | OpCode::False 
-            | OpCode::Print 
-            | OpCode::Emptiness => 2, // opcode + r1/dest
+            OpCode::True | OpCode::False | OpCode::Print | OpCode::Emptiness => 2, // opcode + r1/dest
 
             OpCode::Halt => 1, // just the opcode
-        }
-    }
-}
-
-impl TryFrom<u8> for OpCode {
-    type Error = ();
-
-    // Order messed up = "kaboom RICO!"
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(OpCode::Add),
-            1 => Ok(OpCode::Subtract),
-            2 => Ok(OpCode::Divide),
-            3 => Ok(OpCode::Multiply),
-            4 => Ok(OpCode::Equal),
-            5 => Ok(OpCode::Greater),
-            6 => Ok(OpCode::Less),
-            7 => Ok(OpCode::False),
-            8 => Ok(OpCode::True),
-            9 => Ok(OpCode::Negate),
-            10 => Ok(OpCode::Not),
-            11 => Ok(OpCode::Constant),
-            12 => Ok(OpCode::Print),
-            13 => Ok(OpCode::Halt),
-            14 => Ok(OpCode::SetGlobal),
-            15 => Ok(OpCode::GetGlobal),
-            16 => Ok(OpCode::SetLocal),
-            17 => Ok(OpCode::GetLocal),
-            18 => Ok(OpCode::Emptiness),
-            19 => Ok(OpCode::PopStack),
-            20 => Ok(OpCode::Jump),
-            21 => Ok(OpCode::JumpIfFalse),
-            22 => Ok(OpCode::Loop),
-
-            _ => Err(()),
         }
     }
 }

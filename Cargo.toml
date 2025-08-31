@@ -7,3 +7,4 @@ edition = "2024"
 debug = true
 
 [dependencies]
+num_enum=">=0.7.4"

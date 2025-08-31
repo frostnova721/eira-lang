@@ -5,7 +5,7 @@ use crate::{
         expr::Expr,
         scanner::Token,
         stmt::Stmt,
-        token_type::{self, TokenType},
+        token_type::{TokenType},
     },
     runtime::value::Value,
 };
@@ -303,7 +303,6 @@ impl Parser {
         let val: f64 = self.previous.lexeme.parse().unwrap();
         Ok(Expr::Literal {
             value: Value::Number(val),
-            weave: None,
         })
     }
 
@@ -311,11 +310,9 @@ impl Parser {
         match self.previous.token_type {
             TokenType::True => Ok(Expr::Literal {
                 value: Value::Bool(true),
-                weave: None,
             }),
             TokenType::False => Ok(Expr::Literal {
                 value: Value::Bool(false),
-                weave: None,
             }),
             _ => Err(ParseError("Error: UNKNOWN.... LITERAL?!".to_owned())),
         }
@@ -325,7 +322,6 @@ impl Parser {
         let string = self.previous.lexeme.clone();
         Ok(Expr::Literal {
             value: Value::String(Rc::new(string)),
-            weave: None,
         })
     }
 
@@ -337,7 +333,6 @@ impl Parser {
             TokenType::Minus | TokenType::Bang => Ok(Expr::Unary {
                 operand: Box::new(exp),
                 operator: op,
-                weave: None,
             }),
             _ => Err(ParseError("Unexpected! Verymuch!!".to_owned())),
         }
@@ -362,7 +357,6 @@ impl Parser {
                 left: Box::new(lhs),
                 right: Box::new(rhs),
                 operator: op,
-                weave: None,
             }),
             _ => Err(ParseError("idk anymore, maybe unreachable".to_owned())),
         }
@@ -376,7 +370,6 @@ impl Parser {
         let var_name = self.previous.clone();
         Ok(Expr::Variable {
             name: var_name,
-            weave: None,
         })
     }
 

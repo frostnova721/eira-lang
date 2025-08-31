@@ -1,6 +1,6 @@
 use crate::frontend::{expr::Expr, scanner::Token};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Stmt {
     ExprStmt { expr: Expr },
     VarDeclaration { name: Token, mutable: bool, initializer: Option<Expr> },

@@ -1,11 +1,20 @@
-use crate::{frontend::scanner::Token, runtime::value::Value};
+use crate::{frontend::{scanner::Token, tapestry::Tapestry}, runtime::value::Value};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
-    Binary { left: Box<Expr>, right: Box<Expr>, operator: Token, weave: Option<u64> },
-    Unary { operand: Box<Expr>, operator: Token, weave: Option<u64> },
-    Literal { value: Value, weave: Option<u64> },
-    Variable { name: Token, weave: Option<u64> },
-    Assignment { name: Token, value: Box<Expr>, weave: Option<u64> },
-    Grouping { expression: Box<Expr>, weave: Option<u64> },
+    Binary { left: Box<Expr>, right: Box<Expr>, operator: Token },
+    Unary { operand: Box<Expr>, operator: Token },
+    Literal { value: Value },
+    Variable { name: Token },
+    Assignment { name: Token, value: Box<Expr> },
+    Grouping { expression: Box<Expr> },
+}
+
+pub enum WovenExpr {
+    Binary { left: Box<Expr>, right: Box<Expr>, operator: Token, tapestry: Tapestry },
+    Unary { operand: Box<Expr>, operator: Token, tapestry: Tapestry },
+    Literal { value: Value, tapestry: Tapestry },
+    Variable { name: Token, tapestry: Tapestry },
+    Assignment { name: Token, value: Box<Expr>, tapestry: Tapestry },
+    Grouping { expression: Box<Expr>, tapestry: Tapestry },
 }

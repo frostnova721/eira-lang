@@ -6,3 +6,4 @@ pub mod weaves;
 pub mod strands;
 pub mod expr;
 pub mod stmt;
+pub mod tapestry;

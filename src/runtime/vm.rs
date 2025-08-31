@@ -148,19 +148,22 @@ impl EiraVM {
                     let (dest, r1, r2) = frame.read_three_bytes();
                     let v1 = get_register!(r1);
                     let v2 = get_register!(r2);
-                    match (v1, v2) {
-                        (Value::Number(n1), Value::Number(n2)) => {
-                            set_register!(dest, Value::Number(n1 + n2));
-                        }
-                        (Value::String(s1), Value::String(s2)) => {
-                            let new_string = s1.to_string() + s2.as_str();
-                            set_register!(dest, Value::String(new_string.into()));
-                        }
-                        _ => {
-                            self.runtime_error("Operands should be 2 numbers!");
-                            return InterpretResult::RuntimeError;
-                        }
-                    }
+                    // match (v1, v2) {
+                    // (Value::Number(n1), Value::Number(n2)) => {
+                    set_register!(
+                        dest,
+                        Value::Number(v1.extract_number().unwrap() + v2.extract_number().unwrap())
+                    );
+                    // }
+                    // (Value::String(s1), Value::String(s2)) => {
+                    //     let new_string = s1.to_string() + s2.as_str();
+                    //     set_register!(dest, Value::String(new_string.into()));
+                    // }
+                    // _ => {
+                    //     self.runtime_error("Operands should be 2 numbers!");
+                    //     return InterpretResult::RuntimeError;
+                    // }
+                    // }
                 }
                 OpCode::Subtract => {
                     binary_op!(frame, -)
@@ -170,6 +173,15 @@ impl EiraVM {
                 }
                 OpCode::Multiply => {
                     binary_op!(frame, *)
+                }
+                OpCode::Concat => {
+                    let (dest, r1, r2) = frame.read_three_bytes();
+                    let v1 = get_register!(r1);
+                    let v2 = get_register!(r2);
+                    set_register!(
+                        dest,
+                        Value::String(Rc::new(v1.extract_string().unwrap() + &v2.extract_string().unwrap()))
+                    );
                 }
                 OpCode::Equal => {
                     let (dest, r1, r2) = frame.read_three_bytes();

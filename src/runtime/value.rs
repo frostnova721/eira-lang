@@ -46,6 +46,22 @@ impl Value {
         matches!(self, Self::Closure(_))
     }
 
+    pub fn extract_number(&self) -> Option<f64> {
+        if let Value::Number(n) = self {
+            Some(*n)
+        } else {
+            None
+        }
+    }
+
+    pub fn extract_string(&self) -> Option<String> {
+        if let Value::String(s) = self {
+            Some(s.to_string())
+        } else {
+            None
+        }
+    }
+
     pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Number(a), Self::Number(b)) => a == b,
