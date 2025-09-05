@@ -11,6 +11,7 @@ pub enum Stmt {
     Sever,
 }
 
+#[derive(Debug)]
 pub enum WovenStmt {
     ExprStmt { expr: WovenExpr },
     VarDeclaration { name: Token, mutable: bool, initializer: Option<WovenExpr> },

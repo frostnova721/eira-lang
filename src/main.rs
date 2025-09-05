@@ -1,9 +1,6 @@
-use std::{
-    fs,
-};
+use std::fs;
 
 use crate::frontend::{parser::Parser, scanner::Scanner, weave_analyser::WeaveAnalyzer};
-
 
 mod assembler;
 mod debug;
@@ -17,11 +14,24 @@ fn main() {
     let tokens = scanner.tokenize();
     let parser = Parser::new(tokens);
     let ast = parser.parse();
-    
+
+    println!("AST:");
     println!("{:?}", ast);
 
     let mut weave_analyzer = WeaveAnalyzer::new();
-    weave_analyzer.anaylze(ast);
+    let woven_tree = weave_analyzer.anaylze(ast);
+    match woven_tree {
+        Err(no_no) => {
+            println!(
+                "Weave Error: {}\nError at '{}' in line {}:{}",
+                no_no.msg, no_no.token.lexeme, no_no.token.line, no_no.token.column,
+            )
+        }
+        Ok(yes_yes) => {
+            println!("\nWoven Tree:");
+            println!("{:?}", yes_yes);
+        }
+    }
     // let mut compiler = Compiler::init_compiler(binding.as_str());
     // let instructions = compiler.compile();
     // match instructions {
