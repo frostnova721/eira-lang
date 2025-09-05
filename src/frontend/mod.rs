@@ -7,3 +7,4 @@ pub mod strands;
 pub mod expr;
 pub mod stmt;
 pub mod tapestry;
+pub mod symbol_table;

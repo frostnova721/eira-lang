@@ -1,6 +1,6 @@
 
 #[derive(Debug,Clone, Copy)]
-pub struct Tapestry(u64);
+pub struct Tapestry(pub u64);
 
 impl Tapestry {
     pub const fn new(strands: u64) -> Self {

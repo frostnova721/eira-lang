@@ -20,8 +20,8 @@ fn main() {
     
     println!("{:?}", ast);
 
-    let mut weave_analyzer = WeaveAnalyzer::new(ast);
-    weave_analyzer.anaylze();
+    let mut weave_analyzer = WeaveAnalyzer::new();
+    weave_analyzer.anaylze(ast);
     // let mut compiler = Compiler::init_compiler(binding.as_str());
     // let instructions = compiler.compile();
     // match instructions {

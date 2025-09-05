@@ -1,2 +1,3 @@
 bind a = 10;
 mark b = 100;
+chant a;

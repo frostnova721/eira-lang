@@ -1,13 +1,23 @@
 use crate::frontend::{strands::{ADDITIVE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND}, tapestry::Tapestry};
 
 pub struct Weave {
-    tapestry: Tapestry,
-    name: &'static str
+    pub tapestry: Tapestry,
+    pub name: &'static str
 }
 
 pub const NumWeave: Weave = Weave {
-    name: "NumWeave",
+    name: "Rune",
     tapestry: Tapestry::new(ADDITIVE_STRAND | SUBTRACTIVE_STRAND | ORDINAL_STRAND | MULTIPLICATIVE_STRAND | EQUATABLE_STRAND),
+};
+
+pub const TextWeave: Weave = Weave {
+    name: "Script",
+    tapestry: Tapestry::new(CONCATINABLE_STRAND | INDEXIVE_STRAND)
+};
+
+pub const TruthWeave: Weave = Weave {
+    name: "Omen",
+    tapestry: Tapestry::new(CONDITIONAL_STRAND | EQUATABLE_STRAND)
 };
 
 // /// Numbers
