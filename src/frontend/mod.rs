@@ -3,7 +3,7 @@ pub mod scanner;
 pub mod token_type;
 pub mod weave_analyser;
 pub mod weaves;
-pub mod strands;
+pub mod strand;
 pub mod expr;
 pub mod stmt;
 pub mod tapestry;

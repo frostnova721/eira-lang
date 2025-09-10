@@ -9,7 +9,7 @@ pub enum Expr {
     Grouping { expression: Box<Expr> },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum WovenExpr {
     Binary { left: Box<WovenExpr>, right: Box<WovenExpr>, operator: Token, tapestry: Tapestry },
     Unary { operand: Box<WovenExpr>, operator: Token, tapestry: Tapestry },

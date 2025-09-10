@@ -1,3 +1,5 @@
+// use crate::frontend::code_gen::StrandBehaviour;
+
 /// Addition / Subtraction behaviour
 pub const ADDITIVE_STRAND: u64 = 1 << 0;
 pub const SUBTRACTIVE_STRAND: u64 = 1 << 1;
@@ -31,8 +33,3 @@ pub const CALLABLE_STRAND: u64 = 1 << 10;
 
 // Emptiness
 pub const NO_STRAND:u64 = 0;
-
-pub struct Strand {
-    pub name: String,
-    pub value: u64
-}

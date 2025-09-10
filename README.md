@@ -95,6 +95,16 @@ ehm ehm.... subject to changes btw!
 
 professional readme upon close to completion of the basic features!
 
+## Building
+
+Incase you want to test this language out, follow the steps
+
+- Clone the repository
+- Write your code in tests/test.eira file
+- Run `cargo run`
+
+There you go. You are a mage now!!
+
 ## License
 
-Project bound by the spell of **GPLv3**. In mortal words: you may ****fork, clone, edit, and maintain** - just don’t close-source your modifications.
+Project bound by the spell of **GPLv3**. In mortal words: you may **fork, clone, edit, and maintain** - just don’t close-source your modifications.

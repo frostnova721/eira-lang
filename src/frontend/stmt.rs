@@ -1,4 +1,4 @@
-use crate::frontend::{expr::{Expr, WovenExpr}, scanner::Token, strands::NO_STRAND, tapestry::{self, Tapestry}};
+use crate::frontend::{expr::{Expr, WovenExpr}, scanner::Token, strand::NO_STRAND, tapestry::{self, Tapestry}};
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
@@ -11,7 +11,7 @@ pub enum Stmt {
     Sever,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum WovenStmt {
     ExprStmt { expr: WovenExpr },
     VarDeclaration { name: Token, mutable: bool, initializer: Option<WovenExpr> },

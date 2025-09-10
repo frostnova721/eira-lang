@@ -1,6 +1,7 @@
 use std::rc::Rc;
+use std::hash::Hash;
 
-use crate::runtime::spell::{ClosureObject, SpellObject};
+use crate::runtime::spell::{ClosureObject};
 
 #[derive(Debug, Clone)]
 pub enum Value {

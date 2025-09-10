@@ -3,7 +3,7 @@ use crate::{
         expr::{Expr, WovenExpr},
         scanner::Token,
         stmt::{Stmt, WovenStmt},
-        strands::{
+        strand::{
             ADDITIVE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND,
             EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND,
             SUBTRACTIVE_STRAND,

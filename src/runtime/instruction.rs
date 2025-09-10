@@ -37,6 +37,8 @@ pub enum Instruction {
 
     Loop { offset: u16 },
 
+    Concat { dest: u8, r1: u8, r2: u8 },
+
     Halt,
 }
 
@@ -103,6 +105,7 @@ impl Instruction {
                 condition_reg: _,
                 offset: _,
             } => 4,
+            Instruction::Concat { dest, r1, r2 } => 4,
             Instruction::Negate { dest: _, r1: _ } => 3,
             Instruction::Not { dest: _, r1: _ } => 3,
             Instruction::Jump { offset: _ } => 3,
@@ -152,6 +155,7 @@ impl Instruction {
             Instruction::Jump { offset } => format!("JUMP {}", offset),
             Instruction::JumpIfFalse { condition_reg, offset } => format!("JUMP_IF_FALSE {} {}", condition_reg, offset),
             Instruction::Loop { offset } => format!("LOOP {}", offset),
+            Instruction::Concat { dest, r1, r2 } => format!("CONCAT {} {} {}", dest, r1, r2),
             Instruction::Halt => "Halt".to_owned(),
         }
     }
@@ -204,6 +208,7 @@ impl Instruction {
                 let (a,b) = self.split_u16(offset);
                 vec![OpCode::Loop as u8, a, b]
             }
+            Instruction::Concat { dest, r1, r2 } => vec![OpCode::Concat as u8, *dest, *r1, *r2],
             Instruction::Halt => vec![OpCode::Halt as u8],
         }
     }

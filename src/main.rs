@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::frontend::{parser::Parser, scanner::Scanner, weave_analyser::WeaveAnalyzer};
+use crate::frontend::{code_gen::{self, CodeGen}, parser::Parser, scanner::Scanner, weave_analyser::WeaveAnalyzer};
 
 mod assembler;
 mod debug;
@@ -30,6 +30,9 @@ fn main() {
         Ok(yes_yes) => {
             println!("\nWoven Tree:");
             println!("{:?}", yes_yes);
+
+            let mut generator = CodeGen::new(yes_yes);
+            generator.summon_bytecode();
         }
     }
     // let mut compiler = Compiler::init_compiler(binding.as_str());
