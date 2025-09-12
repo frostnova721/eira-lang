@@ -6,6 +6,7 @@ mod assembler;
 mod debug;
 mod frontend;
 mod runtime;
+mod value;
 
 fn main() {
     let f = fs::read_to_string("tests/test.eira");

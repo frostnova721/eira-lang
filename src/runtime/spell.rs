@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::runtime::{spell, value::Value};
+use crate::{runtime::spell, value::Value};
 
 #[derive(Debug)]
 pub struct SpellObject {

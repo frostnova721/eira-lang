@@ -1,10 +1,9 @@
 use std::{array::from_fn, collections::HashMap, rc::Rc};
 
-use crate::runtime::{
+use crate::{runtime::{
     operation::OpCode,
     spell::{ClosureObject, SpellObject},
-    value::{Value, print_value},
-};
+}, value::{print_value, Value}};
 
 pub enum InterpretResult {
     CompileError,

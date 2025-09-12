@@ -5,9 +5,8 @@ use crate::{
         expr::Expr,
         scanner::Token,
         stmt::Stmt,
-        token_type::{TokenType},
-    },
-    runtime::value::Value,
+        token_type::TokenType,
+    }, value::Value,
 };
 
 const MSG_MISSED_SEMICOLON: &str = "Expected a ';' after the expression. Forgot to add it?";

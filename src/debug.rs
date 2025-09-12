@@ -1,4 +1,4 @@
-use crate::runtime::{instruction::Instruction, operation::OpCode, value::Value};
+use crate::{runtime::{instruction::Instruction, operation::OpCode}, value::Value};
 
 
 pub fn print_instructions(instructions: Vec<Instruction>, constants: &Vec<Value>) {

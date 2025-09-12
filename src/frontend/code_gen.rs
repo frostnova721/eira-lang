@@ -9,7 +9,8 @@ use crate::{
         token_type::{self, TokenType},
         weaves::{NumWeave, TextWeave, TruthWeave, Weave},
     },
-    runtime::{instruction::{self, Instruction}, value::Value},
+    runtime::instruction::{self, Instruction},
+    value::Value,
 };
 
 const NUM: u64 = NumWeave.tapestry.0;
@@ -36,7 +37,7 @@ pub struct CodeGen {
     register_index: u8,
 
     constants: Vec<Value>,
-    constants_map: HashMap<Value, u16>
+    constants_map: HashMap<Value, u16>,
 }
 
 impl CodeGen {
@@ -52,41 +53,53 @@ impl CodeGen {
     }
 
     fn get_next_register(&mut self) -> GenResult<u8> {
-        if self.register_index+1 > u8::MAX {
-            return Err(error("Out of magical cauldrons!"));
+        if self.register_index == u8::MAX {
+            panic!("Maximum registers allocated! Register overflow?!")
         }
-
         self.register_index += 1;
-        Ok(self.register_index-1)
+        Ok(self.register_index - 1)
+    }
+
+    fn get_last_allocated_register(&self) -> u8 {
+        self.register_index - 1
     }
 
     fn add_constant(&mut self, value: Value) -> GenResult<u16> {
-        // let val = self.constants_map.get(&value); // later it seems
-        self.constants.push(value);
-        Ok((self.constants.len()-1) as u16)
+        if let Some(val) = self.constants_map.get(&value) {
+            return Ok(*val);
+        }
+
+        // else add the constant to table and return the index
+        let ind = self.constants.len() as u16;
+        self.constants.push(value.clone());
+        self.constants_map.insert(value, ind);
+        Ok(ind)
     }
 
     fn write_constant(&mut self, value: Value) -> GenResult<u8> {
-         let reg = self.get_next_register()?;
-         let const_index = self.add_constant(value)?;
-        self.instructions.push(Instruction::Constant { dest: reg, const_index: const_index });
+        let reg = self.get_next_register()?;
+        let const_index = self.add_constant(value)?;
+        self.instructions.push(Instruction::Constant {
+            dest: reg,
+            const_index: const_index,
+        });
         Ok(reg)
     }
 
     // Thought this name is fun, nothing else, its the main entry point btw
-    pub fn summon_bytecode(&mut self) {
+    pub fn summon_bytecode(&mut self) -> GenResult<()> {
         let stmts = self.woven_ast.clone();
         for stmt in stmts {
-            self.gen_from_stmt(stmt);
+            self.gen_from_stmt(stmt)?;
         }
         println!("{:?}", self.instructions);
+        Ok(()) // change later!
     }
 
-    fn gen_from_stmt(&mut self, stmt: WovenStmt) {
+    fn gen_from_stmt(&mut self, stmt: WovenStmt) -> GenResult<u8> {
         match stmt {
-            WovenStmt::ExprStmt { expr } => {
-                self.gen_from_expr(expr);
-            }
+            WovenStmt::ExprStmt { expr } => self.gen_from_expr(expr),
+
             WovenStmt::VarDeclaration {
                 name,
                 mutable,
@@ -98,7 +111,8 @@ impl CodeGen {
                 else_branch,
             } => todo!(),
             WovenStmt::While { condition, body } => todo!(),
-            WovenStmt::Chant { expression } => todo!(),
+            WovenStmt::Chant { expression } => self.gen_chant_stmt(expression),
+
             WovenStmt::Block { statements } => todo!(),
             WovenStmt::Sever => todo!(),
         }
@@ -111,9 +125,7 @@ impl CodeGen {
                 right,
                 operator,
                 tapestry,
-            } => {
-                self.gen_binary_instruction(*left, *right, operator, tapestry)
-            }
+            } => self.gen_binary_instruction(*left, *right, operator, tapestry),
             WovenExpr::Unary {
                 operand,
                 operator,
@@ -122,13 +134,34 @@ impl CodeGen {
             WovenExpr::Literal { value, tapestry } => {
                 let val = self.write_constant(value)?;
                 Ok(val)
-            },
-            WovenExpr::Variable { name, tapestry } => todo!(),
+            }
+            WovenExpr::Variable {
+                name,
+                tapestry,
+                slot_idx,
+            } => self.gen_variable_instruction(name, slot_idx),
             WovenExpr::Grouping {
                 expression,
                 tapestry,
             } => todo!(),
         }
+    }
+
+    fn gen_variable_instruction(&mut self, name: Token, slot_idx: usize) -> GenResult<u8> {
+        let dest = self.get_next_register()?;
+
+        if slot_idx > 0 {
+            self.instructions.push(Instruction::GetLocal {
+                dest: dest,
+                slot_index: slot_idx as u16,
+            });
+        } else {
+            self.instructions.push(Instruction::GetGlobal {
+                dest: dest,
+                const_index: slot_idx as u16,
+            });
+        }
+        Ok(dest)
     }
 
     fn gen_binary_instruction(
@@ -143,7 +176,7 @@ impl CodeGen {
 
         //generate right
         let r2 = self.gen_from_expr(right.clone())?;
-        
+
         let reg = match self.get_weave(tapestry)?.tapestry.0 {
             NUM => self.gen_num_op(r1, r2, op),
             _ => return Err(error("Unknown weave brotha, check it.")),
@@ -151,16 +184,51 @@ impl CodeGen {
         return Ok(reg);
     }
 
+    fn gen_chant_stmt(&mut self, expr: WovenExpr) -> GenResult<u8> {
+        let expression = self.gen_from_expr(expr)?;
+        let inst = Instruction::Print { r1: expression };
+        self.instructions.push(inst);
+        Ok(expression)
+    }
+
     fn gen_num_op(&mut self, left: u8, right: u8, op: Token) -> GenResult<u8> {
         match op.token_type {
             TokenType::Plus => {
                 let dest_reg = self.get_next_register()?;
-                let add = Instruction::Add { dest: dest_reg, r1: left, r2: right };
+                let add = Instruction::Add {
+                    dest: dest_reg,
+                    r1: left,
+                    r2: right,
+                };
                 self.instructions.push(add);
             }
-            TokenType::Minus => {}
-            TokenType::Slash => {}
-            TokenType::Star => {}
+            TokenType::Minus => {
+                let dest_reg = self.get_next_register()?;
+                let sub = Instruction::Subtract {
+                    dest: dest_reg,
+                    r1: left,
+                    r2: right,
+                };
+                self.instructions.push(sub);
+            }
+            TokenType::Slash => {
+                let dest_reg = self.get_next_register()?;
+                let slash = Instruction::Divide {
+                    dest: dest_reg,
+                    r1: left,
+                    r2: right,
+                };
+                self.instructions.push(slash);
+            }
+            TokenType::Star => {
+                let dest_reg = self.get_next_register()?;
+                let mul = Instruction::Multiply {
+                    dest: dest_reg,
+                    r1: left,
+                    r2: right,
+                };
+                self.instructions.push(mul);
+            }
             _ => {
                 return Err(error(&format!(
                     "Strand for '{}' operation hasnt been entangled with Eira realms!",
@@ -168,7 +236,7 @@ impl CodeGen {
                 )));
             }
         }
-        Ok(self.get_next_register()?)
+        Ok(self.get_last_allocated_register())
     }
 
     fn get_weave(&self, tapestry: Tapestry) -> GenResult<Weave> {

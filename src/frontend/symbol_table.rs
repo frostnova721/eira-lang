@@ -11,6 +11,7 @@ pub struct Symbol {
     pub weave: Weave,
     pub depth: usize,
     pub mutable: bool,
+    pub slot_idx: usize,
 }
 
 impl SymbolTable {
@@ -28,7 +29,7 @@ impl SymbolTable {
         self.scopes.pop();
     }
 
-    pub fn define(&mut self, name: String, weave: Weave, mutable: bool) {
+    pub fn define(&mut self, name: String, weave: Weave, mutable: bool, slot_idx: usize) {
         let depth = self.scopes.len();
 
         if let Some(scope) = self.scopes.last_mut() {
@@ -37,6 +38,7 @@ impl SymbolTable {
                 mutable: mutable,
                 weave: weave,
                 depth: depth,
+                slot_idx: slot_idx
             };
             scope.insert(name, symbol);
         } else {
@@ -51,5 +53,9 @@ impl SymbolTable {
             }
         }
         None
+    }
+
+    pub fn get_current_scope_size(&self) -> usize {
+        self.scopes.last().unwrap().len()
     }
 }

@@ -8,13 +8,22 @@ use crate::{
             EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND,
             SUBTRACTIVE_STRAND,
         },
-        symbol_table::SymbolTable,
-        tapestry::{self, Tapestry},
+        symbol_table::{self, SymbolTable},
+        tapestry::Tapestry,
         token_type::TokenType,
         weaves::{NumWeave, TextWeave, TruthWeave, Weave},
     },
-    runtime::value::Value,
+    value::Value,
 };
+
+fn demo_tkn() -> Token {
+    Token {
+        column: 0,
+        lexeme: "idk".to_owned(),
+        line: 0,
+        token_type: TokenType::Identifier,
+    }
+}
 
 pub struct WeaveError {
     pub msg: String,
@@ -31,6 +40,13 @@ impl WeaveError {
 }
 
 type WeaveResult<T> = Result<T, WeaveError>;
+
+#[derive(Debug, Clone)]
+struct Local {
+    name: Token,
+    depth: i32,
+    mutable: bool,
+}
 
 pub struct WeaveAnalyzer {
     symbol_table: SymbolTable,
@@ -80,6 +96,14 @@ impl WeaveAnalyzer {
                 else_branch,
             } => {
                 let w_condition = self.analyze_expression(condition)?;
+
+                if !w_condition.tapestry().has_strand(CONDITIONAL_STRAND) {
+                    return Err(WeaveError::new(
+                        "The condition provided to determine the fate does not contain the 'Conditional' strand.",
+                        demo_tkn(),
+                    ));
+                }
+
                 let w_then = self.analyze_statement(*then_branch)?;
                 let w_else: Option<Box<WovenStmt>> = match else_branch {
                     Some(e_b) => Some(Box::new(self.analyze_statement(*e_b)?)),
@@ -112,8 +136,10 @@ impl WeaveAnalyzer {
                     }
                 }
 
+                let slot = self.symbol_table.get_current_scope_size();
+
                 self.symbol_table
-                    .define(name.lexeme.clone(), weave?, mutable);
+                    .define(name.lexeme.clone(), weave?, mutable, slot);
 
                 Ok(WovenStmt::VarDeclaration {
                     name: name,
@@ -123,6 +149,14 @@ impl WeaveAnalyzer {
             }
             Stmt::While { condition, body } => {
                 let w_condition = self.analyze_expression(condition)?;
+
+                 if !w_condition.tapestry().has_strand(CONDITIONAL_STRAND) {
+                    return Err(WeaveError::new(
+                        "The condition provided to determine the fate of loop does not contain the 'Conditional' strand.",
+                        demo_tkn(),
+                    ));
+                }
+
                 let w_body = self.analyze_statement(*body)?;
 
                 Ok(WovenStmt::While {
@@ -157,7 +191,10 @@ impl WeaveAnalyzer {
 
                     if !w_right.tapestry().has_strand(req_strand) {
                         return Err(WeaveError::new(
-                            &format!("The weave of one of the operands is not composed of {} strand.", self.strand_string_from_bits(req_strand)),
+                            &format!(
+                                "The weave of one of the operands is not composed of {} strand.",
+                                self.strand_string_from_bits(req_strand)
+                            ),
                             operator,
                         ));
                     }
@@ -239,6 +276,7 @@ impl WeaveAnalyzer {
                     let woven = WovenExpr::Variable {
                         name: name,
                         tapestry: weave.tapestry,
+                        slot_idx: symbol.slot_idx,
                     };
                     Ok(woven)
                 } else {
@@ -290,18 +328,10 @@ impl WeaveAnalyzer {
             NUM => Ok(NumWeave),
             TEXT => Ok(TextWeave),
             TRUTH => Ok(TruthWeave),
-            _ => {
-                let demo_tkn = Token {
-                    column: 0,
-                    lexeme: "idk".to_owned(),
-                    line: 0,
-                    token_type: TokenType::Identifier,
-                };
-                Err(WeaveError::new(
-                    "The tapestries and the weaves were undefined.\nCare to define those weaves?",
-                    demo_tkn,
-                ))
-            }
+            _ => Err(WeaveError::new(
+                "The tapestries and the weaves were undefined.\nCare to define those weaves?",
+                demo_tkn(),
+            )),
         }
     }
 }

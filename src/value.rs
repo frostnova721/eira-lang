@@ -1,8 +1,9 @@
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use std::hash::Hash;
 
-use crate::runtime::spell::{ClosureObject};
+use crate::runtime::spell::ClosureObject;
 
+/// The value's container for runtime
 #[derive(Debug, Clone)]
 pub enum Value {
     Number(f64),
@@ -69,6 +70,36 @@ impl Value {
             (Self::Bool(a), Self::Bool(b)) => a == b,
             (Self::String(a), Self::String(b)) => a == b,
             _ => false,
+        }
+    }
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            // Compare numbers by their bits to handle all cases consistently
+            (Self::Number(a), Self::Number(b)) => a.to_bits() == b.to_bits(),
+            (Self::String(a), Self::String(b)) => a == b,
+            (Self::Bool(a), Self::Bool(b)) => a == b,
+            (Self::Emptiness, Self::Emptiness) => true,
+            // Closures are unique runtime objects and should not be considered equal
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Value {}
+
+impl Hash for Value {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            // For numbers, hash their raw bit representation
+            Self::Number(n) => n.to_bits().hash(state),
+            Self::String(s) => s.hash(state),
+            Self::Bool(b) => b.hash(state),
+            Self::Emptiness => { } //hmm
+            Self::Closure(_) => {} // not a compile time const
         }
     }
 }

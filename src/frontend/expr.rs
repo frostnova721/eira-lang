@@ -1,4 +1,4 @@
-use crate::{frontend::{scanner::Token, tapestry::Tapestry}, runtime::value::Value};
+use crate::{frontend::{scanner::Token, tapestry::Tapestry}, value::Value};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -14,7 +14,7 @@ pub enum WovenExpr {
     Binary { left: Box<WovenExpr>, right: Box<WovenExpr>, operator: Token, tapestry: Tapestry },
     Unary { operand: Box<WovenExpr>, operator: Token, tapestry: Tapestry },
     Literal { value: Value, tapestry: Tapestry },
-    Variable { name: Token, tapestry: Tapestry },
+    Variable { name: Token, tapestry: Tapestry, slot_idx: usize },
     Grouping { expression: Box<WovenExpr>, tapestry: Tapestry },
 }
 
@@ -25,7 +25,7 @@ impl WovenExpr {
             WovenExpr::Grouping { expression:_, tapestry } => *tapestry,
             WovenExpr::Literal { value:_, tapestry } => *tapestry,
             WovenExpr::Unary { operand:_, operator:_, tapestry } => *tapestry,
-            WovenExpr::Variable { name:_, tapestry } => *tapestry,
+            WovenExpr::Variable { name:_, tapestry, slot_idx:_ } => *tapestry,
         }
     } 
 }
