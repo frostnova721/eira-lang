@@ -10,7 +10,7 @@ pub fn print_instructions(instructions: Vec<Instruction>, constants: &Vec<Value>
     println!("\n==END==\n");
 }
 
-pub fn print_byte_code(code: Vec<u8>) {
+pub fn print_byte_code(code: &Vec<u8>) {
     println!("BYTE_CODE: ({})\n\n==START==\n", code.len());
     let mut i = 0;
     while i < code.len() {

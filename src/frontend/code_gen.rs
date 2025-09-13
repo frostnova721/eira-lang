@@ -1,22 +1,22 @@
 use std::{collections::HashMap, str, u8};
 
 use crate::{
-    frontend::{
+    assembler::Assembler, frontend::{
         expr::WovenExpr,
         scanner::Token,
         stmt::WovenStmt,
+        symbol_table::Symbol,
         tapestry::Tapestry,
-        token_type::{self, TokenType},
+        token_type::TokenType,
         weaves::{NumWeave, TextWeave, TruthWeave, Weave},
-    },
-    runtime::instruction::{self, Instruction},
-    value::Value,
+    }, runtime::instruction::Instruction, value::Value
 };
 
 const NUM: u64 = NumWeave.tapestry.0;
 const TEXT: u64 = TextWeave.tapestry.0;
 const TRUTH: u64 = TruthWeave.tapestry.0;
 
+#[derive(Debug)]
 pub struct GenError {
     pub msg: String,
 }
@@ -87,13 +87,22 @@ impl CodeGen {
     }
 
     // Thought this name is fun, nothing else, its the main entry point btw
-    pub fn summon_bytecode(&mut self) -> GenResult<()> {
+    pub fn summon_bytecode(&mut self) -> GenResult<Vec<u8>> {
         let stmts = self.woven_ast.clone();
         for stmt in stmts {
             self.gen_from_stmt(stmt)?;
         }
+        
+        self.instructions.push(Instruction::Halt);
+
         println!("{:?}", self.instructions);
-        Ok(()) // change later!
+
+        let bc = Assembler::convert_to_byte_code(&self.instructions);
+        Ok(bc) // change later!
+    }
+    
+    pub fn get_constants(&mut self) -> Vec<Value> {
+        self.constants.clone()
     }
 
     fn gen_from_stmt(&mut self, stmt: WovenStmt) -> GenResult<u8> {
@@ -104,7 +113,8 @@ impl CodeGen {
                 name,
                 mutable,
                 initializer,
-            } => todo!(),
+                symbol,
+            } => self.gen_var_decl_instruction(initializer, symbol),
             WovenStmt::Fate {
                 condition,
                 then_branch,
@@ -138,8 +148,8 @@ impl CodeGen {
             WovenExpr::Variable {
                 name,
                 tapestry,
-                slot_idx,
-            } => self.gen_variable_instruction(name, slot_idx),
+                symbol,
+            } => self.gen_variable_instruction(symbol),
             WovenExpr::Grouping {
                 expression,
                 tapestry,
@@ -147,18 +157,55 @@ impl CodeGen {
         }
     }
 
-    fn gen_variable_instruction(&mut self, name: Token, slot_idx: usize) -> GenResult<u8> {
+    fn gen_var_decl_instruction(
+        &mut self,
+        initializer: Option<WovenExpr>,
+        symbol: Symbol,
+    ) -> GenResult<u8> {
+        if symbol.depth > 0 {
+            if let Some(init) = initializer {
+                let src = self.gen_from_expr(init)?;
+                self.instructions.push(Instruction::SetLocal {
+                    src_reg: src,
+                    slot_idx: symbol.slot_idx as u16,
+                });
+                return Ok(src);
+            } else {
+                let empty = self.get_next_register()?;
+                self.instructions
+                    .push(Instruction::Emptiness { dest: empty });
+                return Ok(empty);
+            }
+        } else {
+            let c_ind = self.add_constant(Value::String(symbol.name.into()))?;
+            if let Some(init) = initializer {
+                let src = self.gen_from_expr(init)?;
+                self.instructions.push(Instruction::SetGlobal {
+                    src_reg: src,
+                    const_index: c_ind,
+                });
+                return Ok(src);
+            } else {
+                let empty = self.get_next_register()?;
+                self.instructions
+                    .push(Instruction::Emptiness { dest: empty });
+                return Ok(empty);
+            }
+        }
+    }
+
+    fn gen_variable_instruction(&mut self, symbol: Symbol) -> GenResult<u8> {
         let dest = self.get_next_register()?;
 
-        if slot_idx > 0 {
+        if symbol.depth > 0 {
             self.instructions.push(Instruction::GetLocal {
                 dest: dest,
-                slot_index: slot_idx as u16,
+                slot_index: symbol.slot_idx as u16,
             });
         } else {
             self.instructions.push(Instruction::GetGlobal {
                 dest: dest,
-                const_index: slot_idx as u16,
+                const_index: symbol.slot_idx as u16,
             });
         }
         Ok(dest)

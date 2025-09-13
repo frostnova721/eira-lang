@@ -1,12 +1,6 @@
-use std::fs;
+use std::{fs};
 
-use crate::frontend::{code_gen::{self, CodeGen}, parser::Parser, scanner::Scanner, weave_analyser::WeaveAnalyzer};
-
-mod assembler;
-mod debug;
-mod frontend;
-mod runtime;
-mod value;
+use eira::{print_byte_code, CodeGen, EiraVM, Parser, Scanner, WeaveAnalyzer};
 
 fn main() {
     let f = fs::read_to_string("tests/test.eira");
@@ -20,7 +14,7 @@ fn main() {
     println!("{:?}", ast);
 
     let mut weave_analyzer = WeaveAnalyzer::new();
-    let woven_tree = weave_analyzer.anaylze(ast);
+    let woven_tree = weave_analyzer.analyze(ast);
     match woven_tree {
         Err(no_no) => {
             println!(
@@ -33,7 +27,11 @@ fn main() {
             println!("{:?}", yes_yes);
 
             let mut generator = CodeGen::new(yes_yes);
-            generator.summon_bytecode();
+            let bc = generator.summon_bytecode().unwrap();
+            print_byte_code(&bc);
+            let consts =  generator.get_constants();
+            println!("{:?}", consts);
+            EiraVM::init(bc, consts).start();
         }
     }
     // let mut compiler = Compiler::init_compiler(binding.as_str());

@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "Eira"
+name = "eira"
 version = "0.1.0"
 dependencies = [
  "num_enum",

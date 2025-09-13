@@ -1,20 +1,24 @@
 use crate::frontend::{strand::{ADDITIVE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND}, tapestry::Tapestry};
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Weave {
     pub tapestry: Tapestry,
     pub name: &'static str
 }
 
+/// Represents numbers
 pub const NumWeave: Weave = Weave {
     name: "Rune",
     tapestry: Tapestry::new(ADDITIVE_STRAND | SUBTRACTIVE_STRAND | ORDINAL_STRAND | MULTIPLICATIVE_STRAND | DIVISIVE_STRAND | EQUATABLE_STRAND),
 };
 
+/// Represents string
 pub const TextWeave: Weave = Weave {
     name: "Script",
     tapestry: Tapestry::new(CONCATINABLE_STRAND | INDEXIVE_STRAND)
 };
 
+/// Represents boolean
 pub const TruthWeave: Weave = Weave {
     name: "Omen",
     tapestry: Tapestry::new(CONDITIONAL_STRAND | EQUATABLE_STRAND)

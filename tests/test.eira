@@ -2,3 +2,5 @@ mark a = 10;
 a;
 mark b = "a";
 b;
+
+chant b;

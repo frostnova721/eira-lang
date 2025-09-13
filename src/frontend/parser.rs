@@ -295,7 +295,7 @@ impl Parser {
             TokenType::ParenRight,
             "Close the bracket!\nError: Expected ')' after expression.",
         );
-        exp
+        Ok(Expr::Grouping { expression: Box::new(exp?) })
     }
 
     fn number(&mut self, _can_assign: bool) -> ParseResult<Expr> {

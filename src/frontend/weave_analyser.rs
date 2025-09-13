@@ -8,7 +8,7 @@ use crate::{
             EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND,
             SUBTRACTIVE_STRAND,
         },
-        symbol_table::{self, SymbolTable},
+        symbol_table::{SymbolTable},
         tapestry::Tapestry,
         token_type::TokenType,
         weaves::{NumWeave, TextWeave, TruthWeave, Weave},
@@ -57,7 +57,7 @@ impl WeaveAnalyzer {
         let st = SymbolTable::new();
         WeaveAnalyzer { symbol_table: st }
     }
-    pub fn anaylze(&mut self, ast: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
+    pub fn analyze(&mut self, ast: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
         self.analyze_statements(ast)
     }
 
@@ -138,13 +138,14 @@ impl WeaveAnalyzer {
 
                 let slot = self.symbol_table.get_current_scope_size();
 
-                self.symbol_table
-                    .define(name.lexeme.clone(), weave?, mutable, slot);
+                let s = self.symbol_table
+                    .define(name.lexeme.clone(), weave?, mutable, slot).unwrap();
 
                 Ok(WovenStmt::VarDeclaration {
                     name: name,
                     mutable: mutable,
                     initializer: w_initializer,
+                    symbol: s
                 })
             }
             Stmt::While { condition, body } => {
@@ -276,7 +277,7 @@ impl WeaveAnalyzer {
                     let woven = WovenExpr::Variable {
                         name: name,
                         tapestry: weave.tapestry,
-                        slot_idx: symbol.slot_idx,
+                        symbol: symbol.clone(),
                     };
                     Ok(woven)
                 } else {

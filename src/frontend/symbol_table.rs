@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-use crate::frontend::{tapestry::Tapestry, weaves::Weave};
+use crate::{debug, frontend::{symbol_table, weaves::Weave}};
 
 pub struct SymbolTable {
     scopes: Vec<HashMap<String, Symbol>>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Symbol {
     pub name: String,
     pub weave: Weave,
@@ -29,7 +30,7 @@ impl SymbolTable {
         self.scopes.pop();
     }
 
-    pub fn define(&mut self, name: String, weave: Weave, mutable: bool, slot_idx: usize) {
+    pub fn define(&mut self, name: String, weave: Weave, mutable: bool, slot_idx: usize) -> Option<Symbol> {
         let depth = self.scopes.len();
 
         if let Some(scope) = self.scopes.last_mut() {
@@ -40,9 +41,12 @@ impl SymbolTable {
                 depth: depth,
                 slot_idx: slot_idx
             };
-            scope.insert(name, symbol);
+            scope.insert(name, symbol.clone());
+            return Some(symbol);
         } else {
-            println!("No scopes???!!! Impossible!")
+            // This branch is literally impossible!
+            println!("No scopes???!!! Impossible!");
+            None
         }
     }
 
@@ -57,5 +61,9 @@ impl SymbolTable {
 
     pub fn get_current_scope_size(&self) -> usize {
         self.scopes.last().unwrap().len()
+    }
+
+    pub fn get_depth(&self) -> usize {
+        self.scopes.len()
     }
 }
