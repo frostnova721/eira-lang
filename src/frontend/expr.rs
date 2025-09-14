@@ -7,6 +7,7 @@ pub enum Expr {
     Literal { value: Value },
     Variable { name: Token },
     Grouping { expression: Box<Expr> },
+    Assignment { name: Token, value: Box<Expr> }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -16,6 +17,7 @@ pub enum WovenExpr {
     Literal { value: Value, tapestry: Tapestry },
     Variable { name: Token, tapestry: Tapestry, symbol: Symbol },
     Grouping { expression: Box<WovenExpr>, tapestry: Tapestry },
+    Assignment { name: Token, value: Box<WovenExpr>, tapestry: Tapestry, symbol: Symbol }
 }
 
 impl WovenExpr {
@@ -26,6 +28,7 @@ impl WovenExpr {
             WovenExpr::Literal { value:_, tapestry } => *tapestry,
             WovenExpr::Unary { operand:_, operator:_, tapestry } => *tapestry,
             WovenExpr::Variable { name:_, tapestry, symbol:_ } => *tapestry,
+            Self::Assignment { name:_, value:_, tapestry, symbol:_ } => *tapestry
         }
     } 
 }

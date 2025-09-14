@@ -8,7 +8,7 @@ use crate::{
             EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND,
             SUBTRACTIVE_STRAND,
         },
-        symbol_table::{SymbolTable},
+        symbol_table::SymbolTable,
         tapestry::Tapestry,
         token_type::TokenType,
         weaves::{NumWeave, TextWeave, TruthWeave, Weave},
@@ -138,20 +138,22 @@ impl WeaveAnalyzer {
 
                 let slot = self.symbol_table.get_current_scope_size();
 
-                let s = self.symbol_table
-                    .define(name.lexeme.clone(), weave?, mutable, slot).unwrap();
+                let s = self
+                    .symbol_table
+                    .define(name.lexeme.clone(), weave?, mutable, slot)
+                    .unwrap();
 
                 Ok(WovenStmt::VarDeclaration {
                     name: name,
                     mutable: mutable,
                     initializer: w_initializer,
-                    symbol: s
+                    symbol: s,
                 })
             }
             Stmt::While { condition, body } => {
                 let w_condition = self.analyze_expression(condition)?;
 
-                 if !w_condition.tapestry().has_strand(CONDITIONAL_STRAND) {
+                if !w_condition.tapestry().has_strand(CONDITIONAL_STRAND) {
                     return Err(WeaveError::new(
                         "The condition provided to determine the fate of loop does not contain the 'Conditional' strand.",
                         demo_tkn(),
@@ -256,7 +258,11 @@ impl WeaveAnalyzer {
                     let expr = self.analyze_expression(*operand)?;
                     if !expr.tapestry().has_strand(strand) {
                         return Err(WeaveError::new(
-                            &format!("The operand doesnot contain the strand {}", strand),
+                            &format!(
+                                "The operand does not contain the '{}' strand as required by '{}' operation",
+                                self.strand_string_from_bits(strand),
+                                operator.lexeme
+                            ),
                             operator,
                         ));
                     }
@@ -284,6 +290,39 @@ impl WeaveAnalyzer {
                     return Err(WeaveError::new("Variable resolution failed.", name));
                 }
             }
+            Expr::Assignment { name, value } => {
+                if let Some(resolved) = self.symbol_table.resolve(&name.lexeme).cloned() {
+                    if !resolved.mutable {
+                        return Err(WeaveError::new(
+                            "Tried to reassign a value to a 'bind'. Binds cannot be reassigned!",
+                            name,
+                        ));
+                    }
+
+                    let woven_expr = self.analyze_expression(*value)?;
+                    let tapestry = woven_expr.tapestry();
+
+                    // Assignment requires an exact match of the tapestry!
+                    if resolved.weave.tapestry.0 == woven_expr.tapestry().0 {
+                        return Ok(WovenExpr::Assignment {
+                            name: name,
+                            value: Box::new(woven_expr),
+                            tapestry: tapestry,
+                            symbol: resolved,
+                        });
+                    }
+
+                    return Err(WeaveError::new(
+                        "The assignee and the value to be assigned are of different Weaves!\nAssignment failed.",
+                        name,
+                    ));
+                } else {
+                    return Err(WeaveError::new(
+                        "The mark was no where to be found from this scope!\nVariable resolution failed.",
+                        name,
+                    ));
+                }
+            }
         }
     }
 
@@ -293,6 +332,7 @@ impl WeaveAnalyzer {
             TokenType::Minus => Some(SUBTRACTIVE_STRAND),
             TokenType::Star => Some(MULTIPLICATIVE_STRAND),
             TokenType::Slash => Some(DIVISIVE_STRAND),
+            TokenType::Bang => Some(CONDITIONAL_STRAND),
             TokenType::Greater
             | TokenType::Less
             | TokenType::GreaterEqual

@@ -1,7 +1,8 @@
 use std::{collections::HashMap, str, u8};
 
 use crate::{
-    assembler::Assembler, frontend::{
+    assembler::Assembler,
+    frontend::{
         expr::WovenExpr,
         scanner::Token,
         stmt::WovenStmt,
@@ -9,7 +10,9 @@ use crate::{
         tapestry::Tapestry,
         token_type::TokenType,
         weaves::{NumWeave, TextWeave, TruthWeave, Weave},
-    }, runtime::instruction::Instruction, value::Value
+    },
+    runtime::{instruction::Instruction},
+    value::Value,
 };
 
 const NUM: u64 = NumWeave.tapestry.0;
@@ -31,7 +34,6 @@ fn error(msg: &str) -> GenError {
 
 pub struct CodeGen {
     woven_ast: Vec<WovenStmt>,
-    bytecode: Vec<u8>,
     instructions: Vec<Instruction>,
 
     register_index: u8,
@@ -44,7 +46,6 @@ impl CodeGen {
     pub fn new(w_ast: Vec<WovenStmt>) -> Self {
         CodeGen {
             woven_ast: w_ast,
-            bytecode: vec![],
             instructions: vec![],
             register_index: 0,
             constants: vec![],
@@ -89,22 +90,30 @@ impl CodeGen {
     // Thought this name is fun, nothing else, its the main entry point btw
     pub fn summon_bytecode(&mut self) -> GenResult<Vec<u8>> {
         let stmts = self.woven_ast.clone();
-        for stmt in stmts {
-            self.gen_from_stmt(stmt)?;
-        }
-        
+
+        let _ = self.gen_from_stmts(stmts)?;
+
         self.instructions.push(Instruction::Halt);
 
-        println!("{:?}", self.instructions);
+        println!("\n{:?}", self.instructions);
 
         let bc = Assembler::convert_to_byte_code(&self.instructions);
         Ok(bc) // change later!
     }
-    
+
     pub fn get_constants(&mut self) -> Vec<Value> {
         self.constants.clone()
     }
 
+    /// A Helper like function to iterate through the statement list
+    fn gen_from_stmts(&mut self, stmts: Vec<WovenStmt>) -> GenResult<u8> {
+        for stmt in stmts {
+            self.gen_from_stmt(stmt)?;
+        }
+        Ok(0) // dummy result, since statements doesnt care about values produced
+    }
+
+    /// Match the type of stmt and generate corresponding instruction 
     fn gen_from_stmt(&mut self, stmt: WovenStmt) -> GenResult<u8> {
         match stmt {
             WovenStmt::ExprStmt { expr } => self.gen_from_expr(expr),
@@ -114,7 +123,7 @@ impl CodeGen {
                 mutable,
                 initializer,
                 symbol,
-            } => self.gen_var_decl_instruction(initializer, symbol),
+            } => self.gen_var_decl_instruction(name, mutable, initializer, symbol),
             WovenStmt::Fate {
                 condition,
                 then_branch,
@@ -123,7 +132,7 @@ impl CodeGen {
             WovenStmt::While { condition, body } => todo!(),
             WovenStmt::Chant { expression } => self.gen_chant_stmt(expression),
 
-            WovenStmt::Block { statements } => todo!(),
+            WovenStmt::Block { statements } => self.gen_from_stmts(statements),
             WovenStmt::Sever => todo!(),
         }
     }
@@ -140,7 +149,7 @@ impl CodeGen {
                 operand,
                 operator,
                 tapestry,
-            } => todo!(),
+            } => self.gen_unary_instruction(*operand, operator),
             WovenExpr::Literal { value, tapestry } => {
                 let val = self.write_constant(value)?;
                 Ok(val)
@@ -153,12 +162,38 @@ impl CodeGen {
             WovenExpr::Grouping {
                 expression,
                 tapestry,
-            } => todo!(),
+            } => self.gen_from_expr(*expression),
+            WovenExpr::Assignment {
+                name,
+                value,
+                tapestry,
+                symbol,
+            } => self.gen_assignment_instruction(*value, symbol),
         }
     }
 
+    fn gen_assignment_instruction(&mut self, expr: WovenExpr, symbol: Symbol) -> GenResult<u8> {
+        let reg = self.gen_from_expr(expr)?;
+        if symbol.depth > 0 {
+            self.instructions.push(Instruction::SetLocal {
+                src_reg: reg,
+                slot_idx: symbol.slot_idx as u16,
+            });
+        } else {
+            let c_ind = self.add_constant(Value::String(symbol.name.into()))?;
+            self.instructions.push(Instruction::SetGlobal {
+                src_reg: reg,
+                const_index: c_ind,
+            });
+        }
+        return Ok(reg);
+    }
+
+    /// Checks the depth, sets as local if depth > 0 else as a global with a value if provided.
     fn gen_var_decl_instruction(
         &mut self,
+        name: Token,
+        mutable: bool,
         initializer: Option<WovenExpr>,
         symbol: Symbol,
     ) -> GenResult<u8> {
@@ -203,12 +238,36 @@ impl CodeGen {
                 slot_index: symbol.slot_idx as u16,
             });
         } else {
+            let const_idx = self.add_constant(Value::String(symbol.name.into()))?;
             self.instructions.push(Instruction::GetGlobal {
                 dest: dest,
-                const_index: symbol.slot_idx as u16,
+                const_index: const_idx,
             });
         }
         Ok(dest)
+    }
+
+    fn gen_unary_instruction(&mut self, operand: WovenExpr, op: Token) -> GenResult<u8> {
+        let register = self.gen_from_expr(operand)?;
+        let dest = self.get_next_register()?;
+
+        match op.token_type {
+            TokenType::Minus => {
+                self.instructions.push(Instruction::Negate { dest: dest, r1: register });
+                Ok(dest)
+            }
+            TokenType::Bang =>{
+                self.instructions.push(Instruction::Not { dest: dest, r1: register });
+                Ok(dest)
+            },
+            _ => {
+                // This error msg should be shown to the user, if it does, compiler is bugged
+                return Err(error(&format!(
+                    "Strand for '{}' operation hasnt been entangled with Eira realms!.\nThis error shouldn't be thrown, Report it to devs!",
+                    op.lexeme
+                )));
+            }
+        }
     }
 
     fn gen_binary_instruction(
@@ -277,8 +336,9 @@ impl CodeGen {
                 self.instructions.push(mul);
             }
             _ => {
+                 // This error msg should be shown to the user, if it does, compiler is bugged
                 return Err(error(&format!(
-                    "Strand for '{}' operation hasnt been entangled with Eira realms!",
+                    "Strand for '{}' operation hasnt been entangled with Eira realms!.\nThis error shouldn't be thrown, Report it to devs!",
                     op.lexeme
                 )));
             }

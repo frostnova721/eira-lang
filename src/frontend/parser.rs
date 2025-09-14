@@ -1,12 +1,8 @@
 use std::rc::Rc;
 
 use crate::{
-    frontend::{
-        expr::Expr,
-        scanner::Token,
-        stmt::Stmt,
-        token_type::TokenType,
-    }, value::Value,
+    frontend::{expr::Expr, scanner::Token, stmt::Stmt, token_type::TokenType},
+    value::Value,
 };
 
 const MSG_MISSED_SEMICOLON: &str = "Expected a ';' after the expression. Forgot to add it?";
@@ -295,7 +291,9 @@ impl Parser {
             TokenType::ParenRight,
             "Close the bracket!\nError: Expected ')' after expression.",
         );
-        Ok(Expr::Grouping { expression: Box::new(exp?) })
+        Ok(Expr::Grouping {
+            expression: Box::new(exp?),
+        })
     }
 
     fn number(&mut self, _can_assign: bool) -> ParseResult<Expr> {
@@ -367,9 +365,17 @@ impl Parser {
 
     fn variable(&mut self, _can_assign: bool) -> ParseResult<Expr> {
         let var_name = self.previous.clone();
-        Ok(Expr::Variable {
-            name: var_name,
-        })
+
+        // if a '=' is found after the variable name, it should be a assignment
+        if self.match_token(TokenType::Equal) {
+            return Ok(Expr::Assignment {
+                name: var_name,
+                value: Box::new(self.expression()?),
+            });
+        }
+
+        // else, it should be a variable access
+        Ok(Expr::Variable { name: var_name })
     }
 
     // ----------------------- Core -------------------------------//

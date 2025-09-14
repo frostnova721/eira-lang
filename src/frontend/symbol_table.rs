@@ -31,7 +31,7 @@ impl SymbolTable {
     }
 
     pub fn define(&mut self, name: String, weave: Weave, mutable: bool, slot_idx: usize) -> Option<Symbol> {
-        let depth = self.scopes.len();
+        let depth = self.scopes.len() - 1;
 
         if let Some(scope) = self.scopes.last_mut() {
             let symbol = Symbol {
@@ -64,6 +64,6 @@ impl SymbolTable {
     }
 
     pub fn get_depth(&self) -> usize {
-        self.scopes.len()
+        self.scopes.len() - 1
     }
 }

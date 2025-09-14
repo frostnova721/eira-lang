@@ -1,6 +1,2 @@
-mark a = 10;
-a;
-mark b = "a";
-b;
-
-chant b;
+mark v = false;
+chant !false

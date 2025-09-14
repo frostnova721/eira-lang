@@ -11,13 +11,13 @@ pub const DIVISIVE_STRAND: u64 = 1 << 3;
 /// Orderable behaviour (>,<,>=,<=)
 pub const ORDINAL_STRAND: u64 = 1 << 4;
 
-/// Passable to conditional statements, (if, while)
+/// Passable to conditional statements, (if, while), Can perform NOT operation
 pub const CONDITIONAL_STRAND: u64 = 1 << 5;
 
 /// Able to concat with same type
 pub const CONCATINABLE_STRAND: u64 = 1 << 6;
 
-/// Able to be indexed, pick a value from a index
+/// Able to be indexed, pick a value from a index (like a character from a string)
 pub const INDEXIVE_STRAND: u64 = 1 << 7;
 
 /// Iterable...
