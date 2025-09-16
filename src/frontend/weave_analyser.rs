@@ -41,21 +41,15 @@ impl WeaveError {
 
 type WeaveResult<T> = Result<T, WeaveError>;
 
-#[derive(Debug, Clone)]
-struct Local {
-    name: Token,
-    depth: i32,
-    mutable: bool,
-}
-
 pub struct WeaveAnalyzer {
     symbol_table: SymbolTable,
+    loop_depth: usize,
 }
 
 impl WeaveAnalyzer {
     pub fn new() -> Self {
         let st = SymbolTable::new();
-        WeaveAnalyzer { symbol_table: st }
+        WeaveAnalyzer { symbol_table: st, loop_depth: 0 }
     }
     pub fn analyze(&mut self, ast: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
         self.analyze_statements(ast)
@@ -160,14 +154,29 @@ impl WeaveAnalyzer {
                     ));
                 }
 
+                // enter loop scope (for sever, flow purposes)
+                self.loop_depth += 1;
+                let depth_before = self.loop_depth;
+
                 let w_body = self.analyze_statement(*body)?;
+
+                // exit the loop scope if not done by sever stmt
+                if depth_before < self.loop_depth {
+                    self.loop_depth -=1;
+                }
 
                 Ok(WovenStmt::While {
                     condition: w_condition,
                     body: Box::new(w_body),
                 })
             }
-            Stmt::Sever => Ok(WovenStmt::Sever),
+            Stmt::Sever => {
+                if self.loop_depth == 0 {
+                    return Err(WeaveError::new("'sever' cannot be used outside a loop circle!", demo_tkn()));
+                }
+                self.loop_depth -= 1;
+                Ok(WovenStmt::Sever)
+            },
         }
     }
 
@@ -212,7 +221,9 @@ impl WeaveAnalyzer {
                     TokenType::Greater
                     | TokenType::Less
                     | TokenType::EqualEqual
-                    | TokenType::BangEqual => Tapestry::new(CONDITIONAL_STRAND | EQUATABLE_STRAND),
+                    | TokenType::LessEqual
+                    | TokenType::GreaterEqual
+                    | TokenType::BangEqual => TruthWeave.tapestry,
                     _ => w_left.tapestry(), // Assumes left-hand side's type
                 };
 
