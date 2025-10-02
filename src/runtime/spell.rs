@@ -1,10 +1,10 @@
 use std::rc::Rc;
 
-use crate::{runtime::spell, value::Value};
+use crate::{value::Value};
 
 #[derive(Debug)]
 pub struct SpellObject {
-    pub name: Option<&'static str>,
+    pub name: Option<String>,
     pub arity: u8, // 255 should be enough. (please seek help if its not for you)
     pub upvalue_count: i32,
     pub constants: Vec<Value>,

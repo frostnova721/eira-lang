@@ -9,3 +9,4 @@ pub mod stmt;
 pub mod tapestry;
 pub mod symbol_table;
 pub mod code_gen;
+pub mod reagents;

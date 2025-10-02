@@ -190,7 +190,10 @@ impl<'a> Scanner<'a> {
             '{' => self.make_token(TokenType::BraceLeft),
             '}' => self.make_token(TokenType::BraceRight),
             ';' => self.make_token(TokenType::SemiColon),
+
+            ':' if self.match_char(':') => self.make_token(TokenType::ColonColon),
             ':' => self.make_token(TokenType::Colon),
+
             '.' => self.make_token(TokenType::Dot),
             ',' => self.make_token(TokenType::Comma),
 

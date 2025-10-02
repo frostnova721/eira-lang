@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::{
-    frontend::{expr::Expr, scanner::Token, stmt::Stmt, token_type::TokenType},
+    frontend::{expr::Expr, reagents::Reagent, scanner::Token, stmt::Stmt, token_type::TokenType},
     value::Value,
 };
 
@@ -161,6 +161,8 @@ impl Parser {
             res = self.variable_declaration(true);
         } else if self.match_token(TokenType::Bind) {
             res = self.variable_declaration(false);
+        } else if self.match_token(TokenType::Spell) {
+            res = self.spell_declaration();
         } else {
             res = self.statement();
         }
@@ -175,7 +177,55 @@ impl Parser {
     }
 
     fn spell_declaration(&mut self) -> ParseResult<Stmt> {
-        Err(ParseError("me".to_owned()))
+        self.consume(TokenType::Identifier, "Expected a variable name!");
+        let name = self.previous.clone();
+
+        self.consume(TokenType::ParenLeft, "Expected '(' after spell name!");
+
+        let mut params: Vec<Reagent> = vec![];
+
+        if !self.check(TokenType::ParenRight) {
+            loop {
+                self.consume(TokenType::Identifier, "Expected reagent's name!");
+                let token = self.previous.clone();
+
+                // capture the weave of the mark!
+                self.consume(TokenType::Colon, "Expected ':' for weave definition!");
+                self.consume(
+                    TokenType::Identifier,
+                    "Expected a weave name to bind with the mark!",
+                );
+                
+                let weave_name = self.previous.lexeme.clone();
+                params.push(Reagent {
+                    name: token,
+                    weave_name: weave_name,
+                });
+                if !self.check(TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(TokenType::ParenRight, "Expected ')' after spell reagents!");
+
+        let weave_name: Option<String>;
+
+        if self.match_token(TokenType::ColonColon) {
+            self.consume(TokenType::Identifier, "Expected a weave bound to the spell!");
+            weave_name = Some(self.previous.lexeme.clone());
+        } else {
+            weave_name = None;
+        }
+
+        self.consume(TokenType::BraceLeft, "Expected spell's working block!");
+        let working = self.block()?;
+        Ok(Stmt::Spell {
+            name: name.clone(),
+            reagents: params,
+            body: Box::new(working),
+            return_weave: weave_name,
+        })
     }
 
     fn variable_declaration(&mut self, mutable: bool) -> ParseResult<Stmt> {

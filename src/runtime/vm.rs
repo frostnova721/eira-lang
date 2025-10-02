@@ -1,9 +1,12 @@
 use std::{array::from_fn, collections::HashMap, rc::Rc};
 
-use crate::{runtime::{
-    operation::OpCode,
-    spell::{ClosureObject, SpellObject},
-}, value::{print_value, Value}};
+use crate::{
+    runtime::{
+        operation::OpCode,
+        spell::{ClosureObject, SpellObject},
+    },
+    value::{Value, print_value},
+};
 
 pub enum InterpretResult {
     CompileError,
@@ -179,7 +182,9 @@ impl EiraVM {
                     let v2 = get_register!(r2);
                     set_register!(
                         dest,
-                        Value::String(Rc::new(v1.extract_string().unwrap() + &v2.extract_string().unwrap()))
+                        Value::String(Rc::new(
+                            v1.extract_string().unwrap() + &v2.extract_string().unwrap()
+                        ))
                     );
                 }
                 OpCode::Equal => {
@@ -298,7 +303,6 @@ impl EiraVM {
                     let dest_reg = frame.read_byte();
                     set_register!(dest_reg, Value::Emptiness);
                 }
-
                 OpCode::PopStack => {
                     let mut count = frame.read_u16();
                     while count > 0 {
@@ -306,7 +310,6 @@ impl EiraVM {
                         count -= 1;
                     }
                 }
-
                 OpCode::Jump => {
                     let offset = frame.read_u16();
                     frame.ip += offset as usize;
@@ -325,6 +328,7 @@ impl EiraVM {
                     frame.ip -= offset as usize;
                 }
                 OpCode::Halt => break,
+                OpCode::Return => todo!(),
             }
         }
 

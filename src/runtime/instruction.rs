@@ -39,6 +39,8 @@ pub enum Instruction {
 
     Concat { dest: u8, r1: u8, r2: u8 },
 
+    Return { dest: u8 },
+
     Halt,
 }
 
@@ -114,6 +116,7 @@ impl Instruction {
             Instruction::True { dest: _ } => 2,
             Instruction::False { dest: _ } => 2,
             Instruction::Print { r1: _ } => 2,
+            Instruction::Return { dest:_ } => 2,
             Instruction::Emptiness { dest: _ } => 2,
             Instruction::Halt => 1,
         }
@@ -156,6 +159,7 @@ impl Instruction {
             Instruction::JumpIfFalse { condition_reg, offset } => format!("JUMP_IF_FALSE {} {}", condition_reg, offset),
             Instruction::Loop { offset } => format!("LOOP {}", offset),
             Instruction::Concat { dest, r1, r2 } => format!("CONCAT {} {} {}", dest, r1, r2),
+            Instruction::Return { dest } => format!("RETURN {}", dest),
             Instruction::Halt => "Halt".to_owned(),
         }
     }
@@ -209,6 +213,10 @@ impl Instruction {
                 vec![OpCode::Loop as u8, a, b]
             }
             Instruction::Concat { dest, r1, r2 } => vec![OpCode::Concat as u8, *dest, *r1, *r2],
+            Instruction::Return { dest } => vec![OpCode::Return as u8, *dest],
+            // Instruction::Closure { dest, const_index } => {
+            //     self.gen_const_byte_code(OpCode::Closure, const_index, dest)
+            // }
             Instruction::Halt => vec![OpCode::Halt as u8],
         }
     }

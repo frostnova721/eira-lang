@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use crate::{
     frontend::{
         expr::{Expr, WovenExpr},
+        reagents::WovenReagent,
         scanner::Token,
         stmt::{Stmt, WovenStmt},
         strand::{
@@ -11,7 +14,7 @@ use crate::{
         symbol_table::SymbolTable,
         tapestry::Tapestry,
         token_type::TokenType,
-        weaves::{NumWeave, TextWeave, TruthWeave, Weave},
+        weaves::{EmptyWeave, NumWeave, TextWeave, TruthWeave, Weave, gen_weave_map},
     },
     value::Value,
 };
@@ -44,12 +47,17 @@ type WeaveResult<T> = Result<T, WeaveError>;
 pub struct WeaveAnalyzer {
     symbol_table: SymbolTable,
     loop_depth: usize,
+    weaves_cache: HashMap<String, Weave>,
 }
 
 impl WeaveAnalyzer {
     pub fn new() -> Self {
         let st = SymbolTable::new();
-        WeaveAnalyzer { symbol_table: st, loop_depth: 0 }
+        WeaveAnalyzer {
+            symbol_table: st,
+            loop_depth: 0,
+            weaves_cache: HashMap::new(),
+        }
     }
     pub fn analyze(&mut self, ast: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
         self.analyze_statements(ast)
@@ -114,6 +122,16 @@ impl WeaveAnalyzer {
                 mutable,
                 initializer,
             } => {
+                if let Some(_symbol) = self.symbol_table.resolve(&name.lexeme) {
+                    return Err(WeaveError::new(
+                        &format!(
+                            "The variable '{}' already exists in the current scope!",
+                            name.lexeme
+                        ),
+                        name,
+                    ));
+                }
+
                 let weave;
                 let w_initializer = match initializer {
                     Some(val) => Some(self.analyze_expression(val)?),
@@ -162,7 +180,7 @@ impl WeaveAnalyzer {
 
                 // exit the loop scope if not done by sever stmt
                 if depth_before < self.loop_depth {
-                    self.loop_depth -=1;
+                    self.loop_depth -= 1;
                 }
 
                 Ok(WovenStmt::While {
@@ -172,11 +190,53 @@ impl WeaveAnalyzer {
             }
             Stmt::Sever => {
                 if self.loop_depth == 0 {
-                    return Err(WeaveError::new("'sever' cannot be used outside a loop circle!", demo_tkn()));
+                    return Err(WeaveError::new(
+                        "'sever' cannot be used outside a loop circle!",
+                        demo_tkn(),
+                    ));
                 }
                 self.loop_depth -= 1;
                 Ok(WovenStmt::Sever)
-            },
+            }
+
+            Stmt::Spell {
+                name,
+                reagents,
+                body,
+                return_weave
+            } => {
+                let mut w_reagents: Vec<WovenReagent> = vec![];
+                let slot = self.symbol_table.get_current_scope_size();
+
+                // get the ret type (weave ofc)
+                let ret_weave = match return_weave {
+                    Some(rw) => self.get_weave_from_name(&rw)?,
+                    None => EmptyWeave,
+                };
+
+                let symbol = self.symbol_table.define(
+                    name.lexeme.clone(),
+                    ret_weave.clone(),
+                    false,
+                    slot,
+                ).unwrap();
+
+                for r in reagents {
+                    w_reagents.push(WovenReagent {
+                        name: r.name,
+                        weave: self.get_weave_from_name(&r.weave_name)?,
+                    });
+                }
+                
+                let woven_body = self.analyze_statement(*body)?;
+
+                Ok(WovenStmt::Spell {
+                    name: name,
+                    reagents: w_reagents,
+                    body: Box::new(woven_body),
+                    symbol: symbol,
+                })
+            }
         }
     }
 
@@ -369,6 +429,22 @@ impl WeaveAnalyzer {
             NO_STRAND => "NONE",
             _ => "UNKNOWN",
         }
+    }
+
+    fn get_weave_from_name(&mut self, name: &str) -> WeaveResult<Weave> {
+        if self.weaves_cache.is_empty() {
+            self.weaves_cache = gen_weave_map();
+        }
+        println!("{}", name);
+
+        if let Some(w) = self.weaves_cache.get(name) {
+            return Ok(w.clone());
+        }
+
+        Err(WeaveError::new(
+            "Couldn't find the weave '{}' within the Eira's library!",
+            demo_tkn(),
+        ))
     }
 
     fn get_weave(&self, tapestry: Tapestry) -> WeaveResult<Weave> {

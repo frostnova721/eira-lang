@@ -1,7 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use crate::runtime::spell::ClosureObject;
+use crate::runtime::spell::{ClosureObject, SpellObject};
 
 /// The value's container for runtime
 #[derive(Debug, Clone)]
@@ -10,6 +10,7 @@ pub enum Value {
     String(Rc<String>),
     Bool(bool),
     Closure(Rc<ClosureObject>),
+    Spell(Rc<SpellObject>),
     Emptiness,
 }
 
@@ -20,6 +21,7 @@ impl Value {
             Self::String(_) => ValueType::String,
             Self::Bool(_) => ValueType::Bool,
             Self::Closure(_) => ValueType::Closure,
+            Self::Spell(_) => ValueType::Spell,
             Self::Emptiness => ValueType::Emptiness,
         }
     }
@@ -46,6 +48,10 @@ impl Value {
 
     pub fn is_closure(&self) -> bool {
         matches!(self, Self::Closure(_))
+    }
+
+    pub fn is_spell(&self) -> bool {
+        matches!(self, Self::Spell(_))
     }
 
     pub fn extract_number(&self) -> Option<f64> {
@@ -100,6 +106,7 @@ impl Hash for Value {
             Self::Bool(b) => b.hash(state),
             Self::Emptiness => { } //hmm
             Self::Closure(_) => {} // not a compile time const
+            Self::Spell(_) => {}   // not a compile time const
         }
     }
 }
@@ -122,6 +129,7 @@ impl From<String> for Value {
     }
 }
 
+// responsible for converting the value to a identifiable string (like toString())
 pub fn print_value(value: Value) {
     match value {
         Value::Bool(value) => println!("{}", value),
@@ -129,6 +137,7 @@ pub fn print_value(value: Value) {
         Value::Number(value) => println!("{}", value),
         Value::String(value) => println!("{}", value),
         Value::Closure(closure) => println!("Closure '{:?}'", closure.spell.name),
+        Value::Spell(spell) => println!("Spell '{:?}'", spell.name),
     }
 }
 
@@ -143,5 +152,6 @@ enum ValueType {
     Number,
     Bool,
     Closure,
+    Spell,
     Emptiness,
 }

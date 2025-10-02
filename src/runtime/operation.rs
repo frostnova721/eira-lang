@@ -54,6 +54,8 @@ pub enum OpCode {
 
     //loop
     Loop,
+
+    Return,
 }
 
 impl OpCode {
@@ -80,6 +82,9 @@ impl OpCode {
             OpCode::Jump => "OP_JUMP",
             OpCode::JumpIfFalse => "OP_JUMP_FALSE",
             OpCode::Loop => "OP_LOOP",
+            OpCode::Return => "OP_RETURN",
+            OpCode::True => "OP_TRUE",
+            OpCode::False => "OP_FALSE",
             _ => "OP_UNKNOWN",
         }
         .to_owned()
@@ -104,7 +109,7 @@ impl OpCode {
 
             OpCode::Negate | OpCode::Not | OpCode::PopStack | OpCode::Jump | OpCode::Loop => 3, // opcode + dest + r1
 
-            OpCode::True | OpCode::False | OpCode::Print | OpCode::Emptiness => 2, // opcode + r1/dest
+            OpCode::True | OpCode::False | OpCode::Print | OpCode::Emptiness | OpCode::Return => 2, // opcode + r1/dest
 
             OpCode::Halt => 1, // just the opcode
         }

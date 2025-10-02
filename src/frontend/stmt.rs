@@ -1,4 +1,4 @@
-use crate::frontend::{expr::{Expr, WovenExpr}, scanner::Token, symbol_table::Symbol};
+use crate::frontend::{expr::{Expr, WovenExpr}, reagents::{Reagent, WovenReagent}, scanner::Token, symbol_table::Symbol, weaves::Weave};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
@@ -9,6 +9,7 @@ pub enum Stmt {
     Chant { expression: Expr },
     Block { statements: Vec<Stmt> },
     Sever,
+    Spell { name: Token, reagents: Vec<Reagent>, body: Box<Stmt>, return_weave: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -20,6 +21,7 @@ pub enum WovenStmt {
     Chant { expression: WovenExpr },
     Block { statements: Vec<WovenStmt> },
     Sever,
+    Spell { name: Token, reagents: Vec<WovenReagent>, body: Box<WovenStmt>, symbol: Symbol }, // symbol contains ret weave's type
 }
 
 // impl WovenStmt {

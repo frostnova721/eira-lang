@@ -29,7 +29,7 @@ pub enum TokenType {
 
     // Symbols
     SemiColon,
-    Colon, QuestionMark, // colon for typing and their pair for the thing(?:)!
+    Colon, ColonColon, QuestionMark, // colon for typing and their pair for the thing(?:)!
     Equal, EqualEqual, // =
     Greater, GreaterEqual, // >
     Less, LessEqual, // <

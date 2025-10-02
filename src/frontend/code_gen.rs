@@ -1,9 +1,10 @@
-use std::{collections::HashMap, str, u8};
+use std::{collections::HashMap, rc::Rc, str, u8};
 
 use crate::{
     assembler::Assembler,
     frontend::{
         expr::WovenExpr,
+        reagents::WovenReagent,
         scanner::Token,
         stmt::WovenStmt,
         symbol_table::Symbol,
@@ -11,7 +12,8 @@ use crate::{
         token_type::TokenType,
         weaves::{NumWeave, TextWeave, TruthWeave, Weave},
     },
-    runtime::instruction::Instruction,
+    print_instructions,
+    runtime::{instruction::Instruction, spell::SpellObject},
     value::Value,
 };
 
@@ -43,10 +45,15 @@ pub struct CodeGen {
 
     register_index: u8,
 
-    constants: Vec<Value>,
+    constants: Vec<Vec<Value>>,
     constants_map: HashMap<Value, u16>,
 
     loop_blocks: Vec<LoopBlock>,
+
+    // contains the spells to be compiled after bytecode of the main script is done
+    spells: HashMap<String, WovenStmt>,
+    // track the completion status of main script
+    compile_completed: bool,
 }
 
 impl CodeGen {
@@ -55,9 +62,11 @@ impl CodeGen {
             woven_ast: w_ast,
             instructions: vec![],
             register_index: 0,
-            constants: vec![],
+            constants: vec![vec![]],
             constants_map: HashMap::new(),
             loop_blocks: vec![],
+            spells: HashMap::new(),
+            compile_completed: false,
         }
     }
 
@@ -72,6 +81,9 @@ impl CodeGen {
     }
 
     fn get_last_allocated_register(&self) -> u8 {
+        if self.register_index == 0 {
+            return 0;
+        }
         self.register_index - 1
     }
 
@@ -81,8 +93,8 @@ impl CodeGen {
         }
 
         // else add the constant to table and return the index
-        let ind = self.constants.len() as u16;
-        self.constants.push(value.clone());
+        let ind = self.constants.last().unwrap().len() as u16;
+        self.constants.last_mut().unwrap().push(value.clone());
         self.constants_map.insert(value, ind);
         Ok(ind)
     }
@@ -127,7 +139,10 @@ impl CodeGen {
     }
 
     fn write_loop(&mut self, start: usize) -> GenResult<()> {
-        let body_bytes_size: usize = self.instructions[start..].iter().map(|inst| inst.len()).sum();
+        let body_bytes_size: usize = self.instructions[start..]
+            .iter()
+            .map(|inst| inst.len())
+            .sum();
 
         // 2 byte for u16's size, 1 for opcode (2+1=3 iydk)
         let total_offset = body_bytes_size + 3;
@@ -136,7 +151,9 @@ impl CodeGen {
             return Err(error("Loop Jump Offset exceeds the 2byte limit."));
         }
 
-        self.instructions.push(Instruction::Loop { offset: total_offset as u16 });
+        self.instructions.push(Instruction::Loop {
+            offset: total_offset as u16,
+        });
         Ok(())
     }
 
@@ -150,14 +167,24 @@ impl CodeGen {
 
         self.instructions.push(Instruction::Halt);
 
-        println!("\n{:?}", self.instructions);
+        print_instructions(
+            "<first_mage>",
+            &self.instructions,
+            &self.constants.last().unwrap(),
+        );
+
+        self.compile_completed = true;
+
+        // The instructions after the [HALT] are the definitions for spell and other stuff
+
+        let _ = self.gen_from_stmts(self.spells.values().cloned().collect())?;
 
         let bc = Assembler::convert_to_byte_code(&self.instructions);
         Ok(bc) // change later!
     }
 
     pub fn get_constants(&mut self) -> Vec<Value> {
-        self.constants.clone()
+        self.constants.last_mut().unwrap().clone()
     }
 
     //--------------- Actual Core parts ---------------
@@ -174,13 +201,12 @@ impl CodeGen {
     fn gen_from_stmt(&mut self, stmt: WovenStmt) -> GenResult<u8> {
         match stmt {
             WovenStmt::ExprStmt { expr } => self.gen_from_expr(expr),
-
             WovenStmt::VarDeclaration {
-                name,
-                mutable,
+                name: _,
+                mutable: _,
                 initializer,
                 symbol,
-            } => self.gen_var_decl_instruction(name, mutable, initializer, symbol),
+            } => self.gen_var_decl_instruction(initializer, symbol),
             WovenStmt::Fate {
                 condition,
                 then_branch,
@@ -188,23 +214,18 @@ impl CodeGen {
             } => self.gen_fate_instructions(condition, *then_branch, else_branch),
             WovenStmt::While { condition, body } => self.gen_while_instructions(condition, *body),
             WovenStmt::Chant { expression } => self.gen_chant_stmt(expression),
-
             WovenStmt::Block { statements } => self.gen_from_stmts(statements),
             WovenStmt::Sever => self.gen_sever_instructions(),
+            WovenStmt::Spell {
+                name,
+                reagents,
+                body,
+                symbol,
+            } => self.gen_spell_instructions(name, reagents, *body, symbol),
         }
     }
 
-    fn gen_sever_instructions(&mut self) -> GenResult<u8> {
-         if self.loop_blocks.is_empty() {
-            return Err(error("Only the loops can be severed."));
-        }
-        let ind = self.write_jump(Instruction::Jump { offset: 0xffff });
-        self.loop_blocks.last_mut().unwrap().severs.push(ind);
-
-        // dummy return
-        Ok(self.register_index)
-    }
-
+    /// Match the type of expr and generate corresponding instruction
     fn gen_from_expr(&mut self, expr: WovenExpr) -> GenResult<u8> {
         match expr {
             WovenExpr::Binary {
@@ -216,28 +237,84 @@ impl CodeGen {
             WovenExpr::Unary {
                 operand,
                 operator,
-                tapestry,
+                tapestry: _,
             } => self.gen_unary_instruction(*operand, operator),
-            WovenExpr::Literal { value, tapestry } => {
+            WovenExpr::Literal { value, tapestry: _ } => {
                 let val = self.write_constant(value)?;
                 Ok(val)
             }
             WovenExpr::Variable {
-                name,
-                tapestry,
+                name: _,
+                tapestry: _,
                 symbol,
             } => self.gen_variable_instruction(symbol),
             WovenExpr::Grouping {
                 expression,
-                tapestry,
+                tapestry: _,
             } => self.gen_from_expr(*expression),
             WovenExpr::Assignment {
-                name,
+                name: _,
                 value,
-                tapestry,
+                tapestry: _,
                 symbol,
             } => self.gen_assignment_instruction(*value, symbol),
         }
+    }
+
+    fn gen_spell_instructions(
+        &mut self,
+        name: Token,
+        reagents: Vec<WovenReagent>,
+        body: WovenStmt,
+        symbol: Symbol,
+    ) -> GenResult<u8> {
+        let prev_reg = self.get_last_allocated_register();
+        let mut spell_instructions = Vec::new();
+
+        // Temporarily swap instructions to compile spell body
+        std::mem::swap(&mut self.instructions, &mut spell_instructions);
+
+        // make a new constant pool for spell
+        self.constants.push(vec![]);
+        self.register_index = 0;
+
+        // Compile the body
+        self.gen_from_stmt(body)?;
+
+        print_instructions(&name.lexeme, &self.instructions, &self.constants.last().unwrap());
+
+        // And.... Get the compiled results
+        let spell_bytecode = Assembler::convert_to_byte_code(&self.instructions);
+        let spell_constants = self.constants.pop().unwrap();
+
+        let spell = SpellObject {
+            name: Some(name.lexeme.clone()),
+            arity: reagents.len() as u8,
+            upvalue_count: 0,
+            constants: spell_constants,
+            bytecode: spell_bytecode,
+        };
+
+        // Restore the main instructions
+        std::mem::swap(&mut self.instructions, &mut spell_instructions);
+        self.register_index = prev_reg + 1;
+
+        // NOW! write the constant and set the value (this will be at the top of the main script BC)
+        let const_idx = self.write_constant(Value::Spell(Rc::new(spell)))?;
+        self.set_value_instruction(symbol, const_idx)?;
+
+        Ok(const_idx)
+    }
+
+    fn gen_sever_instructions(&mut self) -> GenResult<u8> {
+        if self.loop_blocks.is_empty() {
+            return Err(error("Only the loops can be severed."));
+        }
+        let ind = self.write_jump(Instruction::Jump { offset: 0xffff });
+        self.loop_blocks.last_mut().unwrap().severs.push(ind);
+
+        // dummy return
+        Ok(self.register_index)
     }
 
     fn gen_while_instructions(&mut self, condition: WovenExpr, body: WovenStmt) -> GenResult<u8> {
@@ -305,59 +382,40 @@ impl CodeGen {
 
     fn gen_assignment_instruction(&mut self, expr: WovenExpr, symbol: Symbol) -> GenResult<u8> {
         let reg = self.gen_from_expr(expr)?;
-        if symbol.depth > 0 {
-            self.instructions.push(Instruction::SetLocal {
-                src_reg: reg,
-                slot_idx: symbol.slot_idx as u16,
-            });
-        } else {
-            let c_ind = self.add_constant(Value::String(symbol.name.into()))?;
-            self.instructions.push(Instruction::SetGlobal {
-                src_reg: reg,
-                const_index: c_ind,
-            });
-        }
-        return Ok(reg);
+        self.set_value_instruction(symbol, reg)?;
+        Ok(reg)
     }
 
     /// Checks the depth, sets as local if depth > 0 else as a global with a value if provided.
     fn gen_var_decl_instruction(
         &mut self,
-        name: Token,
-        mutable: bool,
         initializer: Option<WovenExpr>,
         symbol: Symbol,
     ) -> GenResult<u8> {
+        let src = match initializer {
+            Some(init) => self.gen_from_expr(init)?,
+            None => self.write_constant(Value::Emptiness)?, // Assuming you have Value::Nil
+        };
+
+        self.set_value_instruction(symbol, src)?;
+
+        Ok(src)
+    }
+
+    fn set_value_instruction(&mut self, symbol: Symbol, src_reg: u8) -> GenResult<()> {
         if symbol.depth > 0 {
-            if let Some(init) = initializer {
-                let src = self.gen_from_expr(init)?;
-                self.instructions.push(Instruction::SetLocal {
-                    src_reg: src,
-                    slot_idx: symbol.slot_idx as u16,
-                });
-                return Ok(src);
-            } else {
-                let empty = self.get_next_register()?;
-                self.instructions
-                    .push(Instruction::Emptiness { dest: empty });
-                return Ok(empty);
-            }
+            self.instructions.push(Instruction::SetLocal {
+                src_reg,
+                slot_idx: symbol.slot_idx as u16,
+            });
         } else {
             let c_ind = self.add_constant(Value::String(symbol.name.into()))?;
-            if let Some(init) = initializer {
-                let src = self.gen_from_expr(init)?;
-                self.instructions.push(Instruction::SetGlobal {
-                    src_reg: src,
-                    const_index: c_ind,
-                });
-                return Ok(src);
-            } else {
-                let empty = self.get_next_register()?;
-                self.instructions
-                    .push(Instruction::Emptiness { dest: empty });
-                return Ok(empty);
-            }
+            self.instructions.push(Instruction::SetGlobal {
+                src_reg,
+                const_index: c_ind,
+            });
         }
+        Ok(())
     }
 
     fn gen_variable_instruction(&mut self, symbol: Symbol) -> GenResult<u8> {
@@ -450,9 +508,9 @@ impl CodeGen {
         match op.token_type {
             TokenType::Greater => {
                 self.gen_bin_op(left, right, |dest, r1, r2| Instruction::Greater {
-                    dest: dest,
-                    r1: left,
-                    r2: right,
+                    dest,
+                    r1,
+                    r2,
                 })?;
             }
 
