@@ -1,13 +1,24 @@
-spell meow(a: TextWeave) {
-    chant a;
+spell greet(name: TextWeave) {
+    chant "Hello, ";
+    chant name;
 }
 
-spell halloween() {
-    chant "nii chan";
+spell add(a: NumWeave, b: NumWeave) {
+    mark sum = a + b;
+    chant sum;
 }
 
-chant "calling meow:";
-meow("Hello from meow!");
+spell noParams() {
+    chant "I have no parameters!";
+}
 
-chant "calling halloween:";
-halloween();
+chant "Test 1: Spell with one parameter";
+greet("Alice");
+
+chant "";
+chant "Test 2: Spell with two parameters";
+add(5, 7);
+
+chant "";
+chant "Test 3: Spell with no parameters";
+noParams();

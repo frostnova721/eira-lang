@@ -201,7 +201,7 @@ impl Parser {
                     name: token,
                     weave_name: weave_name,
                 });
-                if !self.check(TokenType::Comma) {
+                if !self.match_token(TokenType::Comma) {
                     break;
                 }
             }
