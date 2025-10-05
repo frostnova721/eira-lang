@@ -1,24 +1,41 @@
 spell greet(name: TextWeave) {
     chant "Hello, ";
     chant name;
+    chant "!";
 }
 
 spell add(a: NumWeave, b: NumWeave) {
     mark sum = a + b;
+    chant "Sum:";
     chant sum;
+}
+
+spell multiply(x: NumWeave, y: NumWeave) {
+    mark product = x * y;
+    chant product;
 }
 
 spell noParams() {
     chant "I have no parameters!";
 }
 
-chant "Test 1: Spell with one parameter";
+chant "=== Spell Calling Tests ===";
+chant "";
+
+chant "Test 1: Spell with one TextWeave parameter";
 greet("Alice");
 
 chant "";
-chant "Test 2: Spell with two parameters";
+chant "Test 2: Spell with two NumWeave parameters (addition)";
 add(5, 7);
 
 chant "";
-chant "Test 3: Spell with no parameters";
+chant "Test 3: Spell with two NumWeave parameters (multiplication)";
+multiply(6, 7);
+
+chant "";
+chant "Test 4: Spell with no parameters";
 noParams();
+
+chant "";
+chant "=== All tests completed successfully! ===";
