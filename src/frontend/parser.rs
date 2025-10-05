@@ -409,8 +409,26 @@ impl Parser {
         }
     }
 
-    fn call(&mut self, _lhs: Expr) -> ParseResult<Expr> {
-        Err(ParseError("ehm".to_owned()))
+    fn call(&mut self, lhs: Expr) -> ParseResult<Expr> {
+        let mut arguments: Vec<Expr> = vec![];
+        
+        if !self.check(TokenType::ParenRight) {
+            loop {
+                arguments.push(self.expression()?);
+                if !self.match_token(TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+        
+        self.consume(TokenType::ParenRight, "Expected ')' after arguments!");
+        let paren = self.previous.clone();
+        
+        Ok(Expr::Call {
+            callee: Box::new(lhs),
+            paren: paren,
+            arguments: arguments,
+        })
     }
 
     fn variable(&mut self, _can_assign: bool) -> ParseResult<Expr> {

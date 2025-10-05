@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::frontend::{strand::{ADDITIVE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND}, tapestry::Tapestry};
+use crate::frontend::{strand::{ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND}, tapestry::Tapestry};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Weave {
@@ -42,6 +42,12 @@ pub const TruthWeave: Weave = Weave {
 pub const EmptyWeave: Weave = Weave {
     name: "EmptyWeave",
     tapestry: Tapestry::new(NO_STRAND),
+};
+
+/// Spell weave - for callable spell objects
+pub const SpellWeave: Weave = Weave {
+    name: "SpellWeave",
+    tapestry: Tapestry::new(CALLABLE_STRAND),
 };
 
 // /// Numbers

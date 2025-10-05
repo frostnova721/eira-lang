@@ -7,14 +7,14 @@ use crate::{
         scanner::Token,
         stmt::{Stmt, WovenStmt},
         strand::{
-            ADDITIVE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND,
+            ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND,
             EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND,
             SUBTRACTIVE_STRAND,
         },
         symbol_table::SymbolTable,
         tapestry::Tapestry,
         token_type::TokenType,
-        weaves::{EmptyWeave, NumWeave, TextWeave, TruthWeave, Weave, gen_weave_map},
+        weaves::{EmptyWeave, NumWeave, SpellWeave, TextWeave, TruthWeave, Weave, gen_weave_map},
     },
     value::Value,
 };
@@ -209,26 +209,42 @@ impl WeaveAnalyzer {
                 let slot = self.symbol_table.get_current_scope_size();
 
                 // get the ret type (weave ofc)
-                let ret_weave = match return_weave {
+                let _ret_weave = match return_weave {
                     Some(rw) => self.get_weave_from_name(&rw)?,
                     None => EmptyWeave,
                 };
 
+                // Spells are always SpellWeave (CALLABLE) regardless of return type
                 let symbol = self.symbol_table.define(
                     name.lexeme.clone(),
-                    ret_weave.clone(),
+                    SpellWeave,
                     false,
                     slot,
                 ).unwrap();
 
+                // Create a new scope for the spell body
+                self.symbol_table.new_scope();
+
+                // Define spell parameters as local variables in the new scope
                 for r in reagents {
+                    let param_weave = self.get_weave_from_name(&r.weave_name)?;
+                    let param_slot = self.symbol_table.get_current_scope_size();
+                    self.symbol_table.define(
+                        r.name.lexeme.clone(),
+                        param_weave.clone(),
+                        true, // parameters are mutable
+                        param_slot,
+                    );
                     w_reagents.push(WovenReagent {
                         name: r.name,
-                        weave: self.get_weave_from_name(&r.weave_name)?,
+                        weave: param_weave,
                     });
                 }
                 
                 let woven_body = self.analyze_statement(*body)?;
+
+                // End the spell scope
+                self.symbol_table.end_scope();
 
                 Ok(WovenStmt::Spell {
                     name: name,
@@ -307,6 +323,7 @@ impl WeaveAnalyzer {
                     Value::Emptiness => NO_STRAND,
                     Value::Bool(_) => TruthWeave.tapestry.0,
                     Value::String(_) => TextWeave.tapestry.0, // add indexive later,
+                    Value::Spell(_) | Value::Closure(_) => CALLABLE_STRAND,
                     _ => {
                         return Err(WeaveError::new(
                             "Couldnt find a weave for the value",
@@ -393,6 +410,34 @@ impl WeaveAnalyzer {
                         name,
                     ));
                 }
+            }
+            Expr::Call { callee, paren, arguments } => {
+                let woven_callee = self.analyze_expression(*callee)?;
+                
+                // Check if the callee has CALLABLE_STRAND
+                if !woven_callee.tapestry().has_strand(CALLABLE_STRAND) {
+                    return Err(WeaveError::new(
+                        "This value cannot be invoked as a spell!",
+                        paren,
+                    ));
+                }
+                
+                // Analyze all arguments
+                let mut woven_args: Vec<WovenExpr> = vec![];
+                for arg in arguments {
+                    woven_args.push(self.analyze_expression(arg)?);
+                }
+                
+                // For now, spell calls return EmptyWeave
+                // TODO: Track spell return types properly
+                let tapestry = EmptyWeave.tapestry;
+                
+                Ok(WovenExpr::Call {
+                    callee: Box::new(woven_callee),
+                    paren: paren,
+                    arguments: woven_args,
+                    tapestry: tapestry,
+                })
             }
         }
     }

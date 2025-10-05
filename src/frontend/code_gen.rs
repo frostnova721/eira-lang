@@ -258,6 +258,12 @@ impl CodeGen {
                 tapestry: _,
                 symbol,
             } => self.gen_assignment_instruction(*value, symbol),
+            WovenExpr::Call {
+                callee,
+                paren: _,
+                arguments,
+                tapestry: _,
+            } => self.gen_call_instruction(*callee, arguments),
         }
     }
 
@@ -280,6 +286,11 @@ impl CodeGen {
 
         // Compile the body
         self.gen_from_stmt(body)?;
+
+        // Add a Return instruction with Emptiness as the return value
+        let return_reg = self.get_next_register()?;
+        self.instructions.push(Instruction::Emptiness { dest: return_reg });
+        self.instructions.push(Instruction::Return { dest: return_reg });
 
         print_instructions(&name.lexeme, &self.instructions, &self.constants.last().unwrap());
 
@@ -630,6 +641,34 @@ impl CodeGen {
                 ))
             }
         }
+    }
+
+    fn gen_call_instruction(&mut self, callee: WovenExpr, arguments: Vec<WovenExpr>) -> GenResult<u8> {
+        // Generate code for the callee (should result in a spell in a register)
+        let callee_reg = self.gen_from_expr(callee)?;
+        
+        // Generate code for arguments and collect their registers
+        let mut arg_regs = [0u8; 8];
+        if arguments.len() > 8 {
+            return Err(error("Maximum 8 arguments supported for spell calls"));
+        }
+        
+        for (i, arg) in arguments.iter().enumerate() {
+            arg_regs[i] = self.gen_from_expr(arg.clone())?;
+        }
+        
+        // Allocate a register for the return value
+        let dest = self.get_next_register()?;
+        
+        // Emit the Call instruction
+        self.instructions.push(Instruction::Call {
+            dest,
+            callee_reg,
+            arg_count: arguments.len() as u8,
+            arg_regs,
+        });
+        
+        Ok(dest)
     }
 }
 

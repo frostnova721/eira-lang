@@ -16,7 +16,22 @@ pub fn print_byte_code(code: &Vec<u8>) {
     while i < code.len() {
         let byte = code[i];
         let op = OpCode::try_from(byte).unwrap();
-        let len = op.inst_len(); // or OpCode::inst_len(&op)
+        let mut len = op.inst_len(); // or OpCode::inst_len(&op)
+
+        // Special handling for Call instruction (variable length)
+        if matches!(op, OpCode::Call) {
+            // Call format: opcode(1) + dest(1) + callee(1) + arg_count(1) + args(arg_count)
+            if i + 4 <= code.len() {
+                let arg_count = code[i + 3];
+                len = 4 + arg_count as usize;
+            } else {
+                println!(
+                    "{:04}: Incomplete Call instruction at end of bytecode",
+                    i
+                );
+                break;
+            }
+        }
 
         if i + len > code.len() {
             println!(

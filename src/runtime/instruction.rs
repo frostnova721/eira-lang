@@ -39,6 +39,8 @@ pub enum Instruction {
 
     Concat { dest: u8, r1: u8, r2: u8 },
 
+    Call { dest: u8, callee_reg: u8, arg_count: u8, arg_regs: [u8; 8] },
+
     Return { dest: u8 },
 
     Halt,
@@ -108,6 +110,7 @@ impl Instruction {
                 offset: _,
             } => 4,
             Instruction::Concat { dest, r1, r2 } => 4,
+            Instruction::Call { dest: _, callee_reg: _, arg_count, arg_regs: _ } => 4 + (arg_count as usize),
             Instruction::Negate { dest: _, r1: _ } => 3,
             Instruction::Not { dest: _, r1: _ } => 3,
             Instruction::Jump { offset: _ } => 3,
@@ -159,6 +162,10 @@ impl Instruction {
             Instruction::JumpIfFalse { condition_reg, offset } => format!("JUMP_IF_FALSE {} {}", condition_reg, offset),
             Instruction::Loop { offset } => format!("LOOP {}", offset),
             Instruction::Concat { dest, r1, r2 } => format!("CONCAT {} {} {}", dest, r1, r2),
+            Instruction::Call { dest, callee_reg, arg_count, arg_regs } => {
+                let args: Vec<String> = arg_regs[..arg_count as usize].iter().map(|r| r.to_string()).collect();
+                format!("CALL {} {} [{}]", dest, callee_reg, args.join(", "))
+            }
             Instruction::Return { dest } => format!("RETURN {}", dest),
             Instruction::Halt => "Halt".to_owned(),
         }
@@ -213,6 +220,11 @@ impl Instruction {
                 vec![OpCode::Loop as u8, a, b]
             }
             Instruction::Concat { dest, r1, r2 } => vec![OpCode::Concat as u8, *dest, *r1, *r2],
+            Instruction::Call { dest, callee_reg, arg_count, arg_regs } => {
+                let mut bytes = vec![OpCode::Call as u8, *dest, *callee_reg, *arg_count];
+                bytes.extend_from_slice(&arg_regs[..(*arg_count as usize)]);
+                bytes
+            }
             Instruction::Return { dest } => vec![OpCode::Return as u8, *dest],
             // Instruction::Closure { dest, const_index } => {
             //     self.gen_const_byte_code(OpCode::Closure, const_index, dest)

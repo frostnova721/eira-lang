@@ -1,13 +1,13 @@
 spell meow(a: TextWeave) {
-    mark a = 5;
-    a = 3;
     chant a;
-
 }
-
-chant "meee";
-chant meow;
 
 spell halloween() {
     chant "nii chan";
 }
+
+chant "calling meow:";
+meow("Hello from meow!");
+
+chant "calling halloween:";
+halloween();

@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::{value::Value};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpellObject {
     pub name: Option<String>,
     pub arity: u8, // 255 should be enough. (please seek help if its not for you)
@@ -12,7 +12,7 @@ pub struct SpellObject {
     // asynchronous: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClosureObject {
     pub spell: SpellObject,
     pub upvalues: Vec<Rc<UpValue>>

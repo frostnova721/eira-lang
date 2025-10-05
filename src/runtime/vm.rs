@@ -327,8 +327,79 @@ impl EiraVM {
                     let offset = frame.read_u16();
                     frame.ip -= offset as usize;
                 }
+                OpCode::Call => {
+                    let dest_reg = frame.read_byte();
+                    let callee_reg = frame.read_byte();
+                    let arg_count = frame.read_byte();
+                    
+                    // Read argument registers
+                    let mut arg_regs = [0u8; 8];
+                    for i in 0..arg_count as usize {
+                        arg_regs[i] = frame.read_byte();
+                    }
+                    
+                    // Get the spell from the callee register
+                    let callee_value = get_register!(callee_reg).clone();
+                    
+                    match callee_value {
+                        Value::Spell(spell) => {
+                            // Check arity
+                            if spell.arity != arg_count {
+                                self.runtime_error(&format!(
+                                    "Expected {} arguments but got {}",
+                                    spell.arity, arg_count
+                                ));
+                                return InterpretResult::RuntimeError;
+                            }
+                            
+                            // Create closure from spell
+                            let closure = ClosureObject {
+                                spell: (*spell).clone(),
+                                upvalues: vec![],
+                            };
+                            
+                            // Push arguments to stack (they will be locals in the called function)
+                            let slot_start = self.stack.len();
+                            for i in 0..arg_count as usize {
+                                let arg = get_register!(arg_regs[i]).clone();
+                                self.stack.push(arg);
+                            }
+                            
+                            // Create new call frame
+                            let new_frame = CallFrame {
+                                closure: Rc::new(closure),
+                                ip: 0,
+                                slot_start,
+                                return_reg: dest_reg,
+                            };
+                            
+                            self.frames.push(new_frame);
+                        }
+                        _ => {
+                            self.runtime_error("Tried to call a non-spell value!");
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+                OpCode::Return => {
+                    let src_reg = frame.read_byte();
+                    let return_value = get_register!(src_reg).clone();
+                    
+                    // Pop the call frame
+                    let finished_frame = self.frames.pop().unwrap();
+                    
+                    // If this was the main script, we're done
+                    if self.frames.is_empty() {
+                        return InterpretResult::InterpretOk;
+                    }
+                    
+                    // Pop the function's local variables from the stack
+                    self.stack.truncate(finished_frame.slot_start);
+                    
+                    // Store return value in the caller's destination register
+                    self.registers[finished_frame.return_reg as usize] = return_value;
+                }
                 OpCode::Halt => break,
-                OpCode::Return => todo!(),
             }
         }
 
