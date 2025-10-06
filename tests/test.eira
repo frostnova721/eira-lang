@@ -1,41 +1,46 @@
-spell greet(name: TextWeave) {
+spell add(a: NumWeave, b: NumWeave) :: NumWeave {
+    mark sum = a + b;
+    chant sum;
+}
+
+spell multiply(x: NumWeave, y: NumWeave) :: NumWeave {
+    mark product = x * y;
+    chant product;
+}
+
+spell greet(name: TextWeave) :: TextWeave {
     chant "Hello, ";
     chant name;
     chant "!";
 }
 
-spell add(a: NumWeave, b: NumWeave) {
-    mark sum = a + b;
-    chant "Sum:";
-    chant sum;
+spell noReturn() {
+    chant "No return type specified";
 }
 
-spell multiply(x: NumWeave, y: NumWeave) {
-    mark product = x * y;
-    chant product;
-}
-
-spell noParams() {
-    chant "I have no parameters!";
-}
-
-chant "=== Spell Calling Tests ===";
+chant "=== Testing Spell Return Types ===";
 chant "";
 
-chant "Test 1: Spell with one TextWeave parameter";
-greet("Alice");
-
-chant "";
-chant "Test 2: Spell with two NumWeave parameters (addition)";
+chant "Test 1: NumWeave return type spell";
 add(5, 7);
 
 chant "";
-chant "Test 3: Spell with two NumWeave parameters (multiplication)";
+chant "Test 2: Another NumWeave spell";
 multiply(6, 7);
 
 chant "";
-chant "Test 4: Spell with no parameters";
-noParams();
+chant "Test 3: TextWeave return type spell";
+greet("Alice");
 
 chant "";
-chant "=== All tests completed successfully! ===";
+chant "Test 4: Spell with no return type (EmptyWeave)";
+noReturn();
+
+chant "";
+chant "=== Testing return value assignment ===";
+mark numResult = add(10, 20);
+chant "numResult has NumWeave type, current value:";
+chant numResult;
+
+chant "";
+chant "=== All return type tests completed ===";

@@ -48,6 +48,7 @@ pub struct WeaveAnalyzer {
     symbol_table: SymbolTable,
     loop_depth: usize,
     weaves_cache: HashMap<String, Weave>,
+    spell_return_types: HashMap<String, Weave>,
 }
 
 impl WeaveAnalyzer {
@@ -57,6 +58,7 @@ impl WeaveAnalyzer {
             symbol_table: st,
             loop_depth: 0,
             weaves_cache: HashMap::new(),
+            spell_return_types: HashMap::new(),
         }
     }
     pub fn analyze(&mut self, ast: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
@@ -209,10 +211,13 @@ impl WeaveAnalyzer {
                 let slot = self.symbol_table.get_current_scope_size();
 
                 // get the ret type (weave ofc)
-                let _ret_weave = match return_weave {
+                let ret_weave = match return_weave {
                     Some(rw) => self.get_weave_from_name(&rw)?,
                     None => EmptyWeave,
                 };
+
+                // Store the spell's return type for later lookup when the spell is called
+                self.spell_return_types.insert(name.lexeme.clone(), ret_weave.clone());
 
                 // Spells are always SpellWeave (CALLABLE) regardless of return type
                 let symbol = self.symbol_table.define(
@@ -428,9 +433,18 @@ impl WeaveAnalyzer {
                     woven_args.push(self.analyze_expression(arg)?);
                 }
                 
-                // For now, spell calls return EmptyWeave
-                // TODO: Track spell return types properly
-                let tapestry = EmptyWeave.tapestry;
+                // Determine the return type based on the callee
+                let tapestry = if let WovenExpr::Variable { name, .. } = &woven_callee {
+                    // Look up the spell's return type
+                    if let Some(ret_weave) = self.spell_return_types.get(&name.lexeme) {
+                        ret_weave.tapestry
+                    } else {
+                        EmptyWeave.tapestry
+                    }
+                } else {
+                    // For non-variable callees, default to EmptyWeave
+                    EmptyWeave.tapestry
+                };
                 
                 Ok(WovenExpr::Call {
                     callee: Box::new(woven_callee),
