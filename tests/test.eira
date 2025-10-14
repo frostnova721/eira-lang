@@ -1,5 +1,5 @@
 spell halloween(a: TextWeave) {
-    chant "nii chan" + "niga";
+    chant "nii chan" + "nii nii";
 }
 
 cast halloween with "10";
