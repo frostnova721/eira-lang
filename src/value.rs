@@ -137,7 +137,7 @@ pub fn print_value(value: Value) {
         Value::Number(value) => println!("{}", value),
         Value::String(value) => println!("{}", value),
         Value::Closure(closure) => println!("Closure '{:?}'", closure.spell.name),
-        Value::Spell(spell) => println!("Spell '{:?}'", spell.name),
+        Value::Spell(spell) => println!("Spell '{:?}'", spell.name.clone().unwrap()),
     }
 }
 

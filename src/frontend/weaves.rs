@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::frontend::{strand::{ADDITIVE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND}, tapestry::Tapestry};
+use crate::frontend::{strand::{ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND}, tapestry::Tapestry};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Weave {
@@ -16,8 +16,8 @@ pub fn gen_weave_map() -> HashMap<String, Weave> {
     weaves_map
 }
 
-fn get_weave_arr() -> [Weave; 3] {
-    [NumWeave, TextWeave, TruthWeave]
+fn get_weave_arr() -> [Weave; 5] {
+    [NumWeave, TextWeave, TruthWeave, EmptyWeave, SpellWeave]
 }
 
 /// Represents numbers
@@ -29,7 +29,7 @@ pub const NumWeave: Weave = Weave {
 /// Represents string
 pub const TextWeave: Weave = Weave {
     name: "TextWeave",
-    tapestry: Tapestry::new(CONCATINABLE_STRAND | INDEXIVE_STRAND)
+    tapestry: Tapestry::new(CONCATINABLE_STRAND | INDEXIVE_STRAND | EQUATABLE_STRAND)
 };
 
 /// Represents boolean
@@ -42,6 +42,11 @@ pub const TruthWeave: Weave = Weave {
 pub const EmptyWeave: Weave = Weave {
     name: "EmptyWeave",
     tapestry: Tapestry::new(NO_STRAND),
+};
+
+pub const SpellWeave: Weave = Weave {
+    name: "SpellWeave",
+    tapestry: Tapestry::new(CALLABLE_STRAND),
 };
 
 // /// Numbers

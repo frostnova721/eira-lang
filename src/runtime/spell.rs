@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{value::Value};
+use crate::{frontend::{reagents::WovenReagent, symbol_table::Symbol, weaves::Weave}, value::Value};
 
 #[derive(Debug)]
 pub struct SpellObject {
@@ -10,6 +10,14 @@ pub struct SpellObject {
     pub constants: Vec<Value>,
     pub bytecode: Vec<u8>
     // asynchronous: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpellInfo {
+    pub name: String,
+    pub reagents: Vec<WovenReagent>,
+    pub release_weave: Weave,
+    pub symbol: Symbol,
 }
 
 #[derive(Debug)]

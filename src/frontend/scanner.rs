@@ -267,6 +267,7 @@ fn identifier_type(ident: &str) -> TokenType {
         "tome" => TokenType::Tome,
         "true" => TokenType::True,
         "while" => TokenType::While,
+        "with" => TokenType::With,
         _ => TokenType::Identifier,
     };
 }

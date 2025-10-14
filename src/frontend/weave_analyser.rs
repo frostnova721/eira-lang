@@ -7,15 +7,16 @@ use crate::{
         scanner::Token,
         stmt::{Stmt, WovenStmt},
         strand::{
-            ADDITIVE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND,
-            EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND,
-            SUBTRACTIVE_STRAND,
+            ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND,
+            DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND,
+            MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND,
         },
         symbol_table::SymbolTable,
         tapestry::Tapestry,
         token_type::TokenType,
-        weaves::{EmptyWeave, NumWeave, TextWeave, TruthWeave, Weave, gen_weave_map},
+        weaves::{EmptyWeave, NumWeave, SpellWeave, TextWeave, TruthWeave, Weave, gen_weave_map},
     },
+    runtime::spell::SpellInfo,
     value::Value,
 };
 
@@ -48,6 +49,7 @@ pub struct WeaveAnalyzer {
     symbol_table: SymbolTable,
     loop_depth: usize,
     weaves_cache: HashMap<String, Weave>,
+    spells: HashMap<String, SpellInfo>, // The return weaves of spells
 }
 
 impl WeaveAnalyzer {
@@ -57,6 +59,7 @@ impl WeaveAnalyzer {
             symbol_table: st,
             loop_depth: 0,
             weaves_cache: HashMap::new(),
+            spells: HashMap::new(),
         }
     }
     pub fn analyze(&mut self, ast: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
@@ -203,23 +206,33 @@ impl WeaveAnalyzer {
                 name,
                 reagents,
                 body,
-                return_weave
+                return_weave,
             } => {
+                // check n report for existing ones in the scope.
+                let existing = self.symbol_table.resolve(&name.lexeme);
+                if existing.is_some() {
+                    return Err(WeaveError::new(
+                        &format!(
+                            "The spell '{}' already exists in the current scope!",
+                            name.lexeme
+                        ),
+                        name,
+                    ));
+                }
+
                 let mut w_reagents: Vec<WovenReagent> = vec![];
                 let slot = self.symbol_table.get_current_scope_size();
 
-                // get the ret type (weave ofc)
+                // get the ret type (weave ofcourse)
                 let ret_weave = match return_weave {
                     Some(rw) => self.get_weave_from_name(&rw)?,
                     None => EmptyWeave,
                 };
 
-                let symbol = self.symbol_table.define(
-                    name.lexeme.clone(),
-                    ret_weave.clone(),
-                    false,
-                    slot,
-                ).unwrap();
+                let symbol = self
+                    .symbol_table
+                    .define(name.lexeme.clone(), SpellWeave, false, slot)
+                    .unwrap();
 
                 for r in reagents {
                     w_reagents.push(WovenReagent {
@@ -227,7 +240,21 @@ impl WeaveAnalyzer {
                         weave: self.get_weave_from_name(&r.weave_name)?,
                     });
                 }
-                
+
+                // save it...
+                self.spells.insert(
+                    name.lexeme.clone(),
+                    SpellInfo {
+                        name: name.lexeme.clone(),
+                        reagents: w_reagents.clone(),
+                        release_weave: ret_weave.clone(),
+                        symbol: self
+                            .symbol_table
+                            .define(name.lexeme.clone(), ret_weave.clone(), false, slot)
+                            .unwrap(),
+                    },
+                );
+
                 let woven_body = self.analyze_statement(*body)?;
 
                 Ok(WovenStmt::Spell {
@@ -250,31 +277,50 @@ impl WeaveAnalyzer {
                 let w_left = self.analyze_expression(*left)?;
                 let w_right = self.analyze_expression(*right)?;
 
-                if let Some(req_strand) = self.strand_from_op(operator.token_type) {
-                    if !w_left.tapestry().has_strand(req_strand) {
-                        return Err(WeaveError::new(
-                            &format!(
-                                "The weave of one of the operands is not composed of {} strand.",
-                                self.strand_string_from_bits(req_strand)
-                            ),
-                            operator,
-                        ));
-                    }
+                if operator.token_type == TokenType::Plus {
+                    let left_has_additive = w_left.tapestry().has_strand(ADDITIVE_STRAND);
+                    let left_has_concat = w_left.tapestry().has_strand(CONCATINABLE_STRAND);
+                    let right_has_additive = w_right.tapestry().has_strand(ADDITIVE_STRAND);
+                    let right_has_concat = w_right.tapestry().has_strand(CONCATINABLE_STRAND);
 
-                    if !w_right.tapestry().has_strand(req_strand) {
+                    // Both must support the same type of operation
+                    if (left_has_additive && right_has_additive)
+                        || (left_has_concat && right_has_concat)
+                    {
+                        // Valid operation
+                    } else {
                         return Err(WeaveError::new(
-                            &format!(
-                                "The weave of one of the operands is not composed of {} strand.",
-                                self.strand_string_from_bits(req_strand)
-                            ),
+                            "Cannot perform '+' operation: operands must both contain either 'Additive' or 'Concatinable' strand.",
                             operator,
                         ));
                     }
                 } else {
-                    return Err(WeaveError::new(
-                        &format!("Unknown operation '{}'", operator.lexeme),
-                        operator,
-                    ));
+                    if let Some(req_strand) = self.strand_from_op(operator.token_type) {
+                        if !w_left.tapestry().has_strand(req_strand) {
+                            return Err(WeaveError::new(
+                                &format!(
+                                    "The weave of one of the operands is not composed of {} strand.",
+                                    self.strand_string_from_bits(req_strand)
+                                ),
+                                operator,
+                            ));
+                        }
+
+                        if !w_right.tapestry().has_strand(req_strand) {
+                            return Err(WeaveError::new(
+                                &format!(
+                                    "The weave of one of the operands is not composed of {} strand.",
+                                    self.strand_string_from_bits(req_strand)
+                                ),
+                                operator,
+                            ));
+                        }
+                    } else {
+                        return Err(WeaveError::new(
+                            &format!("Unknown operation '{}'", operator.lexeme),
+                            operator,
+                        ));
+                    }
                 }
 
                 let result_tape = match operator.token_type {
@@ -284,6 +330,16 @@ impl WeaveAnalyzer {
                     | TokenType::LessEqual
                     | TokenType::GreaterEqual
                     | TokenType::BangEqual => TruthWeave.tapestry,
+                    TokenType::Plus => {
+                        // hard coded for now. Should be dynamic later
+                        if w_left.tapestry().has_strand(ADDITIVE_STRAND)
+                            && w_right.tapestry().has_strand(ADDITIVE_STRAND)
+                        {
+                            NumWeave.tapestry
+                        } else {
+                            TextWeave.tapestry
+                        }
+                    }
                     _ => w_left.tapestry(), // Assumes left-hand side's type
                 };
 
@@ -394,12 +450,63 @@ impl WeaveAnalyzer {
                     ));
                 }
             }
+            Expr::Cast { reagents, callee } => {
+                let spell_name = &callee.lexeme;
+
+                let Some(spell_info) = self.spells.get(spell_name).cloned() else {   
+                    return Err(WeaveError::new(
+                        &format!(
+                            "The spell '{}' was not found in the current scope!",
+                            spell_name
+                        ),
+                        callee,
+                    ));
+                };
+
+                if spell_info.reagents.len() != reagents.len() {
+                    return Err(WeaveError::new(
+                        &format!(
+                            "The spell '{}' expected {} reagents, but you added {} of them!",
+                            spell_name.clone(),
+                            spell_info.reagents.len(),
+                            reagents.len()
+                        ),
+                        callee,
+                    ));
+                }
+
+                let mut w_reagents: Vec<WovenExpr> = vec![];
+                let spell_reagents = spell_info.reagents.clone();
+                for (i, reagent) in reagents.iter().enumerate() {
+                    let w_expr = self.analyze_expression(reagent.clone())?;
+                    let expected = spell_reagents.get(i).unwrap();
+                    if w_expr.tapestry().0 != expected.weave.tapestry.0 {
+                        return Err(WeaveError::new(
+                            &format!(
+                                "The reagent #{} for spell '{}' was expected to be {}, but got {}",
+                                i + 1,
+                                spell_name,
+                                expected.weave.name,
+                                self.get_weave(w_expr.tapestry())?.name
+                            ),
+                            callee,
+                        ));
+                    }
+                    w_reagents.push(w_expr.clone());
+                }
+
+                Ok(WovenExpr::Cast {
+                    reagents: w_reagents,
+                    callee: callee,
+                    tapestry: spell_info.release_weave.tapestry,
+                })
+            }
         }
     }
 
     fn strand_from_op(&self, op: TokenType) -> Option<u64> {
         match op {
-            TokenType::Plus => Some(ADDITIVE_STRAND),
+            TokenType::Plus => Some(ADDITIVE_STRAND | CONCATINABLE_STRAND),
             TokenType::Minus => Some(SUBTRACTIVE_STRAND),
             TokenType::Star => Some(MULTIPLICATIVE_STRAND),
             TokenType::Slash => Some(DIVISIVE_STRAND),
@@ -451,11 +558,13 @@ impl WeaveAnalyzer {
         const NUM: u64 = NumWeave.tapestry.0;
         const TEXT: u64 = TextWeave.tapestry.0;
         const TRUTH: u64 = TruthWeave.tapestry.0;
+        const SPELL: u64 = SpellWeave.tapestry.0;
         // println!("{:?}", tapestry);
         match tapestry.0 {
             NUM => Ok(NumWeave),
             TEXT => Ok(TextWeave),
             TRUTH => Ok(TruthWeave),
+            SPELL => Ok(SpellWeave),
             _ => Err(WeaveError::new(
                 "The tapestries and the weaves were undefined.\nCare to define those weaves?",
                 demo_tkn(),

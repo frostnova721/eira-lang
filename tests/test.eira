@@ -1,13 +1,7 @@
-spell meow(a: TextWeave) {
-    mark a = 5;
-    a = 3;
-    chant a;
-
+spell halloween(a: TextWeave) {
+    chant "nii chan" + "niga";
 }
 
-chant "meee";
-chant meow;
+cast halloween with "10";
 
-spell halloween() {
-    chant "nii chan";
-}
+//cast ark:mage::halloween

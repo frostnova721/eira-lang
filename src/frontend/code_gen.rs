@@ -258,7 +258,30 @@ impl CodeGen {
                 tapestry: _,
                 symbol,
             } => self.gen_assignment_instruction(*value, symbol),
+            WovenExpr::Cast {
+                reagents,
+                callee,
+                tapestry,
+            } => self.gen_cast_instruction(reagents, callee, tapestry),
         }
+    }
+
+    fn gen_cast_instruction(
+        &mut self,
+        reagents: Vec<WovenExpr>,
+        callee: Token,
+        tapestry: Tapestry,
+    ) -> GenResult<u8> {
+        let mut regs = vec![];
+
+        for reagent in reagents {
+            let r = self.gen_from_expr(reagent)?;
+            regs.push(r);
+        }
+
+        let dest = self.get_next_register()?;
+
+        Ok(dest)
     }
 
     fn gen_spell_instructions(
@@ -281,7 +304,11 @@ impl CodeGen {
         // Compile the body
         self.gen_from_stmt(body)?;
 
-        print_instructions(&name.lexeme, &self.instructions, &self.constants.last().unwrap());
+        print_instructions(
+            &name.lexeme,
+            &self.instructions,
+            &self.constants.last().unwrap(),
+        );
 
         // And.... Get the compiled results
         let spell_bytecode = Assembler::convert_to_byte_code(&self.instructions);
@@ -481,6 +508,7 @@ impl CodeGen {
         let reg = match self.get_weave(tapestry)?.tapestry.0 {
             NUM => self.gen_num_op(r1, r2, op),
             TRUTH => self.gen_bin_truth_op(r1, r2, op),
+            TEXT => self.gen_bin_text_op(r1, r2, op),
             _ => return Err(error("Unknown weave brotha, check it.")),
         }?;
         return Ok(reg);
@@ -502,6 +530,26 @@ impl CodeGen {
         let less = inst_builder(dest_reg, left, right);
         self.instructions.push(less);
         Ok(dest_reg)
+    }
+
+    fn gen_bin_text_op(&mut self, left: u8, right: u8, op: Token) -> GenResult<u8> {
+        match op.token_type {
+            TokenType::Plus => {
+                self.gen_bin_op(left, right, |dest, r1, r2| Instruction::Concat {
+                    dest,
+                    r1,
+                    r2,
+                })?;
+            }
+            _ => {
+                // This error msg should be shown to the user, and... if it does, compiler is bugged
+                return Err(error(&format!(
+                    "Strand for '{}' operation hasnt been entangled with Eira realms!.\nThis error shouldn't be thrown, Report it to devs!",
+                    op.lexeme
+                )));
+            }
+        }
+        Ok(self.get_last_allocated_register())
     }
 
     fn gen_bin_truth_op(&mut self, left: u8, right: u8, op: Token) -> GenResult<u8> {

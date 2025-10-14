@@ -39,7 +39,7 @@ impl SymbolTable {
                 mutable: mutable,
                 weave: weave,
                 depth: depth,
-                slot_idx: slot_idx
+                slot_idx: slot_idx,
             };
             scope.insert(name, symbol.clone());
             return Some(symbol);

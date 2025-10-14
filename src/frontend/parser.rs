@@ -195,13 +195,14 @@ impl Parser {
                     TokenType::Identifier,
                     "Expected a weave name to bind with the mark!",
                 );
-                
+
                 let weave_name = self.previous.lexeme.clone();
                 params.push(Reagent {
                     name: token,
                     weave_name: weave_name,
                 });
-                if !self.check(TokenType::Comma) {
+
+                if !self.match_token(TokenType::Comma) {
                     break;
                 }
             }
@@ -212,7 +213,10 @@ impl Parser {
         let weave_name: Option<String>;
 
         if self.match_token(TokenType::ColonColon) {
-            self.consume(TokenType::Identifier, "Expected a weave bound to the spell!");
+            self.consume(
+                TokenType::Identifier,
+                "Expected a weave bound to the spell!",
+            );
             weave_name = Some(self.previous.lexeme.clone());
         } else {
             weave_name = None;
@@ -233,6 +237,9 @@ impl Parser {
         self.consume(TokenType::Identifier, "Expected a variable name!");
         let name = self.previous.clone();
         let initializer: Option<Expr>;
+
+        // TODO: Add explicit weave assigning
+
         if self.match_token(TokenType::Equal) {
             initializer = Some(self.expression()?);
         } else {
@@ -409,8 +416,21 @@ impl Parser {
         }
     }
 
-    fn call(&mut self, _lhs: Expr) -> ParseResult<Expr> {
-        Err(ParseError("ehm".to_owned()))
+    fn cast(&mut self, _can_assign: bool) -> ParseResult<Expr> {
+        self.consume(TokenType::Identifier, "Expected a spell name to cast.");
+        let spell_name = self.previous.clone();
+        self.consume(TokenType::With, "Expected 'with' after spell name.");
+        let mut reagents: Vec<Expr> = vec![];
+
+        // Parse the reagent expressions
+        loop {
+            reagents.push(self.expression()?);
+            if !self.match_token(TokenType::Comma) {
+                break;
+            }
+        }
+
+        Ok(Expr::Cast { reagents, callee: spell_name })
     }
 
     fn variable(&mut self, _can_assign: bool) -> ParseResult<Expr> {
@@ -465,12 +485,22 @@ impl Parser {
 
     fn get_rule(&self, token_type: TokenType) -> ParseRule {
         match token_type {
-            TokenType::ParenLeft => ParseRule {
-                prefix: Some(Self::grouping),
-                infix: Some(Self::call),
-                precedence: Precedence::Call,
+            TokenType::Alias => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
             },
-            TokenType::ParenRight => ParseRule {
+            TokenType::Bang => ParseRule {
+                prefix: Some(Self::unary),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::BangEqual => ParseRule {
+                prefix: None,
+                infix: Some(Self::binary),
+                precedence: Precedence::Equality,
+            },
+            TokenType::Bind => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
@@ -485,7 +515,32 @@ impl Parser {
                 infix: None,
                 precedence: Precedence::None,
             },
+            TokenType::Cast => ParseRule {
+                prefix: Some(Self::cast),
+                infix: None,
+                precedence: Precedence::Call,
+            },
+            TokenType::Chant => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::Colon => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::ColonColon => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenType::Comma => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::Divert => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
@@ -495,40 +550,10 @@ impl Parser {
                 infix: None,
                 precedence: Precedence::Call,
             },
-            TokenType::Minus => ParseRule {
-                prefix: Some(Self::unary),
-                infix: Some(Self::binary),
-                precedence: Precedence::Term,
-            },
-            TokenType::Plus => ParseRule {
-                prefix: None,
-                infix: Some(Self::binary),
-                precedence: Precedence::Term,
-            },
-            TokenType::SemiColon => ParseRule {
+            TokenType::Eof => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
-            },
-            TokenType::Slash => ParseRule {
-                prefix: None,
-                infix: Some(Self::binary),
-                precedence: Precedence::Factor,
-            },
-            TokenType::Star => ParseRule {
-                prefix: None,
-                infix: Some(Self::binary),
-                precedence: Precedence::Factor,
-            },
-            TokenType::Bang => ParseRule {
-                prefix: Some(Self::unary),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::BangEqual => ParseRule {
-                prefix: None,
-                infix: Some(Self::binary),
-                precedence: Precedence::Equality,
             },
             TokenType::Equal => ParseRule {
                 prefix: None,
@@ -540,6 +565,21 @@ impl Parser {
                 infix: Some(Self::binary),
                 precedence: Precedence::Equality,
             },
+            TokenType::False => ParseRule {
+                prefix: Some(Self::literal),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::Fate => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::Flow => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenType::Greater => ParseRule {
                 prefix: None,
                 infix: Some(Self::binary),
@@ -549,6 +589,11 @@ impl Parser {
                 prefix: None,
                 infix: Some(Self::binary),
                 precedence: Precedence::Compare,
+            },
+            TokenType::Identifier => ParseRule {
+                prefix: Some(Self::variable),
+                infix: None,
+                precedence: Precedence::None,
             },
             TokenType::Less => ParseRule {
                 prefix: None,
@@ -560,33 +605,47 @@ impl Parser {
                 infix: Some(Self::binary),
                 precedence: Precedence::Compare,
             },
-            TokenType::Identifier => ParseRule {
-                prefix: Some(Self::variable),
+            TokenType::Mark => ParseRule {
+                prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenType::String => ParseRule {
-                prefix: Some(Self::string),
-                infix: None,
-                precedence: Precedence::None,
+            TokenType::Minus => ParseRule {
+                prefix: Some(Self::unary),
+                infix: Some(Self::binary),
+                precedence: Precedence::Term,
             },
             TokenType::Number => ParseRule {
                 prefix: Some(Self::number),
                 infix: None,
                 precedence: Precedence::None,
             },
-            // TokenType::And => ParseRule { prefix: None, infix: Some(Self::and_), precedence: Precedence::None },
-            TokenType::Tome => ParseRule {
+            TokenType::ParenLeft => ParseRule {
+                prefix: Some(Self::grouping),
+                infix: None,
+                precedence: Precedence::Call,
+            },
+            TokenType::ParenRight => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenType::Flow => ParseRule {
+            TokenType::Plus => ParseRule {
+                prefix: None,
+                infix: Some(Self::binary),
+                precedence: Precedence::Term,
+            },
+            TokenType::Release => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenType::Alias => ParseRule {
+            TokenType::Seal => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::SemiColon => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
@@ -596,52 +655,33 @@ impl Parser {
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenType::Divert => ParseRule {
+            TokenType::Slash => ParseRule {
                 prefix: None,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Self::binary),
+                precedence: Precedence::Factor,
             },
-            TokenType::False => ParseRule {
-                prefix: Some(Self::literal),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            // TokenType::For => ParseRule { prefix: None, infix: None, precedence: Precedence::None },
             TokenType::Spell => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenType::Fate => ParseRule {
+            TokenType::Star => ParseRule {
+                prefix: None,
+                infix: Some(Self::binary),
+                precedence: Precedence::Factor,
+            },
+            TokenType::String => ParseRule {
+                prefix: Some(Self::string),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::Tome => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            // TokenType::Or => ParseRule { prefix: None, infix: Some(Self::or_), precedence: Precedence::Or },
-            TokenType::Chant => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::Release => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            // TokenType::Origin => ParseRule { prefix: Some(Self::super_), infix: None, precedence: Precedence::None },
-            // TokenType::_Self => ParseRule { prefix: Some(Self::this_), infix: None, precedence: Precedence::None },
             TokenType::True => ParseRule {
                 prefix: Some(Self::literal),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::Mark => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::Bind => ParseRule {
-                prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -651,11 +691,6 @@ impl Parser {
                 precedence: Precedence::None,
             },
             TokenType::Error => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::Eof => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
