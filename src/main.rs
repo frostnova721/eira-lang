@@ -10,11 +10,16 @@ fn main() {
     let parser = Parser::new(tokens);
     let ast = parser.parse();
 
+    if ast.is_err() {
+        println!("Parse Error: {:?}", ast.err().unwrap());
+        return;
+    }
+
     println!("AST:");
     println!("{:?}", ast);
 
     let mut weave_analyzer = WeaveAnalyzer::new();
-    let woven_tree = weave_analyzer.analyze(ast);
+    let woven_tree = weave_analyzer.analyze(ast.unwrap());
     match woven_tree {
         Err(no_no) => {
             println!(

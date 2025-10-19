@@ -48,14 +48,18 @@ impl Parser {
         parser
     }
 
-    pub fn parse(mut self) -> Vec<Stmt> {
+    pub fn parse(mut self) -> ParseResult<Vec<Stmt>> {
         let mut stmts: Vec<Stmt> = vec![];
         while !self.reached_end() {
             if let Some(stmt) = self.declaration() {
                 stmts.push(stmt);
             }
         }
-        stmts
+
+        if self.error {
+            return Err(ParseError("Parsing failed due to errors.".to_owned()));
+        }
+        Ok(stmts)
     }
 
     fn advance(&mut self) {
@@ -100,7 +104,7 @@ impl Parser {
         true
     }
 
-    fn check(&mut self, token_type: TokenType) -> bool {
+    fn check(&self, token_type: TokenType) -> bool {
         token_type == self.current.token_type
     }
 
@@ -155,9 +159,7 @@ impl Parser {
 
     fn declaration(&mut self) -> Option<Stmt> {
         let res: ParseResult<Stmt>;
-        if self.match_token(TokenType::Spell) {
-            res = self.spell_declaration();
-        } else if self.match_token(TokenType::Mark) {
+        if self.match_token(TokenType::Mark) {
             res = self.variable_declaration(true);
         } else if self.match_token(TokenType::Bind) {
             res = self.variable_declaration(false);
@@ -425,8 +427,12 @@ impl Parser {
         // Parse the reagent expressions
         loop {
             reagents.push(self.expression()?);
-            if !self.match_token(TokenType::Comma) {
+            if self.match_token(TokenType::Comma) {
+                continue;
+            } else if self.check(TokenType::SemiColon) {
                 break;
+            } else {
+                self.throw_error_at_current("Expected ',' got something else!");
             }
         }
 
@@ -707,7 +713,7 @@ struct ParseRule {
 }
 
 #[derive(Debug)] // Add this to allow printing the error
-pub struct ParseError(String);
+pub struct ParseError(pub String);
 
 pub type ParseResult<T> = Result<T, ParseError>;
 

@@ -1,4 +1,4 @@
-use std::{fmt::format, vec};
+use std::{vec};
 
 use crate::runtime::operation::OpCode;
 
@@ -39,15 +39,18 @@ pub enum Instruction {
 
     Concat { dest: u8, r1: u8, r2: u8 },
 
-    Return { dest: u8 },
+    Release { dest: u8 },
+
+    Cast { dest: u8, spell_reg: u8, reg_start: u8, },
 
     Halt,
 }
 
 impl Instruction {
-    /// Returns the length of the instruction
+    /// Releases the length of the instruction
     pub fn len(self) -> usize {
         match self {
+            Instruction::Cast { dest: _, spell_reg: _, reg_start: _} => 4,
             Instruction::Add {
                 dest: _,
                 r1: _,
@@ -107,22 +110,22 @@ impl Instruction {
                 condition_reg: _,
                 offset: _,
             } => 4,
-            Instruction::Concat { dest, r1, r2 } => 4,
+            Instruction::Concat { dest: _, r1: _, r2: _ } => 4,
             Instruction::Negate { dest: _, r1: _ } => 3,
             Instruction::Not { dest: _, r1: _ } => 3,
             Instruction::Jump { offset: _ } => 3,
-            Instruction::Loop { offset:_ } => 3,
+            Instruction::Loop { offset: _ } => 3,
             Instruction::PopStack { pop_count: _ } => 3,
             Instruction::True { dest: _ } => 2,
             Instruction::False { dest: _ } => 2,
             Instruction::Print { r1: _ } => 2,
-            Instruction::Return { dest:_ } => 2,
+            Instruction::Release { dest: _ } => 2,
             Instruction::Emptiness { dest: _ } => 2,
             Instruction::Halt => 1,
         }
     }
 
-    /// Returns the string representation of the [Instruction]
+    /// Releases the string representation of the [Instruction]
     pub fn to_string(self) -> String {
         match self {
             Instruction::Add { dest, r1, r2 } => format!("ADD {} {} {}", dest, r1, r2),
@@ -159,12 +162,13 @@ impl Instruction {
             Instruction::JumpIfFalse { condition_reg, offset } => format!("JUMP_IF_FALSE {} {}", condition_reg, offset),
             Instruction::Loop { offset } => format!("LOOP {}", offset),
             Instruction::Concat { dest, r1, r2 } => format!("CONCAT {} {} {}", dest, r1, r2),
-            Instruction::Return { dest } => format!("RETURN {}", dest),
+            Instruction::Release { dest } => format!("RETURN {}", dest),
+            Instruction::Cast { dest, spell_reg, reg_start} => format!("CAST {} {} {}", dest, spell_reg, reg_start),
             Instruction::Halt => "Halt".to_owned(),
         }
     }
 
-    /// Returns the bytecode for the specific instruction
+    /// Releases the bytecode for the specific instruction
     pub fn get_byte_code(&self) -> Vec<u8> {
         match self {
             Instruction::Add { dest, r1, r2 } => vec![OpCode::Add as u8, *dest, *r1, *r2],
@@ -213,10 +217,11 @@ impl Instruction {
                 vec![OpCode::Loop as u8, a, b]
             }
             Instruction::Concat { dest, r1, r2 } => vec![OpCode::Concat as u8, *dest, *r1, *r2],
-            Instruction::Return { dest } => vec![OpCode::Return as u8, *dest],
+            Instruction::Release { dest } => vec![OpCode::Release as u8, *dest],
             // Instruction::Closure { dest, const_index } => {
             //     self.gen_const_byte_code(OpCode::Closure, const_index, dest)
             // }
+            Instruction::Cast { dest, spell_reg, reg_start} => vec![OpCode::Cast as u8, *dest, *spell_reg, *reg_start],
             Instruction::Halt => vec![OpCode::Halt as u8],
         }
     }

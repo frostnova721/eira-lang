@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::{frontend::{reagents::WovenReagent, symbol_table::Symbol, weaves::Weave}, value::Value};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpellObject {
     pub name: Option<String>,
     pub arity: u8, // 255 should be enough. (please seek help if its not for you)
@@ -22,7 +22,7 @@ pub struct SpellInfo {
 
 #[derive(Debug)]
 pub struct ClosureObject {
-    pub spell: SpellObject,
+    pub spell: Rc<SpellObject>,
     pub upvalues: Vec<Rc<UpValue>>
 }
 

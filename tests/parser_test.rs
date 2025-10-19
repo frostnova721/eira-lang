@@ -9,7 +9,7 @@ mod parser_test {
         let scanner = Scanner::init(source);
         let tokens = scanner.tokenize();
         let parser = Parser::new(tokens);
-        parser.parse()
+        parser.parse().unwrap()
     }
 
     #[test]

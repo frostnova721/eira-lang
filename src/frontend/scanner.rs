@@ -15,7 +15,7 @@ pub struct Scanner<'a> {
     line: usize,
     column: usize,
 
-    interpolating: bool,
+    // interpolating: bool,
 }
 
 impl<'a> Scanner<'a> {
@@ -26,7 +26,7 @@ impl<'a> Scanner<'a> {
             line: 1,
             start: 0,
             column: 0,
-            interpolating: false,
+            // interpolating: false,
         }
     }
 

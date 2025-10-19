@@ -177,14 +177,11 @@ impl WeaveAnalyzer {
 
                 // enter loop scope (for sever, flow purposes)
                 self.loop_depth += 1;
-                let depth_before = self.loop_depth;
 
                 let w_body = self.analyze_statement(*body)?;
 
-                // exit the loop scope if not done by sever stmt
-                if depth_before < self.loop_depth {
-                    self.loop_depth -= 1;
-                }
+                // loop scope exit
+                self.loop_depth -= 1;
 
                 Ok(WovenStmt::While {
                     condition: w_condition,
@@ -198,7 +195,7 @@ impl WeaveAnalyzer {
                         demo_tkn(),
                     ));
                 }
-                self.loop_depth -= 1;
+                // self.loop_depth -= 1;
                 Ok(WovenStmt::Sever)
             }
 
@@ -229,15 +226,20 @@ impl WeaveAnalyzer {
                     None => EmptyWeave,
                 };
 
+                // define the spell
                 let symbol = self
                     .symbol_table
                     .define(name.lexeme.clone(), SpellWeave, false, slot)
                     .unwrap();
 
+                self.symbol_table.new_scope();
+
                 for r in reagents {
+                    let weave = self.get_weave_from_name(&r.weave_name)?;
+                    self.symbol_table.define(r.name.lexeme.clone(), weave.clone(), false, self.symbol_table.get_current_scope_size());
                     w_reagents.push(WovenReagent {
-                        name: r.name,
-                        weave: self.get_weave_from_name(&r.weave_name)?,
+                        name: r.name.clone(),
+                        weave: weave,
                     });
                 }
 
@@ -248,14 +250,13 @@ impl WeaveAnalyzer {
                         name: name.lexeme.clone(),
                         reagents: w_reagents.clone(),
                         release_weave: ret_weave.clone(),
-                        symbol: self
-                            .symbol_table
-                            .define(name.lexeme.clone(), ret_weave.clone(), false, slot)
-                            .unwrap(),
+                        symbol: symbol.clone(),
                     },
                 );
 
                 let woven_body = self.analyze_statement(*body)?;
+
+                self.symbol_table.end_scope();
 
                 Ok(WovenStmt::Spell {
                     name: name,
@@ -499,6 +500,7 @@ impl WeaveAnalyzer {
                     reagents: w_reagents,
                     callee: callee,
                     tapestry: spell_info.release_weave.tapestry,
+                    spell_symbol: spell_info.symbol,
                 })
             }
         }
@@ -542,14 +544,13 @@ impl WeaveAnalyzer {
         if self.weaves_cache.is_empty() {
             self.weaves_cache = gen_weave_map();
         }
-        println!("{}", name);
 
         if let Some(w) = self.weaves_cache.get(name) {
             return Ok(w.clone());
         }
 
         Err(WeaveError::new(
-            "Couldn't find the weave '{}' within the Eira's library!",
+            &format!("Couldn't find the weave '{}' within the Eira's library!", name),
             demo_tkn(),
         ))
     }

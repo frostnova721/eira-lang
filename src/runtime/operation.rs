@@ -55,7 +55,10 @@ pub enum OpCode {
     //loop
     Loop,
 
-    Return,
+    // function calls
+    Cast,
+
+    Release,
 }
 
 impl OpCode {
@@ -82,16 +85,17 @@ impl OpCode {
             OpCode::Jump => "OP_JUMP",
             OpCode::JumpIfFalse => "OP_JUMP_FALSE",
             OpCode::Loop => "OP_LOOP",
-            OpCode::Return => "OP_RETURN",
+            OpCode::Release => "OP_RETURN",
             OpCode::True => "OP_TRUE",
             OpCode::False => "OP_FALSE",
+            OpCode::Cast => "OP_CAST",
             _ => "OP_UNKNOWN",
         }
         .to_owned()
     }
 
     pub fn inst_len(&self) -> usize {
-        match self {
+        match self {            
             OpCode::Add
             | OpCode::Subtract
             | OpCode::Multiply
@@ -105,11 +109,12 @@ impl OpCode {
             | OpCode::GetLocal
             | OpCode::JumpIfFalse
             | OpCode::Concat
+            | OpCode::Cast
             | OpCode::Greater => 4, // opcode + dest + r1 + r2
 
             OpCode::Negate | OpCode::Not | OpCode::PopStack | OpCode::Jump | OpCode::Loop => 3, // opcode + dest + r1
 
-            OpCode::True | OpCode::False | OpCode::Print | OpCode::Emptiness | OpCode::Return => 2, // opcode + r1/dest
+            OpCode::True | OpCode::False | OpCode::Print | OpCode::Emptiness | OpCode::Release => 2, // opcode + r1/dest
 
             OpCode::Halt => 1, // just the opcode
         }

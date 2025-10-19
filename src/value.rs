@@ -147,7 +147,7 @@ impl Default for Value {
     }
 }
 
-enum ValueType {
+pub enum ValueType {
     String,
     Number,
     Bool,

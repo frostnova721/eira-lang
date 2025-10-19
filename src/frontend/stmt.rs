@@ -1,4 +1,4 @@
-use crate::frontend::{expr::{Expr, WovenExpr}, reagents::{Reagent, WovenReagent}, scanner::Token, symbol_table::Symbol, weaves::Weave};
+use crate::frontend::{expr::{Expr, WovenExpr}, reagents::{Reagent, WovenReagent}, scanner::Token, symbol_table::Symbol};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {

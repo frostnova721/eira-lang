@@ -19,7 +19,7 @@ pub enum WovenExpr {
     Variable { name: Token, tapestry: Tapestry, symbol: Symbol },
     Grouping { expression: Box<WovenExpr>, tapestry: Tapestry },
     Assignment { name: Token, value: Box<WovenExpr>, tapestry: Tapestry, symbol: Symbol },
-    Cast { reagents: Vec<WovenExpr>, callee: Token, tapestry: Tapestry }
+    Cast { reagents: Vec<WovenExpr>, callee: Token, tapestry: Tapestry, spell_symbol: Symbol }
 }
 
 impl WovenExpr {
@@ -31,7 +31,7 @@ impl WovenExpr {
             WovenExpr::Unary { operand:_, operator:_, tapestry } => *tapestry,
             WovenExpr::Variable { name:_, tapestry, symbol:_ } => *tapestry,
             WovenExpr::Assignment { name:_, value:_, tapestry, symbol:_ } => *tapestry,
-            WovenExpr::Cast { reagents:_, callee:_, tapestry } => *tapestry
+            WovenExpr::Cast { reagents:_, callee:_, tapestry, spell_symbol: _ } => *tapestry
         }
     } 
 }

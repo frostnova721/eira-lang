@@ -21,6 +21,10 @@ const NUM: u64 = NumWeave.tapestry.0;
 const TEXT: u64 = TextWeave.tapestry.0;
 const TRUTH: u64 = TruthWeave.tapestry.0;
 
+// fixed registers for quick arguments storage (optimisation?!)
+// const ARG_START: u8 = 0;
+// const ARG_END: u8 = 15;
+
 #[derive(Debug)]
 pub struct GenError {
     pub msg: String,
@@ -46,12 +50,10 @@ pub struct CodeGen {
     register_index: u8,
 
     constants: Vec<Vec<Value>>,
-    constants_map: HashMap<Value, u16>,
+    constants_idx_map: Vec<HashMap<Value, u16>>,  // Stack of maps, one per constant pool
 
     loop_blocks: Vec<LoopBlock>,
 
-    // contains the spells to be compiled after bytecode of the main script is done
-    spells: HashMap<String, WovenStmt>,
     // track the completion status of main script
     compile_completed: bool,
 }
@@ -63,9 +65,8 @@ impl CodeGen {
             instructions: vec![],
             register_index: 0,
             constants: vec![vec![]],
-            constants_map: HashMap::new(),
+            constants_idx_map: vec![HashMap::new()],  // Initialize with one map for main pool
             loop_blocks: vec![],
-            spells: HashMap::new(),
             compile_completed: false,
         }
     }
@@ -88,17 +89,22 @@ impl CodeGen {
     }
 
     fn add_constant(&mut self, value: Value) -> GenResult<u16> {
-        if let Some(val) = self.constants_map.get(&value) {
+        // Check if constant exists in current pool's map
+        if let Some(val) = self.constants_idx_map.last().unwrap().get(&value) {
             return Ok(*val);
         }
 
         // else add the constant to table and return the index
         let ind = self.constants.last().unwrap().len() as u16;
         self.constants.last_mut().unwrap().push(value.clone());
-        self.constants_map.insert(value, ind);
+        self.constants_idx_map.last_mut().unwrap().insert(value, ind);
         Ok(ind)
     }
 
+    /// Writes a [Constant] instruction to the bytecode.
+    /// Returns the register where the constant is stored.
+    ///
+    /// If the constant already exists, it reuses the existing one.
     fn write_constant(&mut self, value: Value) -> GenResult<u8> {
         let reg = self.get_next_register()?;
         let const_index = self.add_constant(value)?;
@@ -176,8 +182,6 @@ impl CodeGen {
         self.compile_completed = true;
 
         // The instructions after the [HALT] are the definitions for spell and other stuff
-
-        let _ = self.gen_from_stmts(self.spells.values().cloned().collect())?;
 
         let bc = Assembler::convert_to_byte_code(&self.instructions);
         Ok(bc) // change later!
@@ -262,7 +266,8 @@ impl CodeGen {
                 reagents,
                 callee,
                 tapestry,
-            } => self.gen_cast_instruction(reagents, callee, tapestry),
+                spell_symbol,
+            } => self.gen_cast_instruction(reagents, callee, tapestry, spell_symbol),
         }
     }
 
@@ -271,15 +276,31 @@ impl CodeGen {
         reagents: Vec<WovenExpr>,
         callee: Token,
         tapestry: Tapestry,
+        spell_symbol: Symbol,
     ) -> GenResult<u8> {
-        let mut regs = vec![];
+        let spell_reg = self.gen_variable_instruction(spell_symbol)?;
 
-        for reagent in reagents {
-            let r = self.gen_from_expr(reagent)?;
-            regs.push(r);
+        let reg_idx = self.register_index;
+
+        for reagent in reagents.iter() {
+            self.gen_from_expr(reagent.clone())?;
+        }
+
+        // self.register_index = reg_idx;
+
+        if reagents.len() > u8::MAX as usize {
+            return Err(error(
+                "Too many reagents passed to cast! This should'nt be thrown, pls report!",
+            ));
         }
 
         let dest = self.get_next_register()?;
+
+        self.instructions.push(Instruction::Cast {
+            dest: dest,
+            spell_reg: spell_reg,
+            reg_start: reg_idx,
+        });
 
         Ok(dest)
     }
@@ -291,18 +312,28 @@ impl CodeGen {
         body: WovenStmt,
         symbol: Symbol,
     ) -> GenResult<u8> {
-        let prev_reg = self.get_last_allocated_register();
+        // Save current state before entering spell compilation context
+        let saved_reg_idx = self.register_index;
         let mut spell_instructions = Vec::new();
 
         // Temporarily swap instructions to compile spell body
         std::mem::swap(&mut self.instructions, &mut spell_instructions);
 
-        // make a new constant pool for spell
+        // Push a new constant pool and index map for spell
         self.constants.push(vec![]);
-        self.register_index = 0;
+        self.constants_idx_map.push(HashMap::new());
+        self.register_index = reagents.len() as u8; // Reserve registers for reagents
 
         // Compile the body
         self.gen_from_stmt(body)?;
+
+        // Add implicit return if missing
+        let needs_return = !matches!(self.instructions.last(), Some(Instruction::Release { .. }));
+        if needs_return {
+            let ret_reg = self.get_next_register()?;
+            self.instructions.push(Instruction::Emptiness { dest: ret_reg });
+            self.instructions.push(Instruction::Release { dest: ret_reg });
+        }
 
         print_instructions(
             &name.lexeme,
@@ -310,9 +341,10 @@ impl CodeGen {
             &self.constants.last().unwrap(),
         );
 
-        // And.... Get the compiled results
+        // Get the compiled results
         let spell_bytecode = Assembler::convert_to_byte_code(&self.instructions);
         let spell_constants = self.constants.pop().unwrap();
+        self.constants_idx_map.pop(); // Pop the spell's constant map
 
         let spell = SpellObject {
             name: Some(name.lexeme.clone()),
@@ -322,11 +354,11 @@ impl CodeGen {
             bytecode: spell_bytecode,
         };
 
-        // Restore the main instructions
+        // Restore the main instructions and register state
         std::mem::swap(&mut self.instructions, &mut spell_instructions);
-        self.register_index = prev_reg + 1;
+        self.register_index = saved_reg_idx;
 
-        // NOW! write the constant and set the value (this will be at the top of the main script BC)
+        // Write the constant and set the value
         let const_idx = self.write_constant(Value::Spell(Rc::new(spell)))?;
         self.set_value_instruction(symbol, const_idx)?;
 

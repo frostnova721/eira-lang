@@ -1,7 +1,5 @@
-spell halloween(a: TextWeave) {
-    chant "nii chan" + "nii nii";
+spell fib(a: NumWeave, b: NumWeave) {
+    //fate n <= 1 {
+
+    //}
 }
-
-cast halloween with "10";
-
-//cast ark:mage::halloween
