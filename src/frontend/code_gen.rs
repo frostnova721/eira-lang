@@ -50,7 +50,7 @@ pub struct CodeGen {
     register_index: u8,
 
     constants: Vec<Vec<Value>>,
-    constants_idx_map: Vec<HashMap<Value, u16>>,  // Stack of maps, one per constant pool
+    constants_idx_map: Vec<HashMap<Value, u16>>, // Stack of maps, one per constant pool
 
     loop_blocks: Vec<LoopBlock>,
 
@@ -65,7 +65,7 @@ impl CodeGen {
             instructions: vec![],
             register_index: 0,
             constants: vec![vec![]],
-            constants_idx_map: vec![HashMap::new()],  // Initialize with one map for main pool
+            constants_idx_map: vec![HashMap::new()], // Initialize with one map for main pool
             loop_blocks: vec![],
             compile_completed: false,
         }
@@ -97,7 +97,10 @@ impl CodeGen {
         // else add the constant to table and return the index
         let ind = self.constants.last().unwrap().len() as u16;
         self.constants.last_mut().unwrap().push(value.clone());
-        self.constants_idx_map.last_mut().unwrap().insert(value, ind);
+        self.constants_idx_map
+            .last_mut()
+            .unwrap()
+            .insert(value, ind);
         Ok(ind)
     }
 
@@ -226,6 +229,7 @@ impl CodeGen {
                 body,
                 symbol,
             } => self.gen_spell_instructions(name, reagents, *body, symbol),
+            WovenStmt::Release { token, expr } => todo!(),
         }
     }
 
@@ -331,8 +335,10 @@ impl CodeGen {
         let needs_return = !matches!(self.instructions.last(), Some(Instruction::Release { .. }));
         if needs_return {
             let ret_reg = self.get_next_register()?;
-            self.instructions.push(Instruction::Emptiness { dest: ret_reg });
-            self.instructions.push(Instruction::Release { dest: ret_reg });
+            self.instructions
+                .push(Instruction::Emptiness { dest: ret_reg });
+            self.instructions
+                .push(Instruction::Release { dest: ret_reg });
         }
 
         print_instructions(

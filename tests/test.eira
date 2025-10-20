@@ -1,5 +1,7 @@
-spell fib(a: NumWeave, b: NumWeave) {
-    //fate n <= 1 {
+spell fib(a: NumWeave, b: NumWeave):: NumWeave {
+    chant a;
+    chant b;
 
-    //}
+    release a;
 }
+cast fib with 2,5;

@@ -269,6 +269,8 @@ impl Parser {
             self.while_statement()
         } else if self.match_token(TokenType::Sever) {
             self.sever_statement()
+        } else if self.match_token(TokenType::Release) {
+            self.release_statement()
         } else {
             self.expression_statement()
         }
@@ -290,6 +292,19 @@ impl Parser {
         );
 
         Ok(Stmt::Block { statements: stmts })
+    }
+
+    fn release_statement(&mut self) -> ParseResult<Stmt> {
+        if self.match_token(TokenType::SemiColon) {
+            return Ok(Stmt::Release { token: self.previous.clone(), expr: None });
+        }
+
+        let expr = self.expression()?;
+        let token = self.previous.clone();
+
+        self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
+
+        Ok(Stmt::Release { token, expr: Some(expr) })
     }
 
     fn expression_statement(&mut self) -> ParseResult<Stmt> {

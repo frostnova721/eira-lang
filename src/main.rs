@@ -35,6 +35,7 @@ fn main() {
             let bc = generator.summon_bytecode().unwrap();
             print_byte_code(&bc);
             let consts =  generator.get_constants();
+            println!("===DEBUG LOG END===\n\n");
             // println!("{:?}", consts);
             EiraVM::init(bc, consts).start();
         }

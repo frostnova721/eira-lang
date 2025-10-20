@@ -10,6 +10,7 @@ pub enum Stmt {
     Block { statements: Vec<Stmt> },
     Sever,
     Spell { name: Token, reagents: Vec<Reagent>, body: Box<Stmt>, return_weave: Option<String> },
+    Release { token: Token, expr: Option<Expr> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,6 +23,7 @@ pub enum WovenStmt {
     Block { statements: Vec<WovenStmt> },
     Sever,
     Spell { name: Token, reagents: Vec<WovenReagent>, body: Box<WovenStmt>, symbol: Symbol }, // symbol contains ret weave's type
+    Release { token: Token, expr: Option<WovenExpr> },
 }
 
 // impl WovenStmt {

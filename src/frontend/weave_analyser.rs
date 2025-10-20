@@ -45,11 +45,19 @@ impl WeaveError {
 
 type WeaveResult<T> = Result<T, WeaveError>;
 
+#[derive(PartialEq)]
+enum Realm {
+    Genesis, // script level scope
+    Spell,   // spell level scope
+}
+
 pub struct WeaveAnalyzer {
     symbol_table: SymbolTable,
     loop_depth: usize,
     weaves_cache: HashMap<String, Weave>,
     spells: HashMap<String, SpellInfo>, // The return weaves of spells
+    current_realm: Realm,               // track the realm (scope type) the analyzer is in!
+    spell_stack: Vec<String>,           // track the current spell name
 }
 
 impl WeaveAnalyzer {
@@ -60,6 +68,8 @@ impl WeaveAnalyzer {
             loop_depth: 0,
             weaves_cache: HashMap::new(),
             spells: HashMap::new(),
+            current_realm: Realm::Genesis,
+            spell_stack: vec![],
         }
     }
     pub fn analyze(&mut self, ast: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
@@ -236,7 +246,12 @@ impl WeaveAnalyzer {
 
                 for r in reagents {
                     let weave = self.get_weave_from_name(&r.weave_name)?;
-                    self.symbol_table.define(r.name.lexeme.clone(), weave.clone(), false, self.symbol_table.get_current_scope_size());
+                    self.symbol_table.define(
+                        r.name.lexeme.clone(),
+                        weave.clone(),
+                        false,
+                        self.symbol_table.get_current_scope_size(),
+                    );
                     w_reagents.push(WovenReagent {
                         name: r.name.clone(),
                         weave: weave,
@@ -254,7 +269,17 @@ impl WeaveAnalyzer {
                     },
                 );
 
+                self.current_realm = Realm::Spell;
+                self.spell_stack.push(name.lexeme.clone());
+
                 let woven_body = self.analyze_statement(*body)?;
+
+                self.spell_stack.pop();
+                self.current_realm = if self.spell_stack.len() == 0 {
+                    Realm::Genesis
+                } else {
+                    Realm::Spell
+                };
 
                 self.symbol_table.end_scope();
 
@@ -264,6 +289,63 @@ impl WeaveAnalyzer {
                     body: Box::new(woven_body),
                     symbol: symbol,
                 })
+            }
+
+            Stmt::Release { token, expr } => {
+                // this should handle the stack len = 0 case too!
+                if self.current_realm == Realm::Genesis {
+                    return Err(WeaveError::new(
+                        "Values cannot be released from the 'Genesis' realm!\n\
+                        Error: Usage of 'release' outside the spell scope.",
+                        token,
+                    ));
+                }
+
+                let curr_spell_name = self.spell_stack.pop().unwrap();
+
+                let spell = self.spells.get(&curr_spell_name);
+
+                match spell {
+                    None => {
+                        return Err(WeaveError::new(
+                            &format!(
+                                "No Spell found in the realm with the name '{}'",
+                                curr_spell_name
+                            ),
+                            token,
+                        ));
+                    }
+                    Some(val) => {
+                        if let Some(e) = expr {
+                            let expected_weave = val.release_weave.clone();
+                            let w_expr = self.analyze_expression(e)?;
+
+                            // Might need a tapestry check here instead?
+                            // but shouldnt the spells be returning exact weaves?
+                            if expected_weave.tapestry.0 != w_expr.tapestry().0  {
+                                return Err(WeaveError::new(
+                                    &format!(
+                                        "The spell '{}' Release Weave '{}' but got '{}'",
+                                        curr_spell_name,
+                                        expected_weave.name,
+                                        self.get_weave(w_expr.tapestry())?.name
+                                    ),
+                                    token,
+                                ));
+                            }
+
+                            return Ok(WovenStmt::Release {
+                                token: token,
+                                expr: Some(w_expr),
+                            });
+                        } else {
+                            return Ok(WovenStmt::Release {
+                                token: token,
+                                expr: None,
+                            });
+                        }
+                    }
+                };
             }
         }
     }
@@ -454,7 +536,7 @@ impl WeaveAnalyzer {
             Expr::Cast { reagents, callee } => {
                 let spell_name = &callee.lexeme;
 
-                let Some(spell_info) = self.spells.get(spell_name).cloned() else {   
+                let Some(spell_info) = self.spells.get(spell_name).cloned() else {
                     return Err(WeaveError::new(
                         &format!(
                             "The spell '{}' was not found in the current scope!",
@@ -550,7 +632,10 @@ impl WeaveAnalyzer {
         }
 
         Err(WeaveError::new(
-            &format!("Couldn't find the weave '{}' within the Eira's library!", name),
+            &format!(
+                "Couldn't find the weave '{}' within the Eira's library!",
+                name
+            ),
             demo_tkn(),
         ))
     }
