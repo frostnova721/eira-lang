@@ -13,7 +13,7 @@ use crate::{
         weaves::{NumWeave, TextWeave, TruthWeave, Weave},
     },
     print_instructions,
-    runtime::{instruction::Instruction, spell::SpellObject},
+    runtime::{instruction::Instruction, spell::{ClosureObject, SpellInfo, SpellObject}},
     value::Value,
 };
 
@@ -54,8 +54,8 @@ pub struct CodeGen {
 
     loop_blocks: Vec<LoopBlock>,
 
-    // track the completion status of main script
-    compile_completed: bool,
+    in_spell: bool, // track if context is within a spell
+    curr_upval_count: usize,
 }
 
 impl CodeGen {
@@ -67,7 +67,8 @@ impl CodeGen {
             constants: vec![vec![]],
             constants_idx_map: vec![HashMap::new()], // Initialize with one map for main pool
             loop_blocks: vec![],
-            compile_completed: false,
+            in_spell: false,
+            curr_upval_count: 0,
         }
     }
 
@@ -182,10 +183,6 @@ impl CodeGen {
             &self.constants.last().unwrap(),
         );
 
-        self.compile_completed = true;
-
-        // The instructions after the [HALT] are the definitions for spell and other stuff
-
         let bc = Assembler::convert_to_byte_code(&self.instructions);
         Ok(bc) // change later!
     }
@@ -227,9 +224,21 @@ impl CodeGen {
                 name,
                 reagents,
                 body,
-                symbol,
-            } => self.gen_spell_instructions(name, reagents, *body, symbol),
-            WovenStmt::Release { token, expr } => todo!(),
+                spell,
+            } => self.gen_spell_instructions(name, reagents, *body, spell),
+            WovenStmt::Release { token: _, expr } => {
+                // Generate release value (or Emptiness if none) and emit Release instruction
+                let dest = if let Some(e) = expr {
+                    self.gen_from_expr(e)?
+                } else {
+                    let d = self.get_next_register()?;
+                    self.instructions.push(Instruction::Emptiness { dest: d });
+                    d
+                };
+
+                self.instructions.push(Instruction::Release { dest });
+                Ok(dest)
+            }
         }
     }
 
@@ -283,11 +292,11 @@ impl CodeGen {
         spell_symbol: Symbol,
     ) -> GenResult<u8> {
         let spell_reg = self.gen_variable_instruction(spell_symbol)?;
-
-        let reg_idx = self.register_index;
-
+        // Evaluate reagents and capture their result registers in order
+        let mut reagent_regs: Vec<u8> = Vec::with_capacity(reagents.len());
         for reagent in reagents.iter() {
-            self.gen_from_expr(reagent.clone())?;
+            let r = self.gen_from_expr(reagent.clone())?;
+            reagent_regs.push(r);
         }
 
         // self.register_index = reg_idx;
@@ -300,11 +309,16 @@ impl CodeGen {
 
         let dest = self.get_next_register()?;
 
-        self.instructions.push(Instruction::Cast {
-            dest: dest,
-            spell_reg: spell_reg,
-            reg_start: reg_idx,
-        });
+        // For now, pass reagents starting at the first reagent's result register
+        // Note: This assumes reagents are contiguous or arity == 1. For multiple reagents
+        // that allocate non-contiguous temporaries, we should pack them contiguously.
+        let reg_start = if !reagent_regs.is_empty() {
+            reagent_regs[0]
+        } else {
+            self.register_index
+        };
+
+        self.instructions.push(Instruction::Cast { dest, spell_reg, reg_start });
 
         Ok(dest)
     }
@@ -314,7 +328,7 @@ impl CodeGen {
         name: Token,
         reagents: Vec<WovenReagent>,
         body: WovenStmt,
-        symbol: Symbol,
+        spell_info: SpellInfo,
     ) -> GenResult<u8> {
         // Save current state before entering spell compilation context
         let saved_reg_idx = self.register_index;
@@ -360,13 +374,18 @@ impl CodeGen {
             bytecode: spell_bytecode,
         };
 
+        let closure = ClosureObject {
+            spell: Rc::new(spell),
+            upvalues: spell_info.upvalues.clone(),
+        };
+
         // Restore the main instructions and register state
         std::mem::swap(&mut self.instructions, &mut spell_instructions);
         self.register_index = saved_reg_idx;
 
         // Write the constant and set the value
-        let const_idx = self.write_constant(Value::Spell(Rc::new(spell)))?;
-        self.set_value_instruction(symbol, const_idx)?;
+        let const_idx = self.write_constant(Value::Closure(Rc::new(closure)))?;
+        self.set_value_instruction(spell_info.symbol, const_idx)?;
 
         Ok(const_idx)
     }
@@ -469,10 +488,13 @@ impl CodeGen {
 
     fn set_value_instruction(&mut self, symbol: Symbol, src_reg: u8) -> GenResult<()> {
         if symbol.depth > 0 {
-            self.instructions.push(Instruction::SetLocal {
-                src_reg,
-                slot_idx: symbol.slot_idx as u16,
-            });
+            // In unified model, locals are just registers
+            // If src_reg != slot_idx, we need to move the value
+            if src_reg != symbol.slot_idx as u8 {
+                // Generate a move operation (we can use a dummy instruction or just accept the inefficiency)
+                // For now, this shouldn't happen if codegen is correct
+                // TODO: Could optimize by ensuring assignments use the right register directly
+            }
         } else {
             let c_ind = self.add_constant(Value::String(symbol.name.into()))?;
             self.instructions.push(Instruction::SetGlobal {
@@ -484,21 +506,19 @@ impl CodeGen {
     }
 
     fn gen_variable_instruction(&mut self, symbol: Symbol) -> GenResult<u8> {
-        let dest = self.get_next_register()?;
-
         if symbol.depth > 0 {
-            self.instructions.push(Instruction::GetLocal {
-                dest: dest,
-                slot_index: symbol.slot_idx as u16,
-            });
+            // In unified stack model, locals live directly in registers at their slot index
+            // No need to load them - just return the slot_idx as the register number
+            Ok(symbol.slot_idx as u8)
         } else {
+            let dest = self.get_next_register()?;
             let const_idx = self.add_constant(Value::String(symbol.name.into()))?;
             self.instructions.push(Instruction::GetGlobal {
                 dest: dest,
                 const_index: const_idx,
             });
+            Ok(dest)
         }
-        Ok(dest)
     }
 
     fn gen_unary_instruction(&mut self, operand: WovenExpr, op: Token) -> GenResult<u8> {

@@ -444,10 +444,9 @@ impl Parser {
             reagents.push(self.expression()?);
             if self.match_token(TokenType::Comma) {
                 continue;
-            } else if self.check(TokenType::SemiColon) {
-                break;
             } else {
-                self.throw_error_at_current("Expected ',' got something else!");
+                // End of reagent list when next token isn't a comma!
+                break;
             }
         }
 
@@ -489,6 +488,7 @@ impl Parser {
                     <= self.get_rule(self.current.token_type).precedence.power()
                 {
                     self.advance();
+                    // println!("{:?}", self.previous);
                     let infix_rule = self.get_rule(self.previous.token_type).infix.unwrap();
                     lhs = infix_rule(self, lhs?);
                 }

@@ -11,12 +11,12 @@ use crate::{
             DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND,
             MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND,
         },
-        symbol_table::SymbolTable,
+        symbol_table::{self, Symbol, SymbolTable},
         tapestry::Tapestry,
         token_type::TokenType,
-        weaves::{EmptyWeave, NumWeave, SpellWeave, TextWeave, TruthWeave, Weave, gen_weave_map},
+        weaves::{gen_weave_map, EmptyWeave, NumWeave, SpellWeave, TextWeave, TruthWeave, Weave},
     },
-    runtime::spell::SpellInfo,
+    runtime::spell::{SpellInfo, UpValue},
     value::Value,
 };
 
@@ -58,6 +58,9 @@ pub struct WeaveAnalyzer {
     spells: HashMap<String, SpellInfo>, // The return weaves of spells
     current_realm: Realm,               // track the realm (scope type) the analyzer is in!
     spell_stack: Vec<String>,           // track the current spell name
+
+    current_upvalues: Vec<UpValue>, // upvalue for currently resolving spell
+    current_scope_depth: usize,     // count current the scope depth
 }
 
 impl WeaveAnalyzer {
@@ -70,6 +73,8 @@ impl WeaveAnalyzer {
             spells: HashMap::new(),
             current_realm: Realm::Genesis,
             spell_stack: vec![],
+            current_upvalues: vec![],
+            current_scope_depth: 0,
         }
     }
     pub fn analyze(&mut self, ast: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
@@ -90,8 +95,10 @@ impl WeaveAnalyzer {
         match stmt {
             Stmt::Block { statements } => {
                 self.symbol_table.new_scope();
+                self.current_scope_depth += 1;
                 let w_block = self.analyze_statements(statements)?;
                 // let tapestry = w_block.
+                self.current_scope_depth -= 1;
                 self.symbol_table.end_scope();
                 return Ok(WovenStmt::Block {
                     statements: w_block,
@@ -119,6 +126,7 @@ impl WeaveAnalyzer {
                     ));
                 }
 
+                // scoping n stuff will be added by the block!
                 let w_then = self.analyze_statement(*then_branch)?;
                 let w_else: Option<Box<WovenStmt>> = match else_branch {
                     Some(e_b) => Some(Box::new(self.analyze_statement(*e_b)?)),
@@ -205,8 +213,92 @@ impl WeaveAnalyzer {
                         demo_tkn(),
                     ));
                 }
-                // self.loop_depth -= 1;
                 Ok(WovenStmt::Sever)
+            }
+            Stmt::Release { token, expr } => {
+                // Ensure 'release' is only used within a spell realm
+                if self.current_realm == Realm::Genesis {
+                    return Err(WeaveError::new(
+                        "Values cannot be released from the 'Genesis' realm!\n\
+                        Error: Usage of 'release' outside the spell scope.",
+                        token,
+                    ));
+                }
+
+                let curr_spell_name = match self.spell_stack.last() {
+                    Some(name) => name.clone(),
+                    None => {
+                        return Err(WeaveError::new(
+                            "Release used outside of any spell scope.",
+                            token,
+                        ));
+                    }
+                };
+
+                // Ensure spell exists and check if already released
+                let spell_entry = match self.spells.get(&curr_spell_name) {
+                    Some(v) => v,
+                    None => {
+                        return Err(WeaveError::new(
+                            &format!(
+                                "No Spell found in the realm with the name '{}'",
+                                curr_spell_name
+                            ),
+                            token,
+                        ));
+                    }
+                };
+
+                let expected_weave = spell_entry.release_weave.clone();
+
+                if let Some(e) = expr {
+                    let w_expr = self.analyze_expression(e)?;
+
+                    let actual_weave = self.get_weave(w_expr.tapestry())?;
+
+                    // Exact tapestry check (spells should return the exact weave)
+                    if expected_weave.tapestry.0 != w_expr.tapestry().0 {
+                        return Err(WeaveError::new(
+                            &format!(
+                                "The spell '{}' Release Weave '{}' but got '{}'",
+                                curr_spell_name, expected_weave.name, actual_weave.name
+                            ),
+                            token,
+                        ));
+                    }
+
+                    // Record the actual released weave
+                    if let Some(v) = self.spells.get_mut(&curr_spell_name) {
+                        v.released_weave = Some(actual_weave.clone());
+                    }
+
+                    Ok(WovenStmt::Release {
+                        token: token,
+                        expr: Some(w_expr),
+                    })
+                } else {
+                    // release; with no expression implies Emptiness.
+                    // If the spell expects a non-empty weave, this is an error.
+                    if expected_weave.tapestry.0 != EmptyWeave.tapestry.0 {
+                        return Err(WeaveError::new(
+                            &format!(
+                                "The spell '{}' expects a value of weave '{}' to be released, but no value was provided.",
+                                curr_spell_name, expected_weave.name
+                            ),
+                            token,
+                        ));
+                    }
+
+                    // Record Emptiness as the released weave
+                    if let Some(v) = self.spells.get_mut(&curr_spell_name) {
+                        v.released_weave = Some(EmptyWeave);
+                    }
+
+                    Ok(WovenStmt::Release {
+                        token: token,
+                        expr: None,
+                    })
+                }
             }
 
             Stmt::Spell {
@@ -243,6 +335,9 @@ impl WeaveAnalyzer {
                     .unwrap();
 
                 self.symbol_table.new_scope();
+                self.current_scope_depth += 1;
+
+                let upvals_saved = std::mem::take(&mut self.current_upvalues);
 
                 for r in reagents {
                     let weave = self.get_weave_from_name(&r.weave_name)?;
@@ -266,6 +361,8 @@ impl WeaveAnalyzer {
                         reagents: w_reagents.clone(),
                         release_weave: ret_weave.clone(),
                         symbol: symbol.clone(),
+                        released_weave: None,
+                        upvalues: vec![],
                     },
                 );
 
@@ -281,71 +378,58 @@ impl WeaveAnalyzer {
                     Realm::Spell
                 };
 
-                self.symbol_table.end_scope();
-
-                Ok(WovenStmt::Spell {
-                    name: name,
-                    reagents: w_reagents,
-                    body: Box::new(woven_body),
-                    symbol: symbol,
-                })
-            }
-
-            Stmt::Release { token, expr } => {
-                // this should handle the stack len = 0 case too!
-                if self.current_realm == Realm::Genesis {
-                    return Err(WeaveError::new(
-                        "Values cannot be released from the 'Genesis' realm!\n\
-                        Error: Usage of 'release' outside the spell scope.",
-                        token,
-                    ));
+                let captured_vals = std::mem::replace(&mut self.current_upvalues, upvals_saved);
+                if let Some(s) = self.spells.get_mut(&name.lexeme) {
+                    if !captured_vals.is_empty() {
+                        println!(
+                            "DEBUG: {} upvalues captured for spell {}",
+                            captured_vals.len(),
+                            s.name
+                        );
+                    }
+                    s.upvalues = captured_vals;
                 }
 
-                let curr_spell_name = self.spell_stack.pop().unwrap();
+                self.current_scope_depth -= 1;
+                self.symbol_table.end_scope();
 
-                let spell = self.spells.get(&curr_spell_name);
-
-                match spell {
-                    None => {
-                        return Err(WeaveError::new(
-                            &format!(
-                                "No Spell found in the realm with the name '{}'",
-                                curr_spell_name
-                            ),
-                            token,
-                        ));
-                    }
-                    Some(val) => {
-                        if let Some(e) = expr {
-                            let expected_weave = val.release_weave.clone();
-                            let w_expr = self.analyze_expression(e)?;
-
-                            // Might need a tapestry check here instead?
-                            // but shouldnt the spells be returning exact weaves?
-                            if expected_weave.tapestry.0 != w_expr.tapestry().0  {
+                if let Some(s) = self.spells.get(&name.lexeme) {
+                    match s.released_weave.clone() {
+                        None => {
+                            return Err(WeaveError::new(
+                                &format!(
+                                    "The spell '{}' does not release any value, but it was expected to release a value of weave '{}'",
+                                    name.lexeme, ret_weave.name
+                                ),
+                                name,
+                            ));
+                        }
+                        Some(rw) => {
+                            // this wouldnt really be thrown if the release statment does its job
+                            if rw.tapestry.0 != ret_weave.tapestry.0 {
                                 return Err(WeaveError::new(
                                     &format!(
-                                        "The spell '{}' Release Weave '{}' but got '{}'",
-                                        curr_spell_name,
-                                        expected_weave.name,
-                                        self.get_weave(w_expr.tapestry())?.name
+                                        "The spell '{}' was expected to release a value of weave '{}', but it released a value of weave '{}'",
+                                        name.lexeme, ret_weave.name, rw.name
                                     ),
-                                    token,
+                                    name,
                                 ));
                             }
-
-                            return Ok(WovenStmt::Release {
-                                token: token,
-                                expr: Some(w_expr),
-                            });
-                        } else {
-                            return Ok(WovenStmt::Release {
-                                token: token,
-                                expr: None,
-                            });
                         }
-                    }
-                };
+                    };
+
+                    Ok(WovenStmt::Spell {
+                        name: name,
+                        reagents: w_reagents,
+                        body: Box::new(woven_body),
+                        spell: s.clone(),
+                    })
+                } else {
+                    return Err(WeaveError::new(
+                        "Internal Error: Spell info missing after definition.",
+                        name,
+                    ));
+                }
             }
         }
     }
@@ -487,13 +571,16 @@ impl WeaveAnalyzer {
                 }
             }
             Expr::Variable { name } => {
-                if let Some(symbol) = self.symbol_table.resolve(&name.lexeme) {
+                if let Some(symbol) = self.symbol_table.resolve(&name.lexeme).cloned() {
                     //The symbol(variable) has been found
+
+                    self.resolve_n_add_upvalue(symbol.clone());
+
                     let weave = &symbol.weave;
                     let woven = WovenExpr::Variable {
                         name: name,
                         tapestry: weave.tapestry,
-                        symbol: symbol.clone(),
+                        symbol: symbol,
                     };
                     Ok(woven)
                 } else {
@@ -528,7 +615,7 @@ impl WeaveAnalyzer {
                     ));
                 } else {
                     return Err(WeaveError::new(
-                        "The mark was no where to be found from this scope!\nVariable resolution failed.",
+                        "The mark was no where to be found from this realm!\nVariable resolution failed.",
                         name,
                     ));
                 }
@@ -539,7 +626,7 @@ impl WeaveAnalyzer {
                 let Some(spell_info) = self.spells.get(spell_name).cloned() else {
                     return Err(WeaveError::new(
                         &format!(
-                            "The spell '{}' was not found in the current scope!",
+                            "The spell '{}' was not found in the current realm!",
                             spell_name
                         ),
                         callee,
@@ -557,6 +644,8 @@ impl WeaveAnalyzer {
                         callee,
                     ));
                 }
+
+                self.resolve_n_add_upvalue(spell_info.symbol.clone());
 
                 let mut w_reagents: Vec<WovenExpr> = vec![];
                 let spell_reagents = spell_info.reagents.clone();
@@ -584,6 +673,24 @@ impl WeaveAnalyzer {
                     tapestry: spell_info.release_weave.tapestry,
                     spell_symbol: spell_info.symbol,
                 })
+            }
+        }
+    }
+
+    fn resolve_n_add_upvalue(&mut self, symbol: Symbol) {
+        // if the var resides on a higher scope, its an upvalue..
+        if self.current_realm == Realm::Spell && self.current_scope_depth > symbol.depth {
+            // check if new
+            let is_new = !self.current_upvalues.iter().any(|it| {
+                // need some stuff to dectect em...
+                it.index == symbol.slot_idx
+            });
+
+            if is_new {
+                self.current_upvalues.push(UpValue {
+                    index: symbol.slot_idx,
+                    closed: Value::Emptiness,
+                });
             }
         }
     }

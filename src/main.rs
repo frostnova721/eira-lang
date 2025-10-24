@@ -15,8 +15,8 @@ fn main() {
         return;
     }
 
-    println!("AST:");
-    println!("{:?}", ast);
+    // println!("AST:");
+    // println!("{:?}", ast);
 
     let mut weave_analyzer = WeaveAnalyzer::new();
     let woven_tree = weave_analyzer.analyze(ast.unwrap());
@@ -28,8 +28,8 @@ fn main() {
             )
         }
         Ok(yes_yes) => {
-            println!("\nWoven Tree:");
-            println!("{:?}", yes_yes);
+            // println!("\nWoven Tree:");
+            // println!("{:?}", yes_yes);
 
             let mut generator = CodeGen::new(yes_yes);
             let bc = generator.summon_bytecode().unwrap();

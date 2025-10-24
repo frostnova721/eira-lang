@@ -21,8 +21,10 @@ pub enum Instruction {
     GetGlobal { dest: u8, const_index: u16 },
     SetGlobal { src_reg: u8, const_index: u16 },
 
-    GetLocal { dest: u8, slot_index: u16 },
-    SetLocal { src_reg: u8, slot_idx: u16 },
+    // GetLocal { dest: u8, slot_index: u16 },
+    // SetLocal { src_reg: u8, slot_idx: u16 },
+
+    Move { dest: u8, source: u16 },
 
     True { dest: u8 },
     False { dest: u8 },
@@ -94,14 +96,15 @@ impl Instruction {
                 src_reg: _,
                 const_index: _,
             } => 4,
-            Instruction::GetLocal {
-                dest: _,
-                slot_index: _,
-            } => 4,
-            Instruction::SetLocal {
-                src_reg: _,
-                slot_idx: _,
-            } => 4,
+            Instruction::Move { dest:_, source:_ } => 4,
+            // Instruction::GetLocal {
+            //     dest: _,
+            //     slot_index: _,
+            // } => 4,
+            // Instruction::SetLocal {
+            //     src_reg: _,
+            //     slot_idx: _,
+            // } => 4,
             Instruction::Constant {
                 dest: _,
                 const_index: _,
@@ -133,21 +136,15 @@ impl Instruction {
             Instruction::Multiply { dest, r1, r2 } => format!("MULTIPLY {} {} {}", dest, r1, r2),
             Instruction::Divide { dest, r1, r2 } => format!("DIVIDE {} {} {}", dest, r1, r2),
             Instruction::Constant { dest, const_index } => {
-                format!("CONSTANT {} {}", dest, const_index)
-            }
+                        format!("CONSTANT {} {}", dest, const_index)
+                    }
             Instruction::GetGlobal { dest, const_index } => {
-                format!("GET_GLOBAL {} {}", dest, const_index)
-            }
+                        format!("GET_GLOBAL {} {}", dest, const_index)
+                    }
             Instruction::SetGlobal {
-                src_reg,
-                const_index,
-            } => format!("SET_GLOBAL {} {}", src_reg, const_index),
-            Instruction::GetLocal { dest, slot_index } => {
-                format!("GET_LOCAL {} {}", dest, slot_index)
-            }
-            Instruction::SetLocal { src_reg, slot_idx } => {
-                format!("SET_LOCAL {} {}", src_reg, slot_idx)
-            }
+                        src_reg,
+                        const_index,
+                    } => format!("SET_GLOBAL {} {}", src_reg, const_index),
             Instruction::Negate { dest, r1 } => format!("NEGATE {} {}", dest, r1),
             Instruction::Not { dest, r1 } => format!("NOT {} {}", dest, r1),
             Instruction::True { dest } => format!("TRUE {}", dest),
@@ -165,7 +162,8 @@ impl Instruction {
             Instruction::Release { dest } => format!("RETURN {}", dest),
             Instruction::Cast { dest, spell_reg, reg_start} => format!("CAST {} {} {}", dest, spell_reg, reg_start),
             Instruction::Halt => "Halt".to_owned(),
-        }
+            Instruction::Move { dest, source } => format!("MOVE {} {}", dest, source),
+                    }
     }
 
     /// Releases the bytecode for the specific instruction
@@ -185,12 +183,15 @@ impl Instruction {
                 src_reg,
                 const_index,
             } => self.gen_const_byte_code(OpCode::SetGlobal, const_index, src_reg),
-            Instruction::SetLocal { src_reg, slot_idx } => {
-                self.gen_const_byte_code(OpCode::SetLocal, slot_idx, src_reg)
-            }
-            Instruction::GetLocal { dest, slot_index } => {
-                self.gen_const_byte_code(OpCode::GetLocal, slot_index, dest)
-            }
+            // Instruction::SetLocal { src_reg, slot_idx } => {
+            //     self.gen_const_byte_code(OpCode::SetLocal, slot_idx, src_reg)
+            // }
+            // Instruction::GetLocal { dest, slot_index } => {
+            //     self.gen_const_byte_code(OpCode::GetLocal, slot_index, dest)
+            // }
+            Instruction::Move { dest, source } => {
+                self.gen_const_byte_code(OpCode::Move, source, dest)
+            },
             Instruction::Negate { dest, r1 } => vec![OpCode::Negate as u8, *dest, *r1],
             Instruction::Not { dest, r1 } => vec![OpCode::Not as u8, *dest, *r1],
             Instruction::True { dest } => vec![OpCode::True as u8, *dest],

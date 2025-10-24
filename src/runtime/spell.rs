@@ -16,19 +16,20 @@ pub struct SpellObject {
 pub struct SpellInfo {
     pub name: String,
     pub reagents: Vec<WovenReagent>,
-    pub release_weave: Weave,
+    pub release_weave: Weave, // weave expected to be released
+    pub released_weave: Option<Weave>, // the actual weave that was released
     pub symbol: Symbol,
+    pub upvalues: Vec<UpValue>,
 }
 
 #[derive(Debug)]
 pub struct ClosureObject {
     pub spell: Rc<SpellObject>,
-    pub upvalues: Vec<Rc<UpValue>>
+    pub upvalues: Vec<UpValue>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UpValue {
-    pub next: Option<Box<UpValue>>,
-    pub location: *mut Value,
+    pub index: usize, // will contain the absolute slot index!
     pub closed: Value, 
 }

@@ -39,8 +39,9 @@ pub enum OpCode {
     GetGlobal,
 
     // Locals
-    SetLocal,
-    GetLocal,
+    // SetLocal,
+    // GetLocal,
+    Move, // move value between local slots
 
     // Empty value (like null, but not null)
     Emptiness,
@@ -78,8 +79,9 @@ impl OpCode {
             OpCode::Less => "OP_LESS",
             OpCode::GetGlobal => "OP_GET_GLOBAL",
             OpCode::SetGlobal => "OP_SET_GLOBAL",
-            OpCode::SetLocal => "OP_SET_LOCAL",
-            OpCode::GetLocal => "OP_GET_LOCAL",
+            // OpCode::SetLocal => "OP_SET_LOCAL",
+            // OpCode::GetLocal => "OP_GET_LOCAL",
+            OpCode::Move => "OP_MOVE",
             OpCode::Emptiness => "OP_EMPTINESS",
             OpCode::PopStack => "OP_POP_STACK",
             OpCode::Jump => "OP_JUMP",
@@ -105,8 +107,9 @@ impl OpCode {
             | OpCode::Constant
             | OpCode::SetGlobal
             | OpCode::GetGlobal
-            | OpCode::SetLocal
-            | OpCode::GetLocal
+            // | OpCode::SetLocal
+            // | OpCode::GetLocal
+            | OpCode::Move
             | OpCode::JumpIfFalse
             | OpCode::Concat
             | OpCode::Cast
