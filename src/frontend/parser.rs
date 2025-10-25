@@ -269,6 +269,8 @@ impl Parser {
             self.while_statement()
         } else if self.match_token(TokenType::Sever) {
             self.sever_statement()
+        } else if self.match_token(TokenType::Flow) {
+            self.flow_statement()
         } else if self.match_token(TokenType::Release) {
             self.release_statement()
         } else {
@@ -296,7 +298,10 @@ impl Parser {
 
     fn release_statement(&mut self) -> ParseResult<Stmt> {
         if self.match_token(TokenType::SemiColon) {
-            return Ok(Stmt::Release { token: self.previous.clone(), expr: None });
+            return Ok(Stmt::Release {
+                token: self.previous.clone(),
+                expr: None,
+            });
         }
 
         let expr = self.expression()?;
@@ -304,7 +309,10 @@ impl Parser {
 
         self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
 
-        Ok(Stmt::Release { token, expr: Some(expr) })
+        Ok(Stmt::Release {
+            token,
+            expr: Some(expr),
+        })
     }
 
     fn expression_statement(&mut self) -> ParseResult<Stmt> {
@@ -351,7 +359,13 @@ impl Parser {
     }
 
     fn sever_statement(&mut self) -> ParseResult<Stmt> {
+        self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
         Ok(Stmt::Sever)
+    }
+
+    fn flow_statement(&mut self) -> ParseResult<Stmt> {
+         self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
+        Ok(Stmt::Flow)
     }
 
     // ----------------------- Expression stuff -------------------------------//
@@ -436,21 +450,28 @@ impl Parser {
     fn cast(&mut self, _can_assign: bool) -> ParseResult<Expr> {
         self.consume(TokenType::Identifier, "Expected a spell name to cast.");
         let spell_name = self.previous.clone();
-        self.consume(TokenType::With, "Expected 'with' after spell name.");
+
         let mut reagents: Vec<Expr> = vec![];
 
-        // Parse the reagent expressions
-        loop {
-            reagents.push(self.expression()?);
-            if self.match_token(TokenType::Comma) {
-                continue;
-            } else {
-                // End of reagent list when next token isn't a comma!
-                break;
+        if self.match_token(TokenType::With) {
+            // self.consume(TokenType::With, "Expected 'with' after spell name.");
+
+            // Parse the reagent expressions
+            loop {
+                reagents.push(self.expression()?);
+                if self.match_token(TokenType::Comma) {
+                    continue;
+                } else {
+                    // End of reagent list when next token isn't a comma!
+                    break;
+                }
             }
         }
 
-        Ok(Expr::Cast { reagents, callee: spell_name })
+        Ok(Expr::Cast {
+            reagents,
+            callee: spell_name,
+        })
     }
 
     fn variable(&mut self, _can_assign: bool) -> ParseResult<Expr> {

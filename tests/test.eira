@@ -1,4 +1,3 @@
-{   
 spell fib(n: NumWeave):: NumWeave {
     fate n <= 1 {
         release n;
@@ -7,6 +6,6 @@ spell fib(n: NumWeave):: NumWeave {
     release (cast fib with n - 1) + (cast fib with n - 2);
 }
 
-mark x = cast fib with 10;
+mark x = cast fib with 30;
 chant x;
-}
+

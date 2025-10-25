@@ -10,16 +10,19 @@ use crate::{
         symbol_table::Symbol,
         tapestry::Tapestry,
         token_type::TokenType,
-        weaves::{NumWeave, TextWeave, TruthWeave, Weave},
+        weaves::{NUM_WEAVE, TEXT_WEAVE, TRUTH_WEAVE, Weave},
     },
     print_instructions,
-    runtime::{instruction::Instruction, spell::{ClosureObject, SpellInfo, SpellObject}},
+    runtime::{
+        instruction::Instruction,
+        spell::{ClosureObject, SpellInfo, SpellObject},
+    },
     value::Value,
 };
 
-const NUM: u64 = NumWeave.tapestry.0;
-const TEXT: u64 = TextWeave.tapestry.0;
-const TRUTH: u64 = TruthWeave.tapestry.0;
+const NUM: u64 = NUM_WEAVE.tapestry.0;
+const TEXT: u64 = TEXT_WEAVE.tapestry.0;
+const TRUTH: u64 = TRUTH_WEAVE.tapestry.0;
 
 // fixed registers for quick arguments storage (optimisation?!)
 // const ARG_START: u8 = 0;
@@ -56,6 +59,7 @@ pub struct CodeGen {
 
     in_spell: bool, // track if context is within a spell
     curr_upval_count: usize,
+    upval_map: HashMap<(usize, usize), usize>, // map of (depth, slot_idx) to register index
 }
 
 impl CodeGen {
@@ -69,6 +73,7 @@ impl CodeGen {
             loop_blocks: vec![],
             in_spell: false,
             curr_upval_count: 0,
+            upval_map: HashMap::new(),
         }
     }
 
@@ -139,16 +144,18 @@ impl CodeGen {
             Instruction::JumpIfFalse { offset: o, .. } => *o = offset as u16,
             Instruction::Jump { offset: o } => *o = offset as u16,
             _ => {
-                return Err(error(
-                    "Hmmm... this error shouldnt be thrown! If you are encountering this, congrats! I see a good future in you.",
-                ));
+                return Err(error(&format!(
+                    "Hmmm... this error shouldnt be thrown! If you are encountering this, congrats! I see a good future in you.Error: Jump patch failed.\
+                    \nExpected a 'JUMP' instruction, got {:?}",
+                    self.instructions[jump_idx]
+                )));
             }
         }
 
         Ok(())
     }
 
-    fn write_loop(&mut self, start: usize) -> GenResult<()> {
+    fn write_loop(&mut self, start: usize) -> GenResult<usize> {
         let body_bytes_size: usize = self.instructions[start..]
             .iter()
             .map(|inst| inst.len())
@@ -164,6 +171,35 @@ impl CodeGen {
         self.instructions.push(Instruction::Loop {
             offset: total_offset as u16,
         });
+        Ok(self.instructions.len() - 1)
+    }
+
+    fn patch_jump_to(&mut self, jump_idx: usize, target_idx: usize) -> GenResult<()> {
+        if jump_idx >= self.instructions.len() || target_idx >= self.instructions.len() {
+            return Err(error("Invalid jump patch indices!"));
+        }
+
+        // Compute byte distance from the instruction after the jump to the target instruction
+        let mut offset = 0usize;
+        for i in (jump_idx + 1)..target_idx {
+            offset += self.instructions[i].len();
+        }
+
+        if offset > u16::MAX as usize {
+            return Err(error("Jump offset exceeds 16-bit limit!"));
+        }
+
+        match &mut self.instructions[jump_idx] {
+            Instruction::Jump { offset: o } => *o = offset as u16,
+            Instruction::JumpIfFalse { offset: o, .. } => *o = offset as u16,
+            _ => {
+                return Err(error(&format!(
+                    "Patch target at index {} is not a jump instruction: {:?}",
+                    jump_idx, self.instructions[jump_idx]
+                )));
+            }
+        }
+
         Ok(())
     }
 
@@ -220,25 +256,14 @@ impl CodeGen {
             WovenStmt::Chant { expression } => self.gen_chant_stmt(expression),
             WovenStmt::Block { statements } => self.gen_from_stmts(statements),
             WovenStmt::Sever => self.gen_sever_instructions(),
+            WovenStmt::Flow => self.gen_flow_instructions(),
             WovenStmt::Spell {
                 name,
                 reagents,
                 body,
                 spell,
             } => self.gen_spell_instructions(name, reagents, *body, spell),
-            WovenStmt::Release { token: _, expr } => {
-                // Generate release value (or Emptiness if none) and emit Release instruction
-                let dest = if let Some(e) = expr {
-                    self.gen_from_expr(e)?
-                } else {
-                    let d = self.get_next_register()?;
-                    self.instructions.push(Instruction::Emptiness { dest: d });
-                    d
-                };
-
-                self.instructions.push(Instruction::Release { dest });
-                Ok(dest)
-            }
+            WovenStmt::Release { token: _, expr } => self.gen_release_instructions(expr),
         }
     }
 
@@ -287,8 +312,8 @@ impl CodeGen {
     fn gen_cast_instruction(
         &mut self,
         reagents: Vec<WovenExpr>,
-        callee: Token,
-        tapestry: Tapestry,
+        _callee: Token,
+        _tapestry: Tapestry,
         spell_symbol: Symbol,
     ) -> GenResult<u8> {
         let spell_reg = self.gen_variable_instruction(spell_symbol)?;
@@ -309,17 +334,56 @@ impl CodeGen {
 
         let dest = self.get_next_register()?;
 
-        // For now, pass reagents starting at the first reagent's result register
-        // Note: This assumes reagents are contiguous or arity == 1. For multiple reagents
-        // that allocate non-contiguous temporaries, we should pack them contiguously.
-        let reg_start = if !reagent_regs.is_empty() {
+        let reg_start = if reagent_regs.is_empty() {
+            self.register_index
+        } else if reagent_regs.len() == 1 {
             reagent_regs[0]
         } else {
-            self.register_index
+            let mut contiguous = true;
+            for w in reagent_regs.windows(2) {
+                if w[1] != w[0].saturating_add(1) {
+                    contiguous = false;
+                    break;
+                }
+            }
+
+            if contiguous {
+                reagent_regs[0]
+            } else {
+                // Pack reagents into a fresh contiguous block
+                let start = self.register_index; // first one goes here
+                for (_, &src) in reagent_regs.iter().enumerate() {
+                    let dest = self.get_next_register()?;
+                    // dest should be start + i
+                    self.instructions.push(Instruction::Move {
+                        dest,
+                        source: src as u16,
+                    });
+                }
+                start
+            }
         };
 
-        self.instructions.push(Instruction::Cast { dest, spell_reg, reg_start });
+        self.instructions.push(Instruction::Cast {
+            dest,
+            spell_reg,
+            reg_start,
+        });
 
+        Ok(dest)
+    }
+
+    fn gen_release_instructions(&mut self, expr: Option<WovenExpr>) -> GenResult<u8> {
+        // Generate release value (or Emptiness if none) and emit Release instruction
+        let dest = if let Some(e) = expr {
+            self.gen_from_expr(e)?
+        } else {
+            let d = self.get_next_register()?;
+            self.instructions.push(Instruction::Emptiness { dest: d });
+            d
+        };
+
+        self.instructions.push(Instruction::Release { dest });
         Ok(dest)
     }
 
@@ -333,14 +397,27 @@ impl CodeGen {
         // Save current state before entering spell compilation context
         let saved_reg_idx = self.register_index;
         let mut spell_instructions = Vec::new();
+        let saved_curr_upval_count = self.curr_upval_count;
+        let saved_inspell = self.in_spell;
+        let saved_upval_map = self.upval_map.clone();
 
         // Temporarily swap instructions to compile spell body
         std::mem::swap(&mut self.instructions, &mut spell_instructions);
 
+        // state modifications for upvalues management
+        let upval_count = spell_info.upvalues.len();
+        self.in_spell = true;
+        self.curr_upval_count = upval_count;
+
+        for (i, upv) in spell_info.upvalues.iter().enumerate() {
+            // Use (depth, index) as key to avoid collisions between upvalues and locals
+            self.upval_map.insert((upv.depth, upv.index), i);
+        }
+
         // Push a new constant pool and index map for spell
         self.constants.push(vec![]);
         self.constants_idx_map.push(HashMap::new());
-        self.register_index = reagents.len() as u8; // Reserve registers for reagents
+        self.register_index = (upval_count + reagents.len()) as u8; // Reserve registers for reagents
 
         // Compile the body
         self.gen_from_stmt(body)?;
@@ -369,7 +446,7 @@ impl CodeGen {
         let spell = SpellObject {
             name: Some(name.lexeme.clone()),
             arity: reagents.len() as u8,
-            upvalue_count: 0,
+            upvalue_count: upval_count as i32,
             constants: spell_constants,
             bytecode: spell_bytecode,
         };
@@ -382,12 +459,25 @@ impl CodeGen {
         // Restore the main instructions and register state
         std::mem::swap(&mut self.instructions, &mut spell_instructions);
         self.register_index = saved_reg_idx;
+        self.in_spell = saved_inspell;
+        self.curr_upval_count = saved_curr_upval_count;
+        self.upval_map = saved_upval_map;
 
         // Write the constant and set the value
         let const_idx = self.write_constant(Value::Closure(Rc::new(closure)))?;
         self.set_value_instruction(spell_info.symbol, const_idx)?;
 
         Ok(const_idx)
+    }
+
+    fn gen_flow_instructions(&mut self) -> GenResult<u8> {
+        if self.loop_blocks.is_empty() {
+            return Err(error("flow can only be performed inside a loop block!"));
+        }
+        let ind = self.write_jump(Instruction::Jump { offset: 0xffff });
+        self.loop_blocks.last_mut().unwrap().flows.push(ind);
+
+        Ok(self.register_index) // dummy
     }
 
     fn gen_sever_instructions(&mut self) -> GenResult<u8> {
@@ -418,14 +508,21 @@ impl CodeGen {
 
         self.gen_from_stmt(body)?;
 
-        self.write_loop(start)?;
+        // get the final index of the loop for the flow to jump
+        let loop_idx = self.write_loop(start)?;
 
         self.patch_jump(exit)?;
 
-        let severs = self.loop_blocks.pop().unwrap().severs;
+        let block = self.loop_blocks.pop().unwrap();
+        let severs = block.severs;
+        let flows = block.flows;
 
         for jump in severs {
             self.patch_jump(jump)?;
+        }
+
+        for jump in flows {
+            self.patch_jump_to(jump, loop_idx)?;
         }
 
         Ok(cond_reg)
@@ -489,11 +586,20 @@ impl CodeGen {
     fn set_value_instruction(&mut self, symbol: Symbol, src_reg: u8) -> GenResult<()> {
         if symbol.depth > 0 {
             // In unified model, locals are just registers
-            // If src_reg != slot_idx, we need to move the value
-            if src_reg != symbol.slot_idx as u8 {
-                // Generate a move operation (we can use a dummy instruction or just accept the inefficiency)
-                // For now, this shouldn't happen if codegen is correct
-                // TODO: Could optimize by ensuring assignments use the right register directly
+            // Calculate the target register for this variable
+            let target_reg = if self.in_spell {
+                // Inside a spell, locals are offset by upvalue count
+                (self.curr_upval_count + symbol.slot_idx) as u8
+            } else {
+                symbol.slot_idx as u8
+            };
+
+            // If src_reg != target_reg, we need to move the value
+            if src_reg != target_reg {
+                self.instructions.push(Instruction::Move {
+                    dest: target_reg,
+                    source: src_reg as u16,
+                });
             }
         } else {
             let c_ind = self.add_constant(Value::String(symbol.name.into()))?;
@@ -507,8 +613,18 @@ impl CodeGen {
 
     fn gen_variable_instruction(&mut self, symbol: Symbol) -> GenResult<u8> {
         if symbol.depth > 0 {
-            // In unified stack model, locals live directly in registers at their slot index
-            // No need to load them - just return the slot_idx as the register number
+            if self.in_spell {
+                // Check if this variable is an upvalue using (depth, slot_idx) as key
+                // This will prevent collision between upvalues and locals with same slot_idx
+                if let Some(upv_reg) = self.upval_map.get(&(symbol.depth, symbol.slot_idx)) {
+                    // The value is an upvalue! jst return its register
+                    return Ok(*upv_reg as u8);
+                }
+
+                // Not an upvalue, so it's a local/parameter in current spell
+                // Locals are offset by the upvalue count
+                return Ok((self.curr_upval_count + symbol.slot_idx) as u8);
+            }
             Ok(symbol.slot_idx as u8)
         } else {
             let dest = self.get_next_register()?;
@@ -720,9 +836,9 @@ impl CodeGen {
     fn get_weave(&self, tapestry: Tapestry) -> GenResult<Weave> {
         // println!("{:?}", tapestry);
         match tapestry.0 {
-            NUM => Ok(NumWeave),
-            TEXT => Ok(TextWeave),
-            TRUTH => Ok(TruthWeave),
+            NUM => Ok(NUM_WEAVE),
+            TEXT => Ok(TEXT_WEAVE),
+            TRUTH => Ok(TRUTH_WEAVE),
             _ => {
                 // let demo_tkn = Token {
                 //     column: 0,

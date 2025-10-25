@@ -31,5 +31,6 @@ pub struct ClosureObject {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpValue {
     pub index: usize, // will contain the absolute slot index!
+    pub depth: usize,
     pub closed: Value, 
 }

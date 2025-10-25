@@ -17,34 +17,34 @@ pub fn gen_weave_map() -> HashMap<String, Weave> {
 }
 
 fn get_weave_arr() -> [Weave; 5] {
-    [NumWeave, TextWeave, TruthWeave, EmptyWeave, SpellWeave]
+    [NUM_WEAVE, TEXT_WEAVE, TRUTH_WEAVE, EMPTY_WEAVE, SPELL_WEAVE]
 }
 
 /// Represents numbers
-pub const NumWeave: Weave = Weave {
+pub const NUM_WEAVE: Weave = Weave {
     name: "NumWeave",
     tapestry: Tapestry::new(ADDITIVE_STRAND | SUBTRACTIVE_STRAND | ORDINAL_STRAND | MULTIPLICATIVE_STRAND | DIVISIVE_STRAND | EQUATABLE_STRAND),
 };
 
 /// Represents string
-pub const TextWeave: Weave = Weave {
+pub const TEXT_WEAVE: Weave = Weave {
     name: "TextWeave",
     tapestry: Tapestry::new(CONCATINABLE_STRAND | INDEXIVE_STRAND | EQUATABLE_STRAND)
 };
 
 /// Represents boolean
-pub const TruthWeave: Weave = Weave {
+pub const TRUTH_WEAVE: Weave = Weave {
     name: "TruthWeave",
     tapestry: Tapestry::new(CONDITIONAL_STRAND | EQUATABLE_STRAND)
 };
 
 /// Void
-pub const EmptyWeave: Weave = Weave {
+pub const EMPTY_WEAVE: Weave = Weave {
     name: "EmptyWeave",
     tapestry: Tapestry::new(NO_STRAND),
 };
 
-pub const SpellWeave: Weave = Weave {
+pub const SPELL_WEAVE: Weave = Weave {
     name: "SpellWeave",
     tapestry: Tapestry::new(CALLABLE_STRAND),
 };

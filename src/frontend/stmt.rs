@@ -9,6 +9,7 @@ pub enum Stmt {
     Chant { expression: Expr },
     Block { statements: Vec<Stmt> },
     Sever,
+    Flow,
     Spell { name: Token, reagents: Vec<Reagent>, body: Box<Stmt>, return_weave: Option<String> },
     Release { token: Token, expr: Option<Expr> },
 }
@@ -22,6 +23,7 @@ pub enum WovenStmt {
     Chant { expression: WovenExpr },
     Block { statements: Vec<WovenStmt> },
     Sever,
+    Flow,
     Spell { name: Token, reagents: Vec<WovenReagent>, body: Box<WovenStmt>, spell: SpellInfo },
     Release { token: Token, expr: Option<WovenExpr> },
 }

@@ -3,7 +3,11 @@ use std::{fs};
 use eira::{print_byte_code, CodeGen, EiraVM, Parser, Scanner, WeaveAnalyzer};
 
 fn main() {
-    let f = fs::read_to_string("tests/test.eira");
+    let args = std::env::args().collect::<Vec<String>>();
+    let default_debug_file = "tests/test.eira".to_string();
+    let file_path = args.get(1).unwrap_or(&default_debug_file);
+
+    let f = fs::read_to_string(file_path);
     let binding = f.unwrap();
     let scanner = Scanner::init(&binding);
     let tokens = scanner.tokenize();

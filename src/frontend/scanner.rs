@@ -252,6 +252,7 @@ fn identifier_type(ident: &str) -> TokenType {
         "divert" => TokenType::Divert,
         "false" => TokenType::False,
         "fate" => TokenType::Fate,
+        "flow" => TokenType::Flow,
         "forge" => TokenType::Forge,
         "mark" => TokenType::Mark,
         // "maybe" => TokenType::Maybe,

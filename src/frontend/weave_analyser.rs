@@ -11,10 +11,12 @@ use crate::{
             DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND,
             MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND,
         },
-        symbol_table::{self, Symbol, SymbolTable},
+        symbol_table::{Symbol, SymbolTable},
         tapestry::Tapestry,
         token_type::TokenType,
-        weaves::{gen_weave_map, EmptyWeave, NumWeave, SpellWeave, TextWeave, TruthWeave, Weave},
+        weaves::{
+            EMPTY_WEAVE, NUM_WEAVE, SPELL_WEAVE, TEXT_WEAVE, TRUTH_WEAVE, Weave, gen_weave_map,
+        },
     },
     runtime::spell::{SpellInfo, UpValue},
     value::Value,
@@ -61,6 +63,7 @@ pub struct WeaveAnalyzer {
 
     current_upvalues: Vec<UpValue>, // upvalue for currently resolving spell
     current_scope_depth: usize,     // count current the scope depth
+    spell_base_depth: usize,        // depth where current spell body starts (parameters live here)
 }
 
 impl WeaveAnalyzer {
@@ -75,6 +78,7 @@ impl WeaveAnalyzer {
             spell_stack: vec![],
             current_upvalues: vec![],
             current_scope_depth: 0,
+            spell_base_depth: 0,
         }
     }
     pub fn analyze(&mut self, ast: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
@@ -97,7 +101,6 @@ impl WeaveAnalyzer {
                 self.symbol_table.new_scope();
                 self.current_scope_depth += 1;
                 let w_block = self.analyze_statements(statements)?;
-                // let tapestry = w_block.
                 self.current_scope_depth -= 1;
                 self.symbol_table.end_scope();
                 return Ok(WovenStmt::Block {
@@ -215,6 +218,15 @@ impl WeaveAnalyzer {
                 }
                 Ok(WovenStmt::Sever)
             }
+            Stmt::Flow => {
+                if self.loop_depth == 0 {
+                    return Err(WeaveError::new(
+                        "'flow' cannot be used outside a loop circle!",
+                        demo_tkn(),
+                    ));
+                }
+                Ok(WovenStmt::Flow)
+            }
             Stmt::Release { token, expr } => {
                 // Ensure 'release' is only used within a spell realm
                 if self.current_realm == Realm::Genesis {
@@ -279,7 +291,7 @@ impl WeaveAnalyzer {
                 } else {
                     // release; with no expression implies Emptiness.
                     // If the spell expects a non-empty weave, this is an error.
-                    if expected_weave.tapestry.0 != EmptyWeave.tapestry.0 {
+                    if expected_weave.tapestry.0 != EMPTY_WEAVE.tapestry.0 {
                         return Err(WeaveError::new(
                             &format!(
                                 "The spell '{}' expects a value of weave '{}' to be released, but no value was provided.",
@@ -291,7 +303,7 @@ impl WeaveAnalyzer {
 
                     // Record Emptiness as the released weave
                     if let Some(v) = self.spells.get_mut(&curr_spell_name) {
-                        v.released_weave = Some(EmptyWeave);
+                        v.released_weave = Some(EMPTY_WEAVE);
                     }
 
                     Ok(WovenStmt::Release {
@@ -325,16 +337,23 @@ impl WeaveAnalyzer {
                 // get the ret type (weave ofcourse)
                 let ret_weave = match return_weave {
                     Some(rw) => self.get_weave_from_name(&rw)?,
-                    None => EmptyWeave,
+                    None => EMPTY_WEAVE,
                 };
 
                 // define the spell
                 let symbol = self
                     .symbol_table
-                    .define(name.lexeme.clone(), SpellWeave, false, slot)
+                    .define(name.lexeme.clone(), SPELL_WEAVE, false, slot)
                     .unwrap();
 
                 self.symbol_table.new_scope();
+
+                // spell_base_depth should be equal to depth where spell is defined;
+                // so the base_depth should be incremented after savin it
+                // Variables from this depth or shallower can be upvalues
+                let saved_spell_base_depth = self.spell_base_depth;
+                self.spell_base_depth = self.current_scope_depth;
+
                 self.current_scope_depth += 1;
 
                 let upvals_saved = std::mem::take(&mut self.current_upvalues);
@@ -380,18 +399,14 @@ impl WeaveAnalyzer {
 
                 let captured_vals = std::mem::replace(&mut self.current_upvalues, upvals_saved);
                 if let Some(s) = self.spells.get_mut(&name.lexeme) {
-                    if !captured_vals.is_empty() {
-                        println!(
-                            "DEBUG: {} upvalues captured for spell {}",
-                            captured_vals.len(),
-                            s.name
-                        );
-                    }
                     s.upvalues = captured_vals;
                 }
 
                 self.current_scope_depth -= 1;
                 self.symbol_table.end_scope();
+
+                // Restore base_depth
+                self.spell_base_depth = saved_spell_base_depth;
 
                 if let Some(s) = self.spells.get(&name.lexeme) {
                     match s.released_weave.clone() {
@@ -496,15 +511,15 @@ impl WeaveAnalyzer {
                     | TokenType::EqualEqual
                     | TokenType::LessEqual
                     | TokenType::GreaterEqual
-                    | TokenType::BangEqual => TruthWeave.tapestry,
+                    | TokenType::BangEqual => TRUTH_WEAVE.tapestry,
                     TokenType::Plus => {
                         // hard coded for now. Should be dynamic later
                         if w_left.tapestry().has_strand(ADDITIVE_STRAND)
                             && w_right.tapestry().has_strand(ADDITIVE_STRAND)
                         {
-                            NumWeave.tapestry
+                            NUM_WEAVE.tapestry
                         } else {
-                            TextWeave.tapestry
+                            TEXT_WEAVE.tapestry
                         }
                     }
                     _ => w_left.tapestry(), // Assumes left-hand side's type
@@ -526,10 +541,10 @@ impl WeaveAnalyzer {
                     token_type: TokenType::Identifier,
                 };
                 let strands = match value {
-                    Value::Number(_) => NumWeave.tapestry.0,
+                    Value::Number(_) => NUM_WEAVE.tapestry.0,
                     Value::Emptiness => NO_STRAND,
-                    Value::Bool(_) => TruthWeave.tapestry.0,
-                    Value::String(_) => TextWeave.tapestry.0, // add indexive later,
+                    Value::Bool(_) => TRUTH_WEAVE.tapestry.0,
+                    Value::String(_) => TEXT_WEAVE.tapestry.0, // add indexive later,
                     _ => {
                         return Err(WeaveError::new(
                             "Couldnt find a weave for the value",
@@ -678,18 +693,20 @@ impl WeaveAnalyzer {
     }
 
     fn resolve_n_add_upvalue(&mut self, symbol: Symbol) {
-        // if the var resides on a higher scope, its an upvalue..
-        if self.current_realm == Realm::Spell && self.current_scope_depth > symbol.depth {
-            // check if new
-            let is_new = !self.current_upvalues.iter().any(|it| {
-                // need some stuff to dectect em...
-                it.index == symbol.slot_idx
-            });
+        // Only capture as upvalue if variable is from the spell's defining scope or outer
+        // Parameters and locals have depth > spell_base_depth
+        if self.current_realm == Realm::Spell && symbol.depth <= self.spell_base_depth {
+            // check if new. use both index and depth to avoid duplicates
+            let is_new = !self
+                .current_upvalues
+                .iter()
+                .any(|it| it.index == symbol.slot_idx && it.depth == symbol.depth);
 
             if is_new {
                 self.current_upvalues.push(UpValue {
                     index: symbol.slot_idx,
                     closed: Value::Emptiness,
+                    depth: symbol.depth,
                 });
             }
         }
@@ -748,16 +765,16 @@ impl WeaveAnalyzer {
     }
 
     fn get_weave(&self, tapestry: Tapestry) -> WeaveResult<Weave> {
-        const NUM: u64 = NumWeave.tapestry.0;
-        const TEXT: u64 = TextWeave.tapestry.0;
-        const TRUTH: u64 = TruthWeave.tapestry.0;
-        const SPELL: u64 = SpellWeave.tapestry.0;
+        const NUM: u64 = NUM_WEAVE.tapestry.0;
+        const TEXT: u64 = TEXT_WEAVE.tapestry.0;
+        const TRUTH: u64 = TRUTH_WEAVE.tapestry.0;
+        const SPELL: u64 = SPELL_WEAVE.tapestry.0;
         // println!("{:?}", tapestry);
         match tapestry.0 {
-            NUM => Ok(NumWeave),
-            TEXT => Ok(TextWeave),
-            TRUTH => Ok(TruthWeave),
-            SPELL => Ok(SpellWeave),
+            NUM => Ok(NUM_WEAVE),
+            TEXT => Ok(TEXT_WEAVE),
+            TRUTH => Ok(TRUTH_WEAVE),
+            SPELL => Ok(SPELL_WEAVE),
             _ => Err(WeaveError::new(
                 "The tapestries and the weaves were undefined.\nCare to define those weaves?",
                 demo_tkn(),

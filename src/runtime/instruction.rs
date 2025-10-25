@@ -1,49 +1,121 @@
-use std::{vec};
+use std::vec;
 
 use crate::runtime::operation::OpCode;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Instruction {
-    Add { dest: u8, r1: u8, r2: u8 },
-    Subtract { dest: u8, r1: u8, r2: u8 },
-    Multiply { dest: u8, r1: u8, r2: u8 },
-    Divide { dest: u8, r1: u8, r2: u8 },
+    Add {
+        dest: u8,
+        r1: u8,
+        r2: u8,
+    },
+    Subtract {
+        dest: u8,
+        r1: u8,
+        r2: u8,
+    },
+    Multiply {
+        dest: u8,
+        r1: u8,
+        r2: u8,
+    },
+    Divide {
+        dest: u8,
+        r1: u8,
+        r2: u8,
+    },
 
-    Equal { dest: u8, r1: u8, r2: u8 },
-    Greater { dest: u8, r1: u8, r2: u8 },
-    Less { dest: u8, r1: u8, r2: u8 },
+    Equal {
+        dest: u8,
+        r1: u8,
+        r2: u8,
+    },
+    Greater {
+        dest: u8,
+        r1: u8,
+        r2: u8,
+    },
+    Less {
+        dest: u8,
+        r1: u8,
+        r2: u8,
+    },
 
-    Negate { dest: u8, r1: u8 },
-    Not { dest: u8, r1: u8 },
+    Negate {
+        dest: u8,
+        r1: u8,
+    },
+    Not {
+        dest: u8,
+        r1: u8,
+    },
 
-    Constant { dest: u8, const_index: u16 },
+    Constant {
+        dest: u8,
+        const_index: u16,
+    },
 
-    GetGlobal { dest: u8, const_index: u16 },
-    SetGlobal { src_reg: u8, const_index: u16 },
+    GetGlobal {
+        dest: u8,
+        const_index: u16,
+    },
+    SetGlobal {
+        src_reg: u8,
+        const_index: u16,
+    },
 
     // GetLocal { dest: u8, slot_index: u16 },
     // SetLocal { src_reg: u8, slot_idx: u16 },
+    Move {
+        dest: u8,
+        source: u16,
+    },
 
-    Move { dest: u8, source: u16 },
+    True {
+        dest: u8,
+    },
+    False {
+        dest: u8,
+    },
+    Print {
+        r1: u8,
+    },
 
-    True { dest: u8 },
-    False { dest: u8 },
-    Print { r1: u8 },
+    Emptiness {
+        dest: u8,
+    },
 
-    Emptiness { dest: u8 },
+    PopStack {
+        pop_count: u16,
+    },
 
-    PopStack { pop_count: u16 },
+    Jump {
+        offset: u16,
+    },
+    JumpIfFalse {
+        condition_reg: u8,
+        offset: u16,
+    },
 
-    Jump { offset: u16 },
-    JumpIfFalse { condition_reg: u8, offset: u16 },
+    Loop {
+        offset: u16,
+    },
 
-    Loop { offset: u16 },
+    Concat {
+        dest: u8,
+        r1: u8,
+        r2: u8,
+    },
 
-    Concat { dest: u8, r1: u8, r2: u8 },
+    Release {
+        dest: u8,
+    },
 
-    Release { dest: u8 },
-
-    Cast { dest: u8, spell_reg: u8, reg_start: u8, },
+    Cast {
+        dest: u8,
+        spell_reg: u8,
+        reg_start: u8,
+    },
 
     Halt,
 }
@@ -52,7 +124,11 @@ impl Instruction {
     /// Releases the length of the instruction
     pub fn len(self) -> usize {
         match self {
-            Instruction::Cast { dest: _, spell_reg: _, reg_start: _} => 4,
+            Instruction::Cast {
+                dest: _,
+                spell_reg: _,
+                reg_start: _,
+            } => 4,
             Instruction::Add {
                 dest: _,
                 r1: _,
@@ -96,7 +172,7 @@ impl Instruction {
                 src_reg: _,
                 const_index: _,
             } => 4,
-            Instruction::Move { dest:_, source:_ } => 4,
+            Instruction::Move { dest: _, source: _ } => 4,
             // Instruction::GetLocal {
             //     dest: _,
             //     slot_index: _,
@@ -113,7 +189,11 @@ impl Instruction {
                 condition_reg: _,
                 offset: _,
             } => 4,
-            Instruction::Concat { dest: _, r1: _, r2: _ } => 4,
+            Instruction::Concat {
+                dest: _,
+                r1: _,
+                r2: _,
+            } => 4,
             Instruction::Negate { dest: _, r1: _ } => 3,
             Instruction::Not { dest: _, r1: _ } => 3,
             Instruction::Jump { offset: _ } => 3,
@@ -136,15 +216,15 @@ impl Instruction {
             Instruction::Multiply { dest, r1, r2 } => format!("MULTIPLY {} {} {}", dest, r1, r2),
             Instruction::Divide { dest, r1, r2 } => format!("DIVIDE {} {} {}", dest, r1, r2),
             Instruction::Constant { dest, const_index } => {
-                        format!("CONSTANT {} {}", dest, const_index)
-                    }
+                format!("CONSTANT {} {}", dest, const_index)
+            }
             Instruction::GetGlobal { dest, const_index } => {
-                        format!("GET_GLOBAL {} {}", dest, const_index)
-                    }
+                format!("GET_GLOBAL {} {}", dest, const_index)
+            }
             Instruction::SetGlobal {
-                        src_reg,
-                        const_index,
-                    } => format!("SET_GLOBAL {} {}", src_reg, const_index),
+                src_reg,
+                const_index,
+            } => format!("SET_GLOBAL {} {}", src_reg, const_index),
             Instruction::Negate { dest, r1 } => format!("NEGATE {} {}", dest, r1),
             Instruction::Not { dest, r1 } => format!("NOT {} {}", dest, r1),
             Instruction::True { dest } => format!("TRUE {}", dest),
@@ -156,14 +236,21 @@ impl Instruction {
             Instruction::Emptiness { dest } => format!("EMPTINESS {}", dest),
             Instruction::PopStack { pop_count } => format!("POPSTACK {}", pop_count),
             Instruction::Jump { offset } => format!("JUMP {}", offset),
-            Instruction::JumpIfFalse { condition_reg, offset } => format!("JUMP_IF_FALSE {} {}", condition_reg, offset),
+            Instruction::JumpIfFalse {
+                condition_reg,
+                offset,
+            } => format!("JUMP_IF_FALSE {} {}", condition_reg, offset),
             Instruction::Loop { offset } => format!("LOOP {}", offset),
             Instruction::Concat { dest, r1, r2 } => format!("CONCAT {} {} {}", dest, r1, r2),
             Instruction::Release { dest } => format!("RETURN {}", dest),
-            Instruction::Cast { dest, spell_reg, reg_start} => format!("CAST {} {} {}", dest, spell_reg, reg_start),
+            Instruction::Cast {
+                dest,
+                spell_reg,
+                reg_start,
+            } => format!("CAST {} {} {}", dest, spell_reg, reg_start),
             Instruction::Halt => "Halt".to_owned(),
             Instruction::Move { dest, source } => format!("MOVE {} {}", dest, source),
-                    }
+        }
     }
 
     /// Releases the bytecode for the specific instruction
@@ -191,7 +278,7 @@ impl Instruction {
             // }
             Instruction::Move { dest, source } => {
                 self.gen_const_byte_code(OpCode::Move, source, dest)
-            },
+            }
             Instruction::Negate { dest, r1 } => vec![OpCode::Negate as u8, *dest, *r1],
             Instruction::Not { dest, r1 } => vec![OpCode::Not as u8, *dest, *r1],
             Instruction::True { dest } => vec![OpCode::True as u8, *dest],
@@ -206,15 +293,18 @@ impl Instruction {
                 vec![OpCode::PopStack as u8, a, b]
             }
             Instruction::Jump { offset } => {
-                let (a,b) = self.split_u16(offset);
-                vec![OpCode::Jump as u8, a,b]
+                let (a, b) = self.split_u16(offset);
+                vec![OpCode::Jump as u8, a, b]
             }
-            Instruction::JumpIfFalse { condition_reg, offset } => {
-                let (a,b) = self.split_u16(offset);
+            Instruction::JumpIfFalse {
+                condition_reg,
+                offset,
+            } => {
+                let (a, b) = self.split_u16(offset);
                 vec![OpCode::JumpIfFalse as u8, *condition_reg, a, b]
             }
             Instruction::Loop { offset } => {
-                let (a,b) = self.split_u16(offset);
+                let (a, b) = self.split_u16(offset);
                 vec![OpCode::Loop as u8, a, b]
             }
             Instruction::Concat { dest, r1, r2 } => vec![OpCode::Concat as u8, *dest, *r1, *r2],
@@ -222,7 +312,11 @@ impl Instruction {
             // Instruction::Closure { dest, const_index } => {
             //     self.gen_const_byte_code(OpCode::Closure, const_index, dest)
             // }
-            Instruction::Cast { dest, spell_reg, reg_start} => vec![OpCode::Cast as u8, *dest, *spell_reg, *reg_start],
+            Instruction::Cast {
+                dest,
+                spell_reg,
+                reg_start,
+            } => vec![OpCode::Cast as u8, *dest, *spell_reg, *reg_start],
             Instruction::Halt => vec![OpCode::Halt as u8],
         }
     }

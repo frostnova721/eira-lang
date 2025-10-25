@@ -1,10 +1,11 @@
-use std::{array::from_fn, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    frontend::weaves::EmptyWeave, runtime::{
+    runtime::{
         operation::OpCode,
         spell::{ClosureObject, SpellObject},
-    }, value::{print_value, Value}
+    },
+    value::{Value, print_value},
 };
 
 pub enum InterpretResult {
@@ -16,7 +17,7 @@ pub enum InterpretResult {
 struct CallFrame {
     ip: usize,
     closure: Rc<ClosureObject>,
-    slot_start: usize,
+    // slot_start: usize,
     return_reg: u8,
     reg_base: usize,
     caller_reg_base: usize,
@@ -84,7 +85,7 @@ impl EiraVM {
         let frame = CallFrame {
             closure: Rc::new(closure),
             ip: 0,
-            slot_start: 0,
+            // slot_start: 0,
             return_reg: 0,
             reg_base: 0,
             caller_reg_base: 0,
@@ -119,9 +120,7 @@ impl EiraVM {
         }
 
         macro_rules! get_register {
-            ($base:expr, $index:expr) => {{
-                self.stack[$base + $index as usize].clone()
-            }};
+            ($base:expr, $index:expr) => {{ self.stack[$base + $index as usize].clone() }};
         }
 
         macro_rules! binary_op {
@@ -334,21 +333,37 @@ impl EiraVM {
 
                     let arity = spell.spell.arity as usize;
 
-                    if frame_slot_start + arity > self.stack.len() {
-                        self.stack.resize(frame_slot_start + arity, Value::Emptiness);
+                    let upvalues_count = spell.spell.upvalue_count as usize;
+                    let total = upvalues_count + arity;
+
+                    // Grow the stack if needed
+                    if frame_slot_start + total > self.stack.len() {
+                        self.stack
+                            .resize(frame_slot_start + total, Value::Emptiness);
                     }
+
+                    for i in 0..upvalues_count {
+                        let upval = &spell.upvalues[i];
+                        // Get the value from the captured slot
+                        let val = if upval.index < self.stack.len() {
+                            self.stack[upval.index].clone()
+                        } else {
+                            upval.closed.clone()
+                        };
+                        self.stack[frame_slot_start + i] = val;
+                    }
+
                     for i in 0..arity {
-                        self.stack[frame_slot_start + i] = self.stack
-                            [frame.reg_base + (reg_start as usize) + i]
-                            .clone();
+                        self.stack[frame_slot_start + upvalues_count + i] =
+                            self.stack[frame.reg_base + (reg_start as usize) + i].clone();
                     }
 
                     let new_frame = CallFrame {
                         ip: 0,
                         closure: spell,
-                        slot_start: frame_slot_start,
+                        // slot_start: frame_slot_start,
                         return_reg: dest,
-                        reg_base: frame_slot_start,  // Unified: registers start at same place as slots (params are reg 0..arity)
+                        reg_base: frame_slot_start, // Unified: registers start at same place as slots (params are reg 0..arity)
                         caller_reg_base: frame.reg_base,
                     };
                     self.frames.push(new_frame);
