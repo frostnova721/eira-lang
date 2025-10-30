@@ -6,13 +6,14 @@ pub struct SymbolTable {
     scopes: Vec<HashMap<String, Symbol>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Symbol {
     pub name: String,
     pub weave: Weave,
     pub depth: usize,
     pub mutable: bool,
     pub slot_idx: usize,
+    pub callable: bool,
 }
 
 impl SymbolTable {
@@ -40,6 +41,7 @@ impl SymbolTable {
                 weave: weave,
                 depth: depth,
                 slot_idx: slot_idx,
+                callable: false, // Default: not a callable reference
             };
             scope.insert(name, symbol.clone());
             return Some(symbol);
@@ -66,4 +68,15 @@ impl SymbolTable {
     pub fn get_depth(&self) -> usize {
         self.scopes.len() - 1
     }
+    
+    // Update a symbol's callable_info to point to the actual callable
+    // pub fn set_callable_info(&mut self, symbol_name: &String) -> bool {
+    //     for scope in self.scopes.iter_mut().rev() {
+    //         if let Some(sym) = scope.get_mut(symbol_name) {
+    //             sym.callable_info = true;
+    //             return true;
+    //         }
+    //     }
+    //     false
+    // }
 }

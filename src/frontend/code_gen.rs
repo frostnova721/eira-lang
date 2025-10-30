@@ -255,8 +255,8 @@ impl CodeGen {
             WovenStmt::While { condition, body } => self.gen_while_instructions(condition, *body),
             WovenStmt::Chant { expression } => self.gen_chant_stmt(expression),
             WovenStmt::Block { statements } => self.gen_from_stmts(statements),
-            WovenStmt::Sever => self.gen_sever_instructions(),
-            WovenStmt::Flow => self.gen_flow_instructions(),
+            WovenStmt::Sever { token: _ } => self.gen_sever_instructions(),
+            WovenStmt::Flow { token: _ } => self.gen_flow_instructions(),
             WovenStmt::Spell {
                 name,
                 reagents,
@@ -281,7 +281,7 @@ impl CodeGen {
                 operator,
                 tapestry: _,
             } => self.gen_unary_instruction(*operand, operator),
-            WovenExpr::Literal { value, tapestry: _ } => {
+            WovenExpr::Literal { value, tapestry: _, token:_ } => {
                 let val = self.write_constant(value)?;
                 Ok(val)
             }
@@ -480,7 +480,7 @@ impl CodeGen {
         Ok(self.register_index) // dummy
     }
 
-    fn gen_sever_instructions(&mut self) -> GenResult<u8> {
+    fn gen_sever_instructions(&mut self,) -> GenResult<u8> {
         if self.loop_blocks.is_empty() {
             return Err(error("Only the loops can be severed."));
         }
@@ -588,8 +588,14 @@ impl CodeGen {
             // In unified model, locals are just registers
             // Calculate the target register for this variable
             let target_reg = if self.in_spell {
-                // Inside a spell, locals are offset by upvalue count
-                (self.curr_upval_count + symbol.slot_idx) as u8
+                // Check if this variable is an upvalue
+                if let Some(upv_reg) = self.upval_map.get(&(symbol.depth, symbol.slot_idx)) {
+                    // It's an upvalue, use its register directly
+                    *upv_reg as u8
+                } else {
+                    // Inside a spell, locals are offset by upvalue count
+                    (self.curr_upval_count + symbol.slot_idx) as u8
+                }
             } else {
                 symbol.slot_idx as u8
             };

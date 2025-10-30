@@ -14,15 +14,29 @@ pub struct SpellObject {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpellInfo {
+    /// The name of the spell
     pub name: String,
+
+    /// The reagents(arguments) required by the spell
     pub reagents: Vec<WovenReagent>,
-    pub release_weave: Weave, // weave expected to be released
-    pub released_weave: Option<Weave>, // the actual weave that was released
+
+    /// The weave expected to be released
+    pub release_weave: Weave, 
+
+    /// The actual weave that was released
+    pub released_weave: Option<Weave>,
+
+    /// The representation for symbol table
     pub symbol: Symbol,
+
+    /// The symbol representing the released weave (How about a gamble?)
+    pub released_symbol: Option<Symbol>,
+
+    /// The upvalues captured by the spell
     pub upvalues: Vec<UpValue>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClosureObject {
     pub spell: Rc<SpellObject>,
     pub upvalues: Vec<UpValue>,

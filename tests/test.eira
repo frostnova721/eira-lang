@@ -1,11 +1,14 @@
-spell fib(n: NumWeave):: NumWeave {
-    fate n <= 1 {
-        release n;
-    }
+spell a():: SpellWeave {
+  bind msg = "treaty!";
 
-    release (cast fib with n - 1) + (cast fib with n - 2);
-}
+  spell x() {
+    chant "meow meow treat!";
+    chant msg;
+  }
 
-mark x = cast fib with 30;
-chant x;
+  release x;
+} 
 
+mark b = a;
+mark c = cast b;
+mark d = cast c;

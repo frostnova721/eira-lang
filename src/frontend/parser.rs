@@ -360,12 +360,12 @@ impl Parser {
 
     fn sever_statement(&mut self) -> ParseResult<Stmt> {
         self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
-        Ok(Stmt::Sever)
+        Ok(Stmt::Sever { token: self.previous.clone() })
     }
 
     fn flow_statement(&mut self) -> ParseResult<Stmt> {
-         self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
-        Ok(Stmt::Flow)
+        self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
+        Ok(Stmt::Flow { token: self.previous.clone() })
     }
 
     // ----------------------- Expression stuff -------------------------------//
@@ -388,6 +388,7 @@ impl Parser {
         let val: f64 = self.previous.lexeme.parse().unwrap();
         Ok(Expr::Literal {
             value: Value::Number(val),
+            token: self.previous.clone(),
         })
     }
 
@@ -395,9 +396,11 @@ impl Parser {
         match self.previous.token_type {
             TokenType::True => Ok(Expr::Literal {
                 value: Value::Bool(true),
+                token: self.previous.clone(),
             }),
             TokenType::False => Ok(Expr::Literal {
                 value: Value::Bool(false),
+                token: self.previous.clone(),
             }),
             _ => Err(ParseError("Error: UNKNOWN.... LITERAL?!".to_owned())),
         }
@@ -407,6 +410,7 @@ impl Parser {
         let string = self.previous.lexeme.clone();
         Ok(Expr::Literal {
             value: Value::String(Rc::new(string)),
+            token: self.previous.clone(),
         })
     }
 

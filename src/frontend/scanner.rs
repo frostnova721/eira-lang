@@ -8,6 +8,17 @@ pub struct Token {
     pub column: usize,
 }
 
+impl Token {
+    pub fn dummy() -> Self {
+        Token {
+            token_type: TokenType::Error,
+            lexeme: "".to_string(),
+            line: 0,
+            column: 0,
+        }
+    }
+}
+
 pub struct Scanner<'a> {
     pub source: &'a str,
     start: usize,

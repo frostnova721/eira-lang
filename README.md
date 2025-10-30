@@ -78,20 +78,20 @@ tome SuperSecretMagicTome {
     seal dragons = 0;
 
     // Public functions [forge = public]
-    forge spell fireBall(): Magic {
+    forge spell fireBall():: Magic {
         chant "pooof .... BOOOM!";
         release cast Magic { type: 01, offensive: true }
     }
 
     // Private functions [secret = private]
-    secret spell summon(): Magic {
+    secret spell summon():: Magic {
         chant "something rose up!.... A DEMON????!!!";
         release cast Magic { type: 05, offensive: false }
     }
 }
 ```
 
-ehm ehm.... subject to changes btw!
+ehm ehm.... subject to changes btw! (this demo will be changed accordingly)
 
 professional readme upon close to completion of the basic features!
 

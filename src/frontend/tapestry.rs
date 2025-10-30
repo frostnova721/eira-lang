@@ -1,5 +1,5 @@
 
-#[derive(Debug,Clone, Copy, PartialEq)]
+#[derive(Debug,Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Tapestry(pub u64);
 
 impl Tapestry {

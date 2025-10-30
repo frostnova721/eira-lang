@@ -114,7 +114,7 @@ mod parser_test {
         assert_eq!(stmts.len(), 1);
 
         if let Stmt::Fate { condition, then_branch, else_branch } = &stmts[0] {
-            assert!(matches!(condition, Expr::Literal { value: Value::Bool(true) }));
+            assert!(matches!(condition, Expr::Literal { value: Value::Bool(true), token: _ }));
             assert!(matches!(**then_branch, Stmt::Block { .. }));
             assert!(else_branch.is_some());
             if let Some(else_b) = else_branch {

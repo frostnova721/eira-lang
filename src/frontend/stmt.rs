@@ -8,8 +8,8 @@ pub enum Stmt {
     While { condition: Expr, body: Box<Stmt> },
     Chant { expression: Expr },
     Block { statements: Vec<Stmt> },
-    Sever,
-    Flow,
+    Sever { token: Token },
+    Flow { token: Token },
     Spell { name: Token, reagents: Vec<Reagent>, body: Box<Stmt>, return_weave: Option<String> },
     Release { token: Token, expr: Option<Expr> },
 }
@@ -22,8 +22,8 @@ pub enum WovenStmt {
     While { condition: WovenExpr, body: Box<WovenStmt> },
     Chant { expression: WovenExpr },
     Block { statements: Vec<WovenStmt> },
-    Sever,
-    Flow,
+    Sever { token: Token },
+    Flow { token: Token },
     Spell { name: Token, reagents: Vec<WovenReagent>, body: Box<WovenStmt>, spell: SpellInfo },
     Release { token: Token, expr: Option<WovenExpr> },
 }
