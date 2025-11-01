@@ -1,12 +1,11 @@
 spell a():: SpellWeave {
   bind msg = "treaty!";
   bind lemon = "lemon";
-  bind niga = "niga";
+  bind na = "na";
 
   spell x():: TextWeave {
     chant "meow meow treat!";
-    chant lemon;
-    chant niga;
+    chant lemon + na;
     release msg;
   }
 
