@@ -151,12 +151,7 @@ impl EiraVM {
             let op = OpCode::try_from(frame.read_byte()).unwrap();
             match op {
                 OpCode::Add => {
-                    let (dest, r1, r2) = frame.read_three_bytes();
-                    let v1 = get_register!(base, r1);
-                    let v2 = get_register!(base, r2);
-                    let r =
-                        Value::Number(v1.extract_number().unwrap() + v2.extract_number().unwrap());
-                    set_register!(base, dest, r);
+                    binary_op!(frame, +)
                 }
                 OpCode::Subtract => {
                     binary_op!(frame, -)
@@ -365,11 +360,21 @@ impl EiraVM {
                         // Get the value from the captured slot (relative to caller's frame base)
                         let upval_stack_idx = frame.reg_base + upval.index;
                         let val = if upval_stack_idx < self.stack.len() {
-                            self.stack[upval_stack_idx].clone()
+                            match &self.stack[upval_stack_idx] {
+                                Value::Closure(c) => &c.spell.constants[upval.index as usize],
+                                _ => {
+                                    // this shouldnt really be executed tbh, but just in case
+                                    println!(
+                                        "Warning: upvalue at stack index {} is not a Closure!",
+                                        upval_stack_idx
+                                    );
+                                    &self.stack[upval_stack_idx]
+                                }
+                            }
                         } else {
-                            upval.closed.clone()
+                            &upval.closed
                         };
-                        self.stack[frame_slot_start + i] = val;
+                        self.stack[frame_slot_start + i] = val.clone();
                         // Track that local register i points to parent's upval_stack_idx
                         upvalue_mappings.push((i, upval_stack_idx));
                     }

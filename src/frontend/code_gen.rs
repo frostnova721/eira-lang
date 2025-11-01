@@ -24,10 +24,6 @@ const NUM: u64 = NUM_WEAVE.tapestry.0;
 const TEXT: u64 = TEXT_WEAVE.tapestry.0;
 const TRUTH: u64 = TRUTH_WEAVE.tapestry.0;
 
-// fixed registers for quick arguments storage (optimisation?!)
-// const ARG_START: u8 = 0;
-// const ARG_END: u8 = 15;
-
 #[derive(Debug)]
 pub struct GenError {
     pub msg: String,
@@ -202,7 +198,7 @@ impl CodeGen {
 
         Ok(())
     }
-
+    
     //--------------- Interface/ Public fns ---------------
 
     // Thought this name is fun, nothing else, its the main entry point btw

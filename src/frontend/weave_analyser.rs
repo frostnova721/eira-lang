@@ -197,14 +197,13 @@ impl WeaveAnalyzer {
                                 if let Some(r_symbol) = spell.released_symbol.clone() {
                                     if let Some(parent) = self.find_greatest_parent(&r_symbol) {
                                         self.set_parent(s.clone(), parent.clone());
-                                        // println!("{:?}", self.parent_map);
                                     }
                                 }
                             }
                             if s.weave.tapestry.0 == spell_symbol.weave.tapestry.0 {
                                 // leave it to the gods, idk whats goin on here atp
 
-                                // set parent relationship
+                                // maybe set parent relationship?
                                 // self.set_parent(s.clone(), spell_symbol.clone());
                             }
                         }
@@ -650,6 +649,7 @@ impl WeaveAnalyzer {
                         tapestry: weave.tapestry,
                         symbol: symbol,
                     };
+
                     Ok(woven)
                 } else {
                     return Err(WeaveError::new("Variable resolution failed.", name));
@@ -714,7 +714,6 @@ impl WeaveAnalyzer {
                 // Check if the spell is compile-time known
                 let (spell_info, return_tapestry) = if greatest_parent != symbol {
                     let spell_name = &greatest_parent.name;
-                    println!("Casting to spell: {}", spell_name);
                     let Some(info) = self.spells.get(spell_name).cloned() else {
                         return Err(WeaveError::new(
                             &format!(
@@ -891,7 +890,6 @@ impl WeaveAnalyzer {
         const TEXT: u64 = TEXT_WEAVE.tapestry.0;
         const TRUTH: u64 = TRUTH_WEAVE.tapestry.0;
         const SPELL: u64 = SPELL_WEAVE.tapestry.0;
-        // println!("{:?}", tapestry);
         match tapestry.0 {
             NUM => Some(NUM_WEAVE),
             TEXT => Some(TEXT_WEAVE),

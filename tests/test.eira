@@ -1,14 +1,18 @@
 spell a():: SpellWeave {
   bind msg = "treaty!";
+  bind lemon = "lemon";
+  bind niga = "niga";
 
-  spell x() {
+  spell x():: TextWeave {
     chant "meow meow treat!";
-    chant msg;
+    chant lemon;
+    chant niga;
+    release msg;
   }
 
   release x;
-} 
+}
 
 mark b = a;
 mark c = cast b;
-mark d = cast c;
+ cast c;
