@@ -3,6 +3,7 @@ use std::{fs};
 use eira::{print_byte_code, CodeGen, EiraVM, Parser, Scanner, WeaveAnalyzer};
 
 fn main() {
+    // let start = Instant::now();
     let args = std::env::args().collect::<Vec<String>>();
     let default_debug_file = "tests/test.eira".to_string();
     let file_path = args.get(1).unwrap_or(&default_debug_file);
@@ -11,6 +12,9 @@ fn main() {
     let binding = f.unwrap();
     let scanner = Scanner::init(&binding);
     let tokens = scanner.tokenize();
+
+    // let scanTime = start.elapsed();
+
     let parser = Parser::new(tokens);
     let ast = parser.parse();
 
@@ -18,6 +22,8 @@ fn main() {
         println!("Parse Error: {:?}", ast.err().unwrap());
         return;
     }
+
+    // let parseTime = start.elapsed();
 
     // println!("AST:");
     // println!("{:?}", ast);
@@ -44,6 +50,12 @@ fn main() {
             EiraVM::init(bc, consts).start();
         }
     }
+    // println!(
+    //     "\nTime taken: Scan: {:?}, Parse: {:?}, Total: {:?}",
+    //     scanTime,
+    //     parseTime - scanTime,
+    //     start.elapsed()
+    // );
     // let mut compiler = Compiler::init_compiler(binding.as_str());
     // let instructions = compiler.compile();
     // match instructions {

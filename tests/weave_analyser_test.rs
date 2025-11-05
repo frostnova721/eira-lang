@@ -174,7 +174,7 @@ mod weave_analyser_test {
     #[test]
     fn runtime_spell_from_cast_result_ok() {
         let src = r#"
-            spell outer():: SpellWeave {
+            spell outer():: SpellWeave<NumWeave> {
                 spell inner():: NumWeave {
                     release 99;
                 }
@@ -202,7 +202,7 @@ mod weave_analyser_test {
             }
         "#;
         let err = analyze_helper(src).err().expect("should error");
-        assert!(err.contains("Release Weave"));
+        assert!(err.contains("expected to release"));
     }
 
     #[test]

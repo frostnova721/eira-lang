@@ -1,4 +1,4 @@
-use crate::{frontend::{expr::{Expr, WovenExpr}, reagents::{Reagent, WovenReagent}, scanner::Token, symbol_table::Symbol}, runtime::spell::SpellInfo};
+use crate::{frontend::{expr::{Expr, WovenExpr}, parser::ParsedWeave, reagents::{Reagent, WovenReagent}, scanner::Token, symbol_table::Symbol}, runtime::spell::SpellInfo};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
@@ -10,7 +10,7 @@ pub enum Stmt {
     Block { statements: Vec<Stmt> },
     Sever { token: Token },
     Flow { token: Token },
-    Spell { name: Token, reagents: Vec<Reagent>, body: Box<Stmt>, return_weave: Option<String> },
+    Spell { name: Token, reagents: Vec<Reagent>, body: Box<Stmt>, return_weave: Option<ParsedWeave> },
     Release { token: Token, expr: Option<Expr> },
 }
 

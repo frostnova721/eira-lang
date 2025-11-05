@@ -10,7 +10,7 @@ use crate::{
         symbol_table::Symbol,
         tapestry::Tapestry,
         token_type::TokenType,
-        weaves::{NUM_WEAVE, TEXT_WEAVE, TRUTH_WEAVE, Weave},
+        weaves::{Weave, Weaves},
     },
     print_instructions,
     runtime::{
@@ -19,10 +19,6 @@ use crate::{
     },
     value::Value,
 };
-
-const NUM: u64 = NUM_WEAVE.tapestry.0;
-const TEXT: u64 = TEXT_WEAVE.tapestry.0;
-const TRUTH: u64 = TRUTH_WEAVE.tapestry.0;
 
 #[derive(Debug)]
 pub struct GenError {
@@ -58,7 +54,7 @@ pub struct CodeGen {
     upval_map: HashMap<(usize, usize), usize>, // map of (depth, slot_idx) to register index
 }
 
-impl CodeGen {
+impl CodeGen {        
     pub fn new(w_ast: Vec<WovenStmt>) -> Self {
         CodeGen {
             woven_ast: w_ast,
@@ -198,7 +194,7 @@ impl CodeGen {
 
         Ok(())
     }
-    
+
     //--------------- Interface/ Public fns ---------------
 
     // Thought this name is fun, nothing else, its the main entry point btw
@@ -277,7 +273,11 @@ impl CodeGen {
                 operator,
                 tapestry: _,
             } => self.gen_unary_instruction(*operand, operator),
-            WovenExpr::Literal { value, tapestry: _, token:_ } => {
+            WovenExpr::Literal {
+                value,
+                tapestry: _,
+                token: _,
+            } => {
                 let val = self.write_constant(value)?;
                 Ok(val)
             }
@@ -446,7 +446,6 @@ impl CodeGen {
             constants: spell_constants,
             bytecode: spell_bytecode,
         };
-
         let closure = ClosureObject {
             spell: Rc::new(spell),
             upvalues: spell_info.upvalues.clone(),
@@ -476,7 +475,7 @@ impl CodeGen {
         Ok(self.register_index) // dummy
     }
 
-    fn gen_sever_instructions(&mut self,) -> GenResult<u8> {
+    fn gen_sever_instructions(&mut self) -> GenResult<u8> {
         if self.loop_blocks.is_empty() {
             return Err(error("Only the loops can be severed."));
         }
@@ -682,9 +681,9 @@ impl CodeGen {
         let r2 = self.gen_from_expr(right.clone())?;
 
         let reg = match self.get_weave(tapestry)?.tapestry.0 {
-            NUM => self.gen_num_op(r1, r2, op),
-            TRUTH => self.gen_bin_truth_op(r1, r2, op),
-            TEXT => self.gen_bin_text_op(r1, r2, op),
+            num if num == Weaves::NumWeave.get_weave().tapestry.0 => self.gen_num_op(r1, r2, op),
+            truth if truth == Weaves::TruthWeave.get_weave().tapestry.0 => self.gen_bin_truth_op(r1, r2, op),
+            text if text == Weaves::TextWeave.get_weave().tapestry.0 => self.gen_bin_text_op(r1, r2, op),
             _ => return Err(error("Unknown weave brotha, check it.")),
         }?;
         return Ok(reg);
@@ -838,9 +837,9 @@ impl CodeGen {
     fn get_weave(&self, tapestry: Tapestry) -> GenResult<Weave> {
         // println!("{:?}", tapestry);
         match tapestry.0 {
-            NUM => Ok(NUM_WEAVE),
-            TEXT => Ok(TEXT_WEAVE),
-            TRUTH => Ok(TRUTH_WEAVE),
+            x if x == Weaves::NumWeave.get_weave().tapestry.0 => Ok(Weaves::NumWeave.get_weave()),
+            x if x == Weaves::TextWeave.get_weave().tapestry.0 => Ok(Weaves::TextWeave.get_weave()),
+            x if x == Weaves::TruthWeave.get_weave().tapestry.0 => Ok(Weaves::TruthWeave.get_weave()),
             _ => {
                 // let demo_tkn = Token {
                 //     column: 0,

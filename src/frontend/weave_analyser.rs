@@ -14,9 +14,7 @@ use crate::{
         symbol_table::{Symbol, SymbolTable},
         tapestry::Tapestry,
         token_type::TokenType,
-        weaves::{
-            EMPTY_WEAVE, NUM_WEAVE, SPELL_WEAVE, TEXT_WEAVE, TRUTH_WEAVE, Weave, gen_weave_map,
-        },
+        weaves::{Weave, Weaver, Weaves, gen_weave_map},
     },
     runtime::spell::{SpellInfo, UpValue},
     value::Value,
@@ -36,7 +34,7 @@ impl WeaveError {
     }
 }
 
-type WeaveResult<T> = Result<T, WeaveError>;
+pub type WeaveResult<T> = Result<T, WeaveError>;
 
 #[derive(PartialEq)]
 enum Realm {
@@ -159,10 +157,15 @@ impl WeaveAnalyzer {
 
                 match &w_initializer {
                     Some(val) => {
-                        weave = self.get_weave(val.tapestry()).ok_or(WeaveError::new(
-                            "Couldnt get a weave for the variable! Perhaps.. ehm try specifying the Weave!",
-                            name.clone(),
-                        ));
+                        // Try to get weave from symbol first (for composite weaves like SpellWeave<TextWeave>)
+                        weave = if let Some(symbol) = val.symbol() {
+                            Ok(symbol.weave.clone())
+                        } else {
+                            self.get_weave(val.tapestry()).ok_or(WeaveError::new(
+                                "Couldnt get a weave for the variable! Perhaps.. ehm try specifying the Weave!",
+                                name.clone(),
+                            ))
+                        };
                     }
                     None => {
                         return Err(WeaveError::new(
@@ -298,16 +301,22 @@ impl WeaveAnalyzer {
                 if let Some(e) = expr {
                     let w_expr = self.analyze_expression(e)?;
 
-                    let actual_weave = self.get_weave(w_expr.tapestry()).ok_or(WeaveError::new(
-                        "Couldnt find a matching weave for the releasing expression.",
-                        token.clone(),
-                    ))?;
+                    // Try to get the weave from the symbol first (for variables with composite weaves)
+                    // Otherwise fall back to tapestry lookup
+                    let actual_weave = if let Some(symbol) = w_expr.symbol() {
+                        symbol.weave.clone()
+                    } else {
+                        self.get_weave(w_expr.tapestry()).ok_or(WeaveError::new(
+                            "Couldnt find a matching weave for the releasing expression.",
+                            token.clone(),
+                        ))?
+                    };
 
                     // Exact tapestry check (spells should return the exact weave)
                     if expected_weave.tapestry.0 != w_expr.tapestry().0 {
                         return Err(WeaveError::new(
                             &format!(
-                                "The spell '{}' Release Weave '{}' but got '{}'",
+                                "The spell '{}' was expected to release '{}' but '{}' was released",
                                 curr_spell_name, expected_weave.name, actual_weave.name
                             ),
                             token,
@@ -327,7 +336,7 @@ impl WeaveAnalyzer {
                 } else {
                     // release; with no expression implies Emptiness.
                     // If the spell expects a non-empty weave, this is an error.
-                    if expected_weave.tapestry.0 != EMPTY_WEAVE.tapestry.0 {
+                    if expected_weave.tapestry.0 != Weaves::EmptyWeave.get_weave().tapestry.0 {
                         return Err(WeaveError::new(
                             &format!(
                                 "The spell '{}' expects a value of weave '{}' to be released, but no value was provided.",
@@ -339,7 +348,7 @@ impl WeaveAnalyzer {
 
                     // Record Emptiness as the released weave
                     if let Some(v) = self.spells.get_mut(&curr_spell_name) {
-                        v.released_weave = Some(EMPTY_WEAVE);
+                        v.released_weave = Some(Weaves::EmptyWeave.get_weave());
                     }
 
                     Ok(WovenStmt::Release {
@@ -372,20 +381,70 @@ impl WeaveAnalyzer {
 
                 // get the ret type (weave ofcourse)
                 let ret_weave = match return_weave {
-                    Some(rw) => self.get_weave_from_name(&rw).ok_or(WeaveError::new(
-                        &format!(
-                            "Couldn't find the weave '{}' within the Eira's library!",
-                            rw
-                        ),
-                        name.clone(),
-                    ))?,
-                    None => EMPTY_WEAVE,
+                    Some(rw) => {
+                        let base_weave =
+                            self.get_weave_from_name(&rw.base.lexeme)
+                                .ok_or(WeaveError::new(
+                                    &format!(
+                                        "Couldn't find the weave '{}' within the Eira's library!",
+                                        rw.base.lexeme
+                                    ),
+                                    name.clone(),
+                                ))?;
+
+                        let inner: Option<Weave> = match rw.inner {
+                            Some(tkn) => {
+                                let w =
+                            self.get_weave_from_name(&tkn.lexeme)
+                                .ok_or(WeaveError::new(
+                                    &format!(
+                                        "Couldn't find the weave '{}' within the Eira's library!",
+                                        tkn.lexeme
+                                    ),
+                                    name.clone(),
+                                ))?;
+
+                                Some(w)
+                            }
+                            None => None,
+                        };
+
+                        if inner.is_none() {
+                            base_weave
+                        } else {
+                            let final_weave = Weaver::weave(base_weave, inner.unwrap());
+                            if final_weave.is_err() {
+                                return Err(WeaveError::new(
+                                    &final_weave.unwrap_err().0,
+                                    name.clone(),
+                                ));
+                            }
+
+                            final_weave.unwrap()
+                        }
+                    }
+                    None => Weaves::EmptyWeave.get_weave(),
                 };
 
                 // define the spell
+                // Create SpellWeave<ReturnWeave> for the spell's symbol
+                let spell_weave = if ret_weave.name != "EmptyWeave" {
+                    // Spell returns something, so wrap it: SpellWeave<ReturnWeave>
+                    Weaver::weave(Weaves::SpellWeave.get_weave(), ret_weave.clone())
+                        .unwrap_or(Weaves::SpellWeave.get_weave())
+                } else {
+                    // Spell returns nothing, just SpellWeave
+                    Weaves::SpellWeave.get_weave()
+                };
+
                 let symbol = self
                     .symbol_table
-                    .define(name.lexeme.clone(), SPELL_WEAVE, false, slot)
+                    .define(
+                        name.lexeme.clone(),
+                        spell_weave,
+                        false,
+                        slot,
+                    )
                     .unwrap();
 
                 self.symbol_table.new_scope();
@@ -464,7 +523,7 @@ impl WeaveAnalyzer {
                 if let Some(s) = self.spells.get(&name.lexeme) {
                     match s.released_weave.clone() {
                         None => {
-                            if s.release_weave == EMPTY_WEAVE {
+                            if s.release_weave == Weaves::EmptyWeave.get_weave() {
                                 // ok, since the expected one was emptyweave and got was none;
                                 // which implies a default emptyweave return!
                             } else {
@@ -569,15 +628,15 @@ impl WeaveAnalyzer {
                     | TokenType::EqualEqual
                     | TokenType::LessEqual
                     | TokenType::GreaterEqual
-                    | TokenType::BangEqual => TRUTH_WEAVE.tapestry,
+                    | TokenType::BangEqual => Weaves::TruthWeave.get_weave().tapestry,
                     TokenType::Plus => {
                         // hard coded for now. Should be dynamic later
                         if w_left.tapestry().has_strand(ADDITIVE_STRAND)
                             && w_right.tapestry().has_strand(ADDITIVE_STRAND)
                         {
-                            NUM_WEAVE.tapestry
+                            Weaves::NumWeave.get_weave().tapestry
                         } else {
-                            TEXT_WEAVE.tapestry
+                            Weaves::TextWeave.get_weave().tapestry
                         }
                     }
                     _ => w_left.tapestry(), // Assumes left-hand side's type
@@ -593,10 +652,10 @@ impl WeaveAnalyzer {
             Expr::Grouping { expression } => self.analyze_expression(*expression),
             Expr::Literal { value, token } => {
                 let strands = match value {
-                    Value::Number(_) => NUM_WEAVE.tapestry.0,
+                    Value::Number(_) => Weaves::NumWeave.get_weave().tapestry.0,
                     Value::Emptiness => NO_STRAND,
-                    Value::Bool(_) => TRUTH_WEAVE.tapestry.0,
-                    Value::String(_) => TEXT_WEAVE.tapestry.0, // add indexive later,
+                    Value::Bool(_) => Weaves::TruthWeave.get_weave().tapestry.0,
+                    Value::String(_) => Weaves::TextWeave.get_weave().tapestry.0, // add indexive later,
                     _ => {
                         return Err(WeaveError::new(
                             "Couldnt find a weave for the value",
@@ -726,10 +785,11 @@ impl WeaveAnalyzer {
                     (Some(info.clone()), info.release_weave.tapestry)
                 } else {
                     // this would run if the type isnt predictable at compile time
-                    if symbol.weave.name != "SpellWeave" {
+                    // Check if it's callable using the base tapestry (handles SpellWeave<...> generics)
+                    if symbol.weave.base_tapestry != Tapestry::new(CALLABLE_STRAND) {
                         return Err(WeaveError::new(
                             &format!(
-                                "Cannot cast '{}' - it is not a spell! It has weave '{}'",
+                                "Cannot cast '{}' since it is not a spell! It has weave '{}'",
                                 var_name, symbol.weave.name
                             ),
                             callee,
@@ -833,9 +893,10 @@ impl WeaveAnalyzer {
                 .any(|it| it.index == symbol.slot_idx && it.depth == symbol.depth);
 
             if is_new {
+                // println!("Added upvalue {:?}", symbol);
                 self.current_upvalues.push(UpValue {
                     index: symbol.slot_idx,
-                    closed: Value::Emptiness,
+                    closed: Value::Emptiness.into(),
                     depth: symbol.depth,
                 });
             }
@@ -886,15 +947,17 @@ impl WeaveAnalyzer {
     }
 
     fn get_weave(&self, tapestry: Tapestry) -> Option<Weave> {
-        const NUM: u64 = NUM_WEAVE.tapestry.0;
-        const TEXT: u64 = TEXT_WEAVE.tapestry.0;
-        const TRUTH: u64 = TRUTH_WEAVE.tapestry.0;
-        const SPELL: u64 = SPELL_WEAVE.tapestry.0;
         match tapestry.0 {
-            NUM => Some(NUM_WEAVE),
-            TEXT => Some(TEXT_WEAVE),
-            TRUTH => Some(TRUTH_WEAVE),
-            SPELL => Some(SPELL_WEAVE),
+            x if x == Weaves::NumWeave.get_weave().tapestry.0 => Some(Weaves::NumWeave.get_weave()),
+            x if x == Weaves::TextWeave.get_weave().tapestry.0 => {
+                Some(Weaves::TextWeave.get_weave())
+            }
+            x if x == Weaves::TruthWeave.get_weave().tapestry.0 => {
+                Some(Weaves::TruthWeave.get_weave())
+            }
+            x if x == Weaves::SpellWeave.get_weave().tapestry.0 => {
+                Some(Weaves::SpellWeave.get_weave())
+            }
             _ => None,
         }
     }

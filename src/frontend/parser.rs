@@ -129,6 +129,24 @@ impl Parser {
         self.error_at(msg, self.previous.clone());
     }
 
+    fn parse_weave(&mut self, msg: &str) -> ParseResult<ParsedWeave> {
+        self.consume(TokenType::Identifier, msg);
+        let weave = self.previous.clone();
+        let mut inner: Option<Token> = None;
+        if self.match_token(TokenType::Less) {
+            self.consume(TokenType::Identifier, "Expected a inner weave after '<'.");
+            inner = Some(self.previous.clone());
+            self.consume(
+                TokenType::Greater,
+                "Expected closing '>' after inner weave.",
+            );
+        }
+        Ok(ParsedWeave {
+            base: weave,
+            inner: inner,
+        })
+    }
+
     fn sync(&mut self) {
         self.panic = false;
 
@@ -212,14 +230,11 @@ impl Parser {
 
         self.consume(TokenType::ParenRight, "Expected ')' after spell reagents!");
 
-        let weave_name: Option<String>;
+        let weave_name: Option<ParsedWeave>;
 
         if self.match_token(TokenType::ColonColon) {
-            self.consume(
-                TokenType::Identifier,
-                "Expected a weave bound to the spell!",
-            );
-            weave_name = Some(self.previous.lexeme.clone());
+            weave_name = Some(self.parse_weave("Expected a weave bound to the spell!")?);
+            // weave_name = Some(self.previous.lexeme.clone());
         } else {
             weave_name = None;
         }
@@ -360,12 +375,16 @@ impl Parser {
 
     fn sever_statement(&mut self) -> ParseResult<Stmt> {
         self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
-        Ok(Stmt::Sever { token: self.previous.clone() })
+        Ok(Stmt::Sever {
+            token: self.previous.clone(),
+        })
     }
 
     fn flow_statement(&mut self) -> ParseResult<Stmt> {
         self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
-        Ok(Stmt::Flow { token: self.previous.clone() })
+        Ok(Stmt::Flow {
+            token: self.previous.clone(),
+        })
     }
 
     // ----------------------- Expression stuff -------------------------------//
@@ -760,6 +779,12 @@ pub type ParseResult<T> = Result<T, ParseError>;
 type ParseFun = fn(&mut Parser, bool) -> ParseResult<Expr>;
 
 type InfixParseFun = fn(&mut Parser, Expr) -> ParseResult<Expr>;
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct ParsedWeave {
+    pub base: Token,
+    pub inner: Option<Token>,
+}
 
 enum Precedence {
     None,

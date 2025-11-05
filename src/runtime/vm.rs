@@ -3,7 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 use crate::{
     runtime::{
         operation::OpCode,
-        spell::{ClosureObject, SpellObject},
+        spell::{ClosureObject, SpellObject, UpValue},
     },
     value::{Value, print_value},
 };
@@ -14,6 +14,7 @@ pub enum InterpretResult {
     InterpretOk,
 }
 
+#[derive(Debug)]
 struct CallFrame {
     ip: usize,
     closure: Rc<ClosureObject>,
@@ -112,7 +113,7 @@ impl EiraVM {
         // }
     }
 
-    pub fn start(&mut self) -> InterpretResult {
+    pub fn start(&mut self) -> InterpretResult {        
         macro_rules! set_register {
             ($base:expr, $index:expr, $value:expr) => {{
                 let idx = $base + $index as usize;
@@ -127,15 +128,21 @@ impl EiraVM {
             ($base:expr, $index:expr) => {{ &self.stack[$base + $index as usize] }};
         }
 
+        macro_rules! frame {
+            () => {
+                self.frames.last_mut().unwrap()
+            };
+        }
+
         macro_rules! binary_op {
-            ($frame:expr, $op:tt) => {{
-                let (dest, r1, r2) = $frame.read_three_bytes();
-                let v1 = get_register!($frame.reg_base, r1);
-                let v2 = get_register!($frame.reg_base, r2);
+            ($op:tt) => {{
+                let (dest, r1, r2) = frame!().read_three_bytes();
+                let v1 = get_register!(frame!().reg_base, r1);
+                let v2 = get_register!(frame!().reg_base, r2);
                 match (v1, v2) {
                     (Value::Number(n1), Value::Number(n2)) => {
                         let r = n1 $op n2;
-                        set_register!($frame.reg_base, dest, Value::from(r));
+                        set_register!(frame!().reg_base, dest, Value::from(r));
                     }
                     _ => {
                         self.runtime_error("Operands should be 2 numbers!");
@@ -146,53 +153,52 @@ impl EiraVM {
         }
 
         loop {
-            let frame = self.frames.last_mut().unwrap();
-            let base = frame.reg_base;
-            let op = OpCode::try_from(frame.read_byte()).unwrap();
+            let base = frame!().reg_base;
+            let op = OpCode::try_from(frame!().read_byte()).unwrap();
             match op {
                 OpCode::Add => {
-                    binary_op!(frame, +)
+                    binary_op!(+)
                 }
                 OpCode::Subtract => {
-                    binary_op!(frame, -)
+                    binary_op!(-)
                 }
                 OpCode::Divide => {
-                    binary_op!(frame, /)
+                    binary_op!(/)
                 }
                 OpCode::Multiply => {
-                    binary_op!(frame, *)
+                    binary_op!(*)
                 }
                 OpCode::Concat => {
-                    let (dest, r1, r2) = frame.read_three_bytes();
+                    let (dest, r1, r2) = frame!().read_three_bytes();
                     let v1 = get_register!(base, r1);
                     let v2 = get_register!(base, r2);
                     let r = v1.extract_string().unwrap() + &v2.extract_string().unwrap();
                     set_register!(base, dest, Value::String(Rc::new(r)));
                 }
                 OpCode::Equal => {
-                    let (dest, r1, r2) = frame.read_three_bytes();
+                    let (dest, r1, r2) = frame!().read_three_bytes();
                     let a = get_register!(base, r1);
                     let b = get_register!(base, r2);
                     let r = a.equals(&b);
                     set_register!(base, dest, Value::Bool(r));
                 }
                 OpCode::Greater => {
-                    binary_op!(frame, >)
+                    binary_op!(>)
                 }
                 OpCode::Less => {
-                    binary_op!(frame, <)
+                    binary_op!(<)
                 }
                 OpCode::False => {
-                    let dest = frame.read_byte();
+                    let dest = frame!().read_byte();
                     set_register!(base, dest, Value::Bool(false));
                 }
                 OpCode::True => {
-                    let dest = frame.read_byte();
+                    let dest = frame!().read_byte();
                     set_register!(base, dest, Value::Bool(true));
                 }
                 OpCode::Negate => {
-                    let dest = frame.read_byte();
-                    let src_ind = frame.read_byte();
+                    let dest = frame!().read_byte();
+                    let src_ind = frame!().read_byte();
                     let source = get_register!(base, src_ind);
                     match source {
                         Value::Number(n) => {
@@ -206,8 +212,8 @@ impl EiraVM {
                     }
                 }
                 OpCode::Not => {
-                    let dest = frame.read_byte();
-                    let src_ind = frame.read_byte();
+                    let dest = frame!().read_byte();
+                    let src_ind = frame!().read_byte();
                     let source = get_register!(base, src_ind);
                     match source {
                         Value::Bool(b) => {
@@ -221,18 +227,47 @@ impl EiraVM {
                     }
                 }
                 OpCode::Constant => {
-                    let dest = frame.read_byte();
-                    let val = frame.read_constant().clone();
-                    set_register!(base, dest, val);
+                    let dest = frame!().read_byte();
+                    let cval = frame!().read_constant().clone();
+                    match cval {
+                        Value::Closure(c) => {
+                            // Eagerly bind upvalues: capture from current frame into a fresh ClosureObject
+                            let upcount = c.spell.upvalue_count as usize;
+                            let mut new_upvalues: Vec<UpValue> = Vec::with_capacity(upcount);
+                            for i in 0..upcount {
+                                let u = &c.upvalues[i];
+                                let capture_idx = frame!().reg_base + u.index;
+                                let captured = if capture_idx < self.stack.len() {
+                                    self.stack[capture_idx].clone()
+                                } else {
+                                    Value::Emptiness
+                                };
+                                new_upvalues.push(UpValue {
+                                    index: u.index,
+                                    depth: u.depth,
+                                    closed: std::cell::RefCell::new(captured),
+                                });
+                            }
+
+                            let new_closure = ClosureObject {
+                                spell: c.spell.clone(),
+                                upvalues: new_upvalues,
+                            };
+                            set_register!(base, dest, Value::Closure(Rc::new(new_closure)));
+                        }
+                        other => {
+                            set_register!(base, dest, other);
+                        }
+                    }
                 }
                 OpCode::Print => {
-                    let i = frame.read_byte();
+                    let i = frame!().read_byte();
                     let val = get_register!(base, i);
                     print_value(val.clone())
                 }
                 OpCode::SetGlobal => {
-                    let src_reg_ind = frame.read_byte();
-                    let var_name_value = frame.read_constant().clone();
+                    let src_reg_ind = frame!().read_byte();
+                    let var_name_value = frame!().read_constant().clone();
                     let value = get_register!(base, src_reg_ind);
                     if let Value::String(name) = var_name_value {
                         self.globals.insert(name.to_string(), value.clone());
@@ -244,8 +279,8 @@ impl EiraVM {
                     }
                 }
                 OpCode::GetGlobal => {
-                    let dest_reg = frame.read_byte();
-                    let val = frame.read_constant().clone();
+                    let dest_reg = frame!().read_byte();
+                    let val = frame!().read_constant().clone();
                     if let Value::String(name) = val {
                         let global = self.globals.get(&name.to_string());
                         if let Some(value) = global {
@@ -261,44 +296,43 @@ impl EiraVM {
                     }
                 }
                 OpCode::Move => {
-                    let dest_slot = frame.read_byte();
-                    let src_reg = frame.read_u16();
+                    let dest_slot = frame!().read_byte();
+                    let src_reg = frame!().read_u16();
                     // Move FROM src_reg TO dest_slot (both are register indices)
                     let val = get_register!(base, src_reg as u8).clone();
                     set_register!(base, dest_slot, val);
                 }
                 OpCode::Emptiness => {
-                    let dest_reg = frame.read_byte();
+                    let dest_reg = frame!().read_byte();
                     set_register!(base, dest_reg, Value::Emptiness);
                 }
                 OpCode::PopStack => {
-                    let mut count = frame.read_u16();
+                    let mut count = frame!().read_u16();
                     while count > 0 {
                         self.stack.pop();
                         count -= 1;
                     }
                 }
                 OpCode::Jump => {
-                    let offset = frame.read_u16();
-                    frame.ip += offset as usize;
+                    let offset = frame!().read_u16();
+                    frame!().ip += offset as usize;
                 }
                 OpCode::JumpIfFalse => {
-                    let condition_reg = frame.read_byte();
-                    let offset = frame.read_u16();
+                    let condition_reg = frame!().read_byte();
+                    let offset = frame!().read_u16();
 
                     if get_register!(base, condition_reg).is_falsey() {
-                        let frame = self.frames.last_mut().unwrap();
-                        frame.ip += offset as usize;
+                        frame!().ip += offset as usize;
                     }
                 }
                 OpCode::Loop => {
-                    let offset = frame.read_u16();
-                    frame.ip -= offset as usize;
+                    let offset = frame!().read_u16();
+                    frame!().ip -= offset as usize;
                 }
                 OpCode::Halt => break,
                 OpCode::Release => {
-                    let ret_reg = frame.read_byte();
-                    let ret_idx = frame.reg_base + ret_reg as usize;
+                    let ret_reg = frame!().read_byte();
+                    let ret_idx = frame!().reg_base + ret_reg as usize;
                     let ret_val = self.stack[ret_idx].clone();
 
                     let finished = self.frames.pop().unwrap();
@@ -309,7 +343,8 @@ impl EiraVM {
                         if local_stack_idx < self.stack.len()
                             && *parent_stack_idx < self.stack.len()
                         {
-                            self.stack[*parent_stack_idx] = self.stack[local_stack_idx].clone();
+                            let val = self.stack[local_stack_idx].clone();
+                            *finished.closure.upvalues[*local_reg].closed.borrow_mut() = val;
                         }
                     }
 
@@ -322,13 +357,13 @@ impl EiraVM {
                     self.stack[dest_idx] = ret_val;
                 }
                 OpCode::Cast => {
-                    let dest = frame.read_byte();
-                    let spell_reg = frame.read_byte();
-                    let reg_start = frame.read_byte();
+                    let dest = frame!().read_byte();
+                    let spell_reg = frame!().read_byte();
+                    let reg_start = frame!().read_byte();
 
                     let frame_slot_start = self.stack.len();
 
-                    let callee_idx = frame.reg_base + spell_reg as usize;
+                    let callee_idx = frame!().reg_base + spell_reg as usize;
                     if callee_idx >= self.stack.len() {
                         self.runtime_error(&format!("Cast: spell register {} (stack index {}) out of bounds (stack size: {})", spell_reg, callee_idx, self.stack.len()));
                         return InterpretResult::RuntimeError;
@@ -353,35 +388,17 @@ impl EiraVM {
                             .resize(frame_slot_start + total, Value::Emptiness);
                     }
 
-                    // Track upvalue mappings for this frame
-                    let mut upvalue_mappings = Vec::new();
+                    // Track upvalue mappings for this frame (unused with eager capture)
+                    let upvalue_mappings = Vec::new();
+                    // Populate upvalue registers from eagerly captured values
                     for i in 0..upvalues_count {
-                        let upval = &spell.upvalues[i];
-                        // Get the value from the captured slot (relative to caller's frame base)
-                        let upval_stack_idx = frame.reg_base + upval.index;
-                        let val = if upval_stack_idx < self.stack.len() {
-                            match &self.stack[upval_stack_idx] {
-                                Value::Closure(c) => &c.spell.constants[upval.index as usize],
-                                _ => {
-                                    // this shouldnt really be executed tbh, but just in case
-                                    println!(
-                                        "Warning: upvalue at stack index {} is not a Closure!",
-                                        upval_stack_idx
-                                    );
-                                    &self.stack[upval_stack_idx]
-                                }
-                            }
-                        } else {
-                            &upval.closed
-                        };
-                        self.stack[frame_slot_start + i] = val.clone();
-                        // Track that local register i points to parent's upval_stack_idx
-                        upvalue_mappings.push((i, upval_stack_idx));
+                        let v = spell.upvalues[i].closed.borrow().clone();
+                        self.stack[frame_slot_start + i] = v;
                     }
 
                     for i in 0..arity {
                         self.stack[frame_slot_start + upvalues_count + i] =
-                            self.stack[frame.reg_base + (reg_start as usize) + i].clone();
+                            self.stack[frame!().reg_base + (reg_start as usize) + i].clone();
                     }
 
                     let new_frame = CallFrame {
@@ -390,14 +407,13 @@ impl EiraVM {
                         // slot_start: frame_slot_start,
                         return_reg: dest,
                         reg_base: frame_slot_start, // Unified: registers start at same place as slots (params are reg 0..arity)
-                        caller_reg_base: frame.reg_base,
+                        caller_reg_base: frame!().reg_base,
                         upvalue_mappings,
                     };
                     self.frames.push(new_frame);
                 }
             }
         }
-
         InterpretResult::InterpretOk
     }
 }

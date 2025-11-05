@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{frontend::{reagents::WovenReagent, symbol_table::Symbol, weaves::Weave}, value::Value};
 
@@ -46,5 +46,5 @@ pub struct ClosureObject {
 pub struct UpValue {
     pub index: usize, // will contain the absolute slot index!
     pub depth: usize,
-    pub closed: Value, 
+    pub closed: RefCell<Value>,
 }
