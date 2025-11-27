@@ -1,7 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use crate::runtime::spell::{ClosureObject, SpellObject};
+use crate::values::spell::{ClosureObject, SpellObject};
 
 /// The value's container for runtime
 #[derive(Debug, Clone)]
@@ -11,6 +11,7 @@ pub enum Value {
     Bool(bool),
     Closure(Rc<ClosureObject>),
     Spell(Rc<SpellObject>),
+    Sign(),
     Emptiness,
 }
 
@@ -23,6 +24,7 @@ impl Value {
             Self::Closure(_) => ValueType::Closure,
             Self::Spell(_) => ValueType::Spell,
             Self::Emptiness => ValueType::Emptiness,
+            Self::Sign() => ValueType::Struct,
         }
     }
 
@@ -104,9 +106,10 @@ impl Hash for Value {
             Self::Number(n) => n.to_bits().hash(state),
             Self::String(s) => s.hash(state),
             Self::Bool(b) => b.hash(state),
-            Self::Emptiness => { } //hmm
+            Self::Emptiness => {}  //hmm
             Self::Closure(_) => {} // not a compile time const
             Self::Spell(_) => {}   // not a compile time const
+            Self::Sign() => {}     // not a compile time const
         }
     }
 }
@@ -138,6 +141,7 @@ pub fn print_value(value: Value) {
         Value::String(value) => println!("{}", value),
         Value::Closure(closure) => println!("Spell '{}'", closure.spell.name.clone().unwrap()),
         Value::Spell(spell) => println!("Spell '{}'", spell.name.clone().unwrap()),
+        Value::Sign() => println!("Sign"),
     }
 }
 
@@ -153,5 +157,6 @@ pub enum ValueType {
     Bool,
     Closure,
     Spell,
+    Struct,
     Emptiness,
 }

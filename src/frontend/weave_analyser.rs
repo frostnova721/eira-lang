@@ -16,8 +16,8 @@ use crate::{
         token_type::TokenType,
         weaves::{Weave, Weaver, Weaves, gen_weave_map},
     },
-    runtime::spell::{SpellInfo, UpValue},
-    value::Value,
+    values::spell::{SpellInfo, UpValue},
+    values::Value,
 };
 
 pub struct WeaveError {

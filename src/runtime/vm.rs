@@ -1,11 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    runtime::{
-        operation::OpCode,
-        spell::{ClosureObject, SpellObject, UpValue},
-    },
-    value::{Value, print_value},
+    SpellObject, runtime::{instruction, operation::OpCode}, values::{Value, print_value, spell::{ClosureObject, UpValue}}
 };
 
 pub enum InterpretResult {
@@ -152,9 +148,13 @@ impl EiraVM {
             }};
         }
 
+        // Keep this on to profile execution
+        // let mut instruction_count: u32 = 0;
+
         loop {
             let base = frame!().reg_base;
             let op = OpCode::try_from(frame!().read_byte()).unwrap();
+            // instruction_count += 1;
             match op {
                 OpCode::Add => {
                     binary_op!(+)
@@ -414,6 +414,7 @@ impl EiraVM {
                 }
             }
         }
+        // println!("Program completed after {} instructions.", instruction_count);
         InterpretResult::InterpretOk
     }
 }

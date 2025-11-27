@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{frontend::{reagents::WovenReagent, symbol_table::Symbol, weaves::Weave}, value::Value};
+use crate::{frontend::{reagents::WovenReagent, symbol_table::Symbol, weaves::Weave}, values::value::Value};
 
 #[derive(Debug, Clone)]
 pub struct SpellObject {

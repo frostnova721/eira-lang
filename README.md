@@ -4,24 +4,28 @@ A Programming language with some MAGIC!
 
 ## Core Features
 
+Eira is aimed to be:
+
 - Typesafe
 - Portable
 - Decent syntax with some magical twist!
 
 ## Progress (Will be updated)
 
-- Very basic skeleton [100%]
-- Grammar/Syntax planning [~80%]
-- VM Design [~70%] (i was optimising the current one)
+- [x] Mutable and Immutable Variables (access, modification)
+- [x] Scopes (Realms in Eira)
+- [x] Control flow (using fate (if), divert (else), while)
+- [x] Function and Closures (spells!)
+- [ ] Structs (signs! Work in progressss)
 
 ## Current State
 
-> state: confused
+> state: Going Smooth!
 
 - count to 10mil in ~380ms (in my pc btw!)
 
     for comparison, js: ~39ms (v8 JIT hits different), dart: ~480ms (with 'dart run --snapshot=main.jit' command, java: ~337ms), for obvious reasons, im not comparing with the AOT compiled codes! (tests done by me btw)
-- rewriting the compiler to be split as parser, type check!
+
 - trying to design a mid type-like system!
 
 ## Eira's Own Weave System!!
@@ -102,6 +106,8 @@ Incase you want to test this language out, follow the steps
 - Clone the repository
 - Write your code in tests/test.eira file
 - Run `cargo run`
+
+    or provide the path to a custom ".eira" file as first argument if script is in a different directory (cargo run -- path_to_eira_file)
 
 There you go. You are a mage now!!
 

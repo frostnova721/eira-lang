@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::{
     frontend::{expr::Expr, reagents::Reagent, scanner::Token, stmt::Stmt, token_type::TokenType},
-    value::Value,
+    values::Value,
 };
 
 const MSG_MISSED_SEMICOLON: &str = "Expected a ';' after the expression. Forgot to add it?";

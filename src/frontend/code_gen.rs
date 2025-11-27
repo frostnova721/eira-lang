@@ -15,9 +15,9 @@ use crate::{
     print_instructions,
     runtime::{
         instruction::Instruction,
-        spell::{ClosureObject, SpellInfo, SpellObject},
     },
-    value::Value,
+    values::spell::{ClosureObject, SpellInfo, SpellObject},
+    values::Value,
 };
 
 #[derive(Debug)]

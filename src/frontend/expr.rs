@@ -1,4 +1,4 @@
-use crate::{frontend::{scanner::Token, symbol_table::Symbol, tapestry::Tapestry}, value::Value};
+use crate::{frontend::{scanner::Token, symbol_table::Symbol, tapestry::Tapestry}, values::Value};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
