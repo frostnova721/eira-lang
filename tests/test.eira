@@ -1,18 +1,1 @@
-spell a():: SpellWeave<TextWeave> {
-  bind msg = "treaty!";
-  bind lemon = "lemon";
-  bind na = "na";
-
-  spell x():: TextWeave {
-    chant "meow meow treat!";
-    chant lemon;
-    release msg;
-  }
-
-  release x;
-}
-
-mark b = a;
-mark c = cast b;
-mark d = cast c;
-chant d; 
+chant 23 % 6;

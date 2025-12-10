@@ -25,7 +25,7 @@ pub enum TokenType {
     Glyph, // enum
     Sever, // break
     Flow, // continue
-    Weave, // types (more like set of behaviours)
+    Weave, // types (more like set of behaviours)d
 
     // Connector words
     With, // used in casting 
@@ -37,7 +37,7 @@ pub enum TokenType {
     Greater, GreaterEqual, // >
     Less, LessEqual, // <
     Bang, BangEqual, // !
-    Minus, Plus, Star, Slash, // arithematic
+    Minus, Plus, Star, Slash, Percent, // arithematic
     Dot,
     Comma,
     ParenLeft, ParenRight,

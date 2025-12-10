@@ -909,6 +909,7 @@ impl WeaveAnalyzer {
             TokenType::Minus => Some(SUBTRACTIVE_STRAND),
             TokenType::Star => Some(MULTIPLICATIVE_STRAND),
             TokenType::Slash => Some(DIVISIVE_STRAND),
+            TokenType::Percent => Some(DIVISIVE_STRAND),
             TokenType::Bang => Some(CONDITIONAL_STRAND),
             TokenType::Greater
             | TokenType::Less

@@ -8,6 +8,7 @@ pub enum OpCode {
     Subtract,
     Divide,
     Multiply,
+    Mod,
 
     // Comparison
     Equal,
@@ -69,6 +70,7 @@ impl OpCode {
             OpCode::Constant => "OP_CONST",
             OpCode::Divide => "OP_DIV",
             OpCode::Multiply => "OP_MUL",
+            OpCode::Mod => "OP_MOD",
             OpCode::Negate => "OP_NEG",
             OpCode::Not => "OP_NOT",
             OpCode::Concat => "OP_CONCAT",
@@ -102,6 +104,7 @@ impl OpCode {
             | OpCode::Subtract
             | OpCode::Multiply
             | OpCode::Divide
+            | OpCode::Mod
             | OpCode::Equal
             | OpCode::Less
             | OpCode::Constant

@@ -822,6 +822,13 @@ impl CodeGen {
                     r1,
                     r2,
                 })?;
+            },
+            TokenType::Percent => {
+                self.gen_bin_op(left, right, |dest, r1, r2| Instruction::Mod {
+                    dest,
+                    r1,
+                    r2,
+                })?;
             }
             _ => {
                 // This error msg should be shown to the user, if it does, compiler is bugged

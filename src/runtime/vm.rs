@@ -412,6 +412,7 @@ impl EiraVM {
                     };
                     self.frames.push(new_frame);
                 }
+                OpCode::Mod => binary_op!(%),
             }
         }
         // println!("Program completed after {} instructions.", instruction_count);

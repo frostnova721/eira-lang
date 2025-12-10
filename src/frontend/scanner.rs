@@ -212,6 +212,7 @@ impl<'a> Scanner<'a> {
             '-' => self.make_token(TokenType::Minus),
             '/' => self.make_token(TokenType::Slash),
             '*' => self.make_token(TokenType::Star),
+            '%' => self.make_token(TokenType::Percent),
 
             '!' if self.match_char('=') => self.make_token(TokenType::BangEqual),
             '!' => self.make_token(TokenType::Bang),

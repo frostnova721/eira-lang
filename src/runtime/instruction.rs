@@ -24,6 +24,11 @@ pub enum Instruction {
         r1: u8,
         r2: u8,
     },
+    Mod {
+        dest: u8,
+        r1: u8,
+        r2: u8,
+    },
 
     Equal {
         dest: u8,
@@ -149,6 +154,7 @@ impl Instruction {
                 r1: _,
                 r2: _,
             } => 4,
+            Instruction::Mod { dest: _, r1: _, r2:_ } => 4,
             Instruction::Equal {
                 dest: _,
                 r1: _,
@@ -215,6 +221,7 @@ impl Instruction {
             Instruction::Subtract { dest, r1, r2 } => format!("SUBTRACT {} {} {}", dest, r1, r2),
             Instruction::Multiply { dest, r1, r2 } => format!("MULTIPLY {} {} {}", dest, r1, r2),
             Instruction::Divide { dest, r1, r2 } => format!("DIVIDE {} {} {}", dest, r1, r2),
+            Instruction::Mod { dest, r1, r2 } => format!("MOD {} {} {}", dest, r1, r2),
             Instruction::Constant { dest, const_index } => {
                 format!("CONSTANT {} {}", dest, const_index)
             }
@@ -260,6 +267,7 @@ impl Instruction {
             Instruction::Subtract { dest, r1, r2 } => vec![OpCode::Subtract as u8, *dest, *r1, *r2],
             Instruction::Multiply { dest, r1, r2 } => vec![OpCode::Multiply as u8, *dest, *r1, *r2],
             Instruction::Divide { dest, r1, r2 } => vec![OpCode::Divide as u8, *dest, *r1, *r2],
+            Instruction::Mod {dest, r1, r2} => vec![OpCode::Mod as u8, *dest, *r1, *r2],
             Instruction::Constant { dest, const_index } => {
                 self.gen_const_byte_code(OpCode::Constant, const_index, dest)
             }

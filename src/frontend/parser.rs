@@ -461,7 +461,8 @@ impl Parser {
             | TokenType::Less
             | TokenType::LessEqual
             | TokenType::Greater
-            | TokenType::GreaterEqual => Ok(Expr::Binary {
+            | TokenType::GreaterEqual
+            | TokenType::Percent => Ok(Expr::Binary {
                 left: Box::new(lhs),
                 right: Box::new(rhs),
                 operator: op,
@@ -695,7 +696,11 @@ impl Parser {
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenType::Plus => ParseRule {
+            TokenType::Percent => ParseRule {
+                prefix: None,
+                infix: Some(Self::binary),
+                precedence: Precedence::Factor,
+            },            TokenType::Plus => ParseRule {
                 prefix: None,
                 infix: Some(Self::binary),
                 precedence: Precedence::Term,
