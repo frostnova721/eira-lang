@@ -352,7 +352,7 @@ impl CodeGen {
                     let dest = self.get_next_register()?;
                     // dest should be start + i
                     self.instructions.push(Instruction::Move {
-                        dest,
+                        dest: dest,
                         source: src as u16,
                     });
                 }
@@ -570,7 +570,7 @@ impl CodeGen {
     ) -> GenResult<u8> {
         let src = match initializer {
             Some(init) => self.gen_from_expr(init)?,
-            None => self.write_constant(Value::Emptiness)?, // Assuming you have Value::Nil
+            None => self.write_constant(Value::Emptiness)?,
         };
 
         self.set_value_instruction(symbol, src)?;
@@ -580,7 +580,6 @@ impl CodeGen {
 
     fn set_value_instruction(&mut self, symbol: Symbol, src_reg: u8) -> GenResult<()> {
         if symbol.depth > 0 {
-            // In unified model, locals are just registers
             // Calculate the target register for this variable
             let target_reg = if self.in_spell {
                 // Check if this variable is an upvalue

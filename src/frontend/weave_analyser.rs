@@ -53,6 +53,7 @@ pub struct WeaveAnalyzer {
     current_upvalues: Vec<UpValue>, // upvalue for currently resolving spell
     current_scope_depth: usize,     // count current the scope depth
     spell_base_depth: usize,        // depth where current spell body starts (parameters live here)
+    spell_slot_counter: usize,      // continuous slot counter within current spell
 
     parent_map: HashMap<Symbol, Symbol>, // maps a symbol to its parent symbol
 }
@@ -70,6 +71,7 @@ impl WeaveAnalyzer {
             current_upvalues: vec![],
             current_scope_depth: 0,
             spell_base_depth: 0,
+            spell_slot_counter: 0,
             parent_map: HashMap::new(),
         }
     }
@@ -175,7 +177,15 @@ impl WeaveAnalyzer {
                     }
                 }
 
-                let slot = self.symbol_table.get_current_scope_size();
+                let slot = if matches!(self.current_realm, Realm::Spell) {
+                    // Inside a spell, use continuous slot counter
+                    let current_slot = self.spell_slot_counter;
+                    self.spell_slot_counter += 1;
+                    current_slot
+                } else {
+                    // Outside spells, use scope-local slot assignment
+                    self.symbol_table.get_current_scope_size()
+                };
 
                 let s = self
                     .symbol_table
@@ -456,6 +466,9 @@ impl WeaveAnalyzer {
                 self.spell_base_depth = self.current_scope_depth;
 
                 self.current_scope_depth += 1;
+                
+                // Reset spell slot counter for parameters
+                self.spell_slot_counter = 0;
 
                 let upvals_saved = std::mem::take(&mut self.current_upvalues);
 
@@ -473,8 +486,9 @@ impl WeaveAnalyzer {
                         r.name.lexeme.clone(),
                         weave.clone(),
                         false,
-                        self.symbol_table.get_current_scope_size(),
+                        self.spell_slot_counter,  // Use continuous slot counter, (lexical scoping doesnt work right here!)
                     );
+                    self.spell_slot_counter += 1;  // Increment for next parameter
                     w_reagents.push(WovenReagent {
                         name: r.name.clone(),
                         weave: weave,
@@ -501,6 +515,9 @@ impl WeaveAnalyzer {
                 let woven_body = self.analyze_statement(*body)?;
 
                 self.spell_stack.pop();
+
+                // Reset spell slot counter when exiting spell
+                self.spell_slot_counter = 0;
 
                 // this is inaccurate and buggy. should be replaced. TODO!
                 self.current_realm = if self.spell_stack.len() == 0 {
