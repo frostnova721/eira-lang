@@ -256,6 +256,7 @@ impl CodeGen {
                 spell,
             } => self.gen_spell_instructions(name, reagents, *body, spell),
             WovenStmt::Release { token: _, expr } => self.gen_release_instructions(expr),
+            WovenStmt::Sign { name, marks } => todo!(),
         }
     }
 

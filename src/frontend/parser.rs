@@ -1,7 +1,13 @@
 use std::rc::Rc;
 
 use crate::{
-    frontend::{expr::Expr, reagents::Reagent, scanner::Token, stmt::Stmt, token_type::TokenType},
+    frontend::{
+        expr::Expr,
+        reagents::{Mark, Reagent},
+        scanner::Token,
+        stmt::Stmt,
+        token_type::TokenType,
+    },
     values::Value,
 };
 
@@ -216,7 +222,7 @@ impl Parser {
                     "Expected a weave name to bind with the mark!",
                 );
 
-                let weave_name = self.previous.lexeme.clone();
+                let weave_name = self.previous.clone();
                 params.push(Reagent {
                     name: token,
                     weave_name: weave_name,
@@ -288,6 +294,8 @@ impl Parser {
             self.flow_statement()
         } else if self.match_token(TokenType::Release) {
             self.release_statement()
+        } else if self.match_token(TokenType::Sign) {
+            self.sign_statement()
         } else {
             self.expression_statement()
         }
@@ -371,6 +379,44 @@ impl Parser {
             then_branch: Box::new(then_branch),
             else_branch: else_branch,
         })
+    }
+
+    fn sign_statement(&mut self) -> ParseResult<Stmt> {
+        self.consume(TokenType::Identifier, "Expected a name for the sign.");
+        let name = self.previous.clone();
+        self.consume(TokenType::BraceLeft, "Expected '{' after the sign name.");
+
+        let mut marks: Vec<Mark> = vec![];
+
+        if !self.check(TokenType::BraceRight) {
+            loop {
+                self.consume(TokenType::Identifier, "Expected a mark name!");
+                let mark_name = self.previous.clone();
+                self.consume(
+                    TokenType::Colon,
+                    "Expected a weave definition for the field.",
+                );
+                self.consume(
+                    TokenType::Identifier,
+                    "Expected a weave name to bind with the sign's mark!",
+                );
+                let weave_name = self.previous.clone();
+
+                marks.push(Mark {
+                    name: mark_name,
+                    weave_name,
+                });
+
+                if !self.match_token(TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(TokenType::BraceRight, "Expected '}' after sign marks.");
+        self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
+
+        Ok(Stmt::Sign { name, marks })
     }
 
     fn sever_statement(&mut self) -> ParseResult<Stmt> {
@@ -700,7 +746,8 @@ impl Parser {
                 prefix: None,
                 infix: Some(Self::binary),
                 precedence: Precedence::Factor,
-            },            TokenType::Plus => ParseRule {
+            },
+            TokenType::Plus => ParseRule {
                 prefix: None,
                 infix: Some(Self::binary),
                 precedence: Precedence::Term,

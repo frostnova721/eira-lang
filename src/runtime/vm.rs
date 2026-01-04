@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    SpellObject, runtime::{instruction, operation::OpCode}, values::{Value, print_value, spell::{ClosureObject, UpValue}}
+    SpellObject, runtime::{operation::OpCode}, values::{Value, print_value, spell::{ClosureObject, UpValue}}
 };
 
 pub enum InterpretResult {

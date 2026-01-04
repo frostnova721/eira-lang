@@ -16,8 +16,8 @@ use crate::{
         token_type::TokenType,
         weaves::{Weave, Weaver, Weaves, gen_weave_map},
     },
-    values::spell::{SpellInfo, UpValue},
     values::Value,
+    values::spell::{SpellInfo, UpValue},
 };
 
 pub struct WeaveError {
@@ -367,7 +367,6 @@ impl WeaveAnalyzer {
                     })
                 }
             }
-
             Stmt::Spell {
                 name,
                 reagents,
@@ -449,12 +448,7 @@ impl WeaveAnalyzer {
 
                 let symbol = self
                     .symbol_table
-                    .define(
-                        name.lexeme.clone(),
-                        spell_weave,
-                        false,
-                        slot,
-                    )
+                    .define(name.lexeme.clone(), spell_weave, false, slot)
                     .unwrap();
 
                 self.symbol_table.new_scope();
@@ -466,29 +460,29 @@ impl WeaveAnalyzer {
                 self.spell_base_depth = self.current_scope_depth;
 
                 self.current_scope_depth += 1;
-                
+
                 // Reset spell slot counter for parameters
                 self.spell_slot_counter = 0;
 
                 let upvals_saved = std::mem::take(&mut self.current_upvalues);
 
                 for r in reagents {
-                    let Some(weave) = self.get_weave_from_name(&r.weave_name) else {
+                    let Some(weave) = self.get_weave_from_name(&r.weave_name.lexeme) else {
                         return Err(WeaveError::new(
                             &format!(
                                 "Couldn't find the weave '{}' within the Eira's library!",
                                 name.lexeme.clone()
                             ),
-                            r.name.clone(),
+                            r.weave_name.clone(),
                         ));
                     };
                     self.symbol_table.define(
                         r.name.lexeme.clone(),
                         weave.clone(),
                         false,
-                        self.spell_slot_counter,  // Use continuous slot counter, (lexical scoping doesnt work right here!)
+                        self.spell_slot_counter, // Use continuous slot counter, (lexical scoping doesnt work right here!)
                     );
-                    self.spell_slot_counter += 1;  // Increment for next parameter
+                    self.spell_slot_counter += 1; // Increment for next parameter
                     w_reagents.push(WovenReagent {
                         name: r.name.clone(),
                         weave: weave,
@@ -580,6 +574,7 @@ impl WeaveAnalyzer {
                     ));
                 }
             }
+            Stmt::Sign { name, marks } => todo!(),
         }
     }
 
