@@ -414,7 +414,7 @@ impl Parser {
         }
 
         self.consume(TokenType::BraceRight, "Expected '}' after sign marks.");
-        self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
+        // self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
 
         Ok(Stmt::Sign { name, marks })
     }

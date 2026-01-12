@@ -141,7 +141,8 @@ impl WeaveAnalyzer {
                 mutable,
                 initializer,
             } => {
-                if let Some(_symbol) = self.symbol_table.resolve(&name.lexeme) {
+                // allow variable shadowing from outer scopes
+                if let Some(_symbol) = self.symbol_table.resolve_in_current_scope(&name.lexeme) {
                     return Err(WeaveError::new(
                         &format!(
                             "The variable '{}' already exists in the current scope!",
@@ -373,8 +374,8 @@ impl WeaveAnalyzer {
                 body,
                 return_weave,
             } => {
-                // check n report for existing ones in the scope.
-                let existing = self.symbol_table.resolve(&name.lexeme);
+                // allow spell shadowing from outer scopes
+                let existing = self.symbol_table.resolve_in_current_scope(&name.lexeme);
                 if existing.is_some() {
                     return Err(WeaveError::new(
                         &format!(

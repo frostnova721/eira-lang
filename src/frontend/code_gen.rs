@@ -206,7 +206,7 @@ impl CodeGen {
         self.instructions.push(Instruction::Halt);
 
         print_instructions(
-            "<first_mage>",
+            "<0: The Origin>",
             &self.instructions,
             &self.constants.last().unwrap(),
         );

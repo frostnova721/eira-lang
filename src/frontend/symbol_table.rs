@@ -52,13 +52,17 @@ impl SymbolTable {
         }
     }
 
-    pub fn resolve(&mut self, name: &String) -> Option<&Symbol> {
+    pub fn resolve(&self, name: &String) -> Option<&Symbol> {
         for scope in self.scopes.iter().rev() {
             if let Some(var) = scope.get(name) {
                 return Some(var);
             }
         }
         None
+    }
+
+    pub fn resolve_in_current_scope(&self, name: &String) -> Option<&Symbol> {
+        self.scopes.last()?.get(name)
     }
 
     pub fn get_current_scope_size(&self) -> usize {
