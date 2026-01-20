@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     frontend::{
         expr::{Expr, WovenExpr},
-        reagents::WovenReagent,
+        reagents::{WovenMark, WovenReagent},
         scanner::Token,
         stmt::{Stmt, WovenStmt},
         strand::{
@@ -16,8 +16,11 @@ use crate::{
         token_type::TokenType,
         weaves::{Weave, Weaver, Weaves, gen_weave_map},
     },
-    values::Value,
-    values::spell::{SpellInfo, UpValue},
+    values::{
+        Value,
+        sign::{SignInfo, SignObject},
+        spell::{SpellInfo, UpValue},
+    },
 };
 
 pub struct WeaveError {
@@ -55,6 +58,8 @@ pub struct WeaveAnalyzer {
     spell_base_depth: usize,        // depth where current spell body starts (parameters live here)
     spell_slot_counter: usize,      // continuous slot counter within current spell
 
+    signs: HashMap<String, SignInfo>,
+
     parent_map: HashMap<Symbol, Symbol>, // maps a symbol to its parent symbol
 }
 
@@ -73,6 +78,7 @@ impl WeaveAnalyzer {
             spell_base_depth: 0,
             spell_slot_counter: 0,
             parent_map: HashMap::new(),
+            signs: HashMap::new(),
         }
     }
 
@@ -575,7 +581,63 @@ impl WeaveAnalyzer {
                     ));
                 }
             }
-            Stmt::Sign { name, marks } => todo!(),
+            Stmt::Sign { name, marks } => {
+                if let Some(s) = self.symbol_table.resolve_in_current_scope(&name.lexeme) {
+                    return Err(WeaveError::new(
+                        "A variable has been declared with same name as the sign.",
+                        name,
+                    ));
+                }
+
+                if self.signs.contains_key(&name.lexeme) {
+                    return Err(WeaveError::new(
+                        "A sign with same name already exists!.",
+                        name,
+                    ));
+                }
+
+                let mut sign_info = SignInfo {
+                    name: name.lexeme.clone(),
+                    marks: HashMap::new(),
+                    attunements: HashMap::new(),
+                };
+
+                let mut names: Vec<String> = vec![];
+                let mut w_marks: Vec<WovenMark> = vec![];
+
+                for m in marks {
+                    if names.contains(&m.name.lexeme) {
+                        return Err(WeaveError::new(
+                            "A different mark with same name exists in the sign!",
+                            m.name,
+                        ));
+                    }
+                    names.push(m.name.lexeme.clone());
+                    if let Some(mark_weave) = self.get_weave_from_name(&m.weave_name.lexeme) {
+                        w_marks.push(WovenMark {
+                            name: m.name.clone(),
+                            weave: mark_weave.clone(),
+                        });
+
+                        sign_info.marks.insert(m.name.lexeme, mark_weave);
+                    } else {
+                        return Err(WeaveError::new(
+                            &format!(
+                                "Couldn't find the weave '{}' within the Eira's library!",
+                                m.weave_name.lexeme
+                            ),
+                            m.weave_name,
+                        ));
+                    }
+                }
+
+                self.signs.insert(name.lexeme.clone(), sign_info);
+
+                Ok(WovenStmt::Sign {
+                    name,
+                    marks: w_marks,
+                })
+            }
         }
     }
 

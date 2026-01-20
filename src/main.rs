@@ -12,14 +12,19 @@ fn main() {
     let mut flag_print_instructions = false;
     let mut flag_print_bytecode = false;
 
-    for i in 0..args.len() {
+    let mut i = 0;
+
+    loop {
+        if i >= args.len() {
+            break;
+        }
         let arg = &args[i];
         if arg.starts_with("--") {
+            println!("{:?}", arg);
             let arg = &arg.replace("--", "");
             if *arg == "ptkn".to_owned() {
                 flag_print_tokens = true;
-            }
-            if *arg == "past".to_owned() {
+            } else if *arg == "past".to_owned() {
                 flag_print_ast = true;
             } else if *arg == "pwast".to_owned() {
                 flag_print_woven_ast = true;
@@ -29,6 +34,8 @@ fn main() {
                 flag_print_bytecode = true;
             }
             args.remove(i);
+        } else {
+            i += 1;
         }
     }
 
@@ -67,8 +74,8 @@ fn main() {
     match woven_tree {
         Err(no_no) => {
             println!(
-                "Weave Error: {}\nError at '{}' in line {}:{}",
-                no_no.msg, no_no.token.lexeme, no_no.token.line, no_no.token.column,
+                "Weave Error: {}\nError in file: {} at '{}' in line {}:{}",
+                no_no.msg, file_path,no_no.token.lexeme, no_no.token.line, no_no.token.column,
             )
         }
         Ok(yes_yes) => {
@@ -78,13 +85,14 @@ fn main() {
             }
 
             let mut generator = CodeGen::new(yes_yes);
+            generator.print_instructions = flag_print_instructions;
             let bc = generator.summon_bytecode().unwrap();
 
             if flag_print_bytecode {
                 print_byte_code(&bc);
+                println!("===DEBUG LOG END===\n\n");
             }
             let consts = generator.get_constants();
-            println!("===DEBUG LOG END===\n\n");
             // println!("{:?}", consts);
             EiraVM::init(bc, consts).start();
         }

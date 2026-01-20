@@ -13,11 +13,9 @@ use crate::{
         weaves::{Weave, Weaves},
     },
     print_instructions,
-    runtime::{
-        instruction::Instruction,
-    },
-    values::spell::{ClosureObject, SpellInfo, SpellObject},
+    runtime::instruction::Instruction,
     values::Value,
+    values::spell::{ClosureObject, SpellInfo, SpellObject},
 };
 
 #[derive(Debug)]
@@ -39,6 +37,8 @@ struct LoopBlock {
 }
 
 pub struct CodeGen {
+    pub print_instructions: bool,
+
     woven_ast: Vec<WovenStmt>,
     instructions: Vec<Instruction>,
 
@@ -54,7 +54,7 @@ pub struct CodeGen {
     upval_map: HashMap<(usize, usize), usize>, // map of (depth, slot_idx) to register index
 }
 
-impl CodeGen {        
+impl CodeGen {
     pub fn new(w_ast: Vec<WovenStmt>) -> Self {
         CodeGen {
             woven_ast: w_ast,
@@ -66,6 +66,7 @@ impl CodeGen {
             in_spell: false,
             curr_upval_count: 0,
             upval_map: HashMap::new(),
+            print_instructions: false,
         }
     }
 
@@ -205,11 +206,13 @@ impl CodeGen {
 
         self.instructions.push(Instruction::Halt);
 
-        print_instructions(
-            "<0: The Origin>",
-            &self.instructions,
-            &self.constants.last().unwrap(),
-        );
+        if self.print_instructions {
+            print_instructions(
+                "<0: The Origin>",
+                &self.instructions,
+                &self.constants.last().unwrap(),
+            );
+        }
 
         let bc = Assembler::convert_to_byte_code(&self.instructions);
         Ok(bc) // change later!
@@ -429,11 +432,13 @@ impl CodeGen {
                 .push(Instruction::Release { dest: ret_reg });
         }
 
-        print_instructions(
-            &name.lexeme,
-            &self.instructions,
-            &self.constants.last().unwrap(),
-        );
+        if self.print_instructions {
+            print_instructions(
+                &name.lexeme,
+                &self.instructions,
+                &self.constants.last().unwrap(),
+            );
+        }
 
         // Get the compiled results
         let spell_bytecode = Assembler::convert_to_byte_code(&self.instructions);
@@ -682,8 +687,12 @@ impl CodeGen {
 
         let reg = match self.get_weave(tapestry)?.tapestry.0 {
             num if num == Weaves::NumWeave.get_weave().tapestry.0 => self.gen_num_op(r1, r2, op),
-            truth if truth == Weaves::TruthWeave.get_weave().tapestry.0 => self.gen_bin_truth_op(r1, r2, op),
-            text if text == Weaves::TextWeave.get_weave().tapestry.0 => self.gen_bin_text_op(r1, r2, op),
+            truth if truth == Weaves::TruthWeave.get_weave().tapestry.0 => {
+                self.gen_bin_truth_op(r1, r2, op)
+            }
+            text if text == Weaves::TextWeave.get_weave().tapestry.0 => {
+                self.gen_bin_text_op(r1, r2, op)
+            }
             _ => return Err(error("Unknown weave brotha, check it.")),
         }?;
         return Ok(reg);
@@ -822,7 +831,7 @@ impl CodeGen {
                     r1,
                     r2,
                 })?;
-            },
+            }
             TokenType::Percent => {
                 self.gen_bin_op(left, right, |dest, r1, r2| Instruction::Mod {
                     dest,
@@ -846,7 +855,9 @@ impl CodeGen {
         match tapestry.0 {
             x if x == Weaves::NumWeave.get_weave().tapestry.0 => Ok(Weaves::NumWeave.get_weave()),
             x if x == Weaves::TextWeave.get_weave().tapestry.0 => Ok(Weaves::TextWeave.get_weave()),
-            x if x == Weaves::TruthWeave.get_weave().tapestry.0 => Ok(Weaves::TruthWeave.get_weave()),
+            x if x == Weaves::TruthWeave.get_weave().tapestry.0 => {
+                Ok(Weaves::TruthWeave.get_weave())
+            }
             _ => {
                 // let demo_tkn = Token {
                 //     column: 0,
