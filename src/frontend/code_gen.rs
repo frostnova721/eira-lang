@@ -13,7 +13,7 @@ use crate::{
         weaves::{Weave, Weaves},
     },
     print_instructions,
-    runtime::instruction::Instruction,
+    runtime::Instruction,
     values::Value,
     values::spell::{ClosureObject, SpellInfo, SpellObject},
 };
@@ -204,7 +204,7 @@ impl CodeGen {
 
         let _ = self.gen_from_stmts(stmts)?;
 
-        self.instructions.push(Instruction::Halt);
+        self.instructions.push(Instruction::Halt {});
 
         if self.print_instructions {
             print_instructions(
@@ -259,7 +259,9 @@ impl CodeGen {
                 spell,
             } => self.gen_spell_instructions(name, reagents, *body, spell),
             WovenStmt::Release { token: _, expr } => self.gen_release_instructions(expr),
-            WovenStmt::Sign { name, marks } => todo!(),
+            WovenStmt::Sign { name, marks } => {
+                return Ok(self.register_index)
+            },
         }
     }
 

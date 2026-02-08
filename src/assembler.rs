@@ -1,4 +1,4 @@
-use crate::runtime::instruction::{Instruction};
+use crate::runtime::Instruction;
 
 pub struct Assembler {}
 

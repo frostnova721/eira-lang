@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    SpellObject, runtime::{operation::OpCode}, values::{Value, print_value, spell::{ClosureObject, UpValue}}
+    SpellObject, runtime::OpCode, values::{Value, print_value, spell::{ClosureObject, UpValue}}
 };
 
 pub enum InterpretResult {
@@ -413,6 +413,7 @@ impl EiraVM {
                     self.frames.push(new_frame);
                 }
                 OpCode::Mod => binary_op!(%),
+                OpCode::NewSign => {},
             }
         }
         // println!("Program completed after {} instructions.", instruction_count);

@@ -18,7 +18,7 @@ use crate::{
     },
     values::{
         Value,
-        sign::{SignInfo, SignObject},
+        sign::{SignInfo, SignObject, SignSchema},
         spell::{SpellInfo, UpValue},
     },
 };
@@ -582,7 +582,12 @@ impl WeaveAnalyzer {
                 }
             }
             Stmt::Sign { name, marks } => {
-                if let Some(s) = self.symbol_table.resolve_in_current_scope(&name.lexeme) {
+                if self.current_scope_depth != 0 {
+                    return Err(WeaveError::new("Signs must be declared at the global scope.", name))
+                }
+                
+
+                if let Some(_) = self.symbol_table.resolve_in_current_scope(&name.lexeme) {
                     return Err(WeaveError::new(
                         "A variable has been declared with same name as the sign.",
                         name,
@@ -601,6 +606,8 @@ impl WeaveAnalyzer {
                     marks: HashMap::new(),
                     attunements: HashMap::new(),
                 };
+
+                // let mut schema = SignSchema::new(name.lexeme.clone());
 
                 let mut names: Vec<String> = vec![];
                 let mut w_marks: Vec<WovenMark> = vec![];
@@ -636,6 +643,7 @@ impl WeaveAnalyzer {
                 Ok(WovenStmt::Sign {
                     name,
                     marks: w_marks,
+                    // schema
                 })
             }
         }
@@ -1020,6 +1028,11 @@ impl WeaveAnalyzer {
         }
 
         self.weaves_cache.get(name).cloned()
+        //  {
+            // return Some(w.clone());
+        // } else {
+        //     return self.signs.get(name).cloned();
+        // }
     }
 
     fn get_weave(&self, tapestry: Tapestry) -> Option<Weave> {
