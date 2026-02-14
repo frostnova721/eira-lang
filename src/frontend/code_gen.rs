@@ -390,7 +390,7 @@ impl CodeGen {
         let dest = self.get_next_register()?;
         println!("{:?}", marks);
         let mut field_names: Vec<String> = vec![];
-        let field_weaves: Vec<> = vec![];
+        // let field_weaves: Vec<> = vec![];
 
         for mark in marks {
             field_names.push(mark.name.lexeme);
