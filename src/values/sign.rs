@@ -47,7 +47,7 @@ pub struct SignSchema {
     pub name: String,
     pub field_indices: HashMap<String, usize>,
     pub field_names: Vec<String>,
-    pub field_weaves: Vec<Weave>,
+    // pub field_weaves: Vec<Weave>,
 }
 
 impl SignSchema {
@@ -56,15 +56,15 @@ impl SignSchema {
             name,
             field_indices: HashMap::new(),
             field_names: vec![],
-            field_weaves: vec![],
+            // field_weaves: vec![],
         }
     }
 
-    pub fn add_field(&mut self, name: String, weave: Weave) {
+    pub fn add_field(&mut self, name: String) {
         let idx = self.field_names.len();
         self.field_indices.insert(name.clone(), idx);
         self.field_names.push(name);
-        self.field_weaves.push(weave);
+        // self.field_weaves.push(weave);
     }
 
     pub fn get_field_index(&self, name: String) -> Option<usize> {

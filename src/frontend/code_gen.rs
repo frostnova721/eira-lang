@@ -1,10 +1,10 @@
-use std::{collections::HashMap, rc::Rc, str, u8};
+use std::{collections::HashMap, rc::Rc, str, u8, vec};
 
 use crate::{
     assembler::Assembler,
     frontend::{
         expr::WovenExpr,
-        reagents::WovenReagent,
+        reagents::{WovenMark, WovenReagent},
         scanner::Token,
         stmt::WovenStmt,
         symbol_table::Symbol,
@@ -14,8 +14,7 @@ use crate::{
     },
     print_instructions,
     runtime::Instruction,
-    values::Value,
-    values::spell::{ClosureObject, SpellInfo, SpellObject},
+    values::{Value, sign::SignSchema, spell::{ClosureObject, SpellInfo, SpellObject}},
 };
 
 #[derive(Debug)]
@@ -259,9 +258,7 @@ impl CodeGen {
                 spell,
             } => self.gen_spell_instructions(name, reagents, *body, spell),
             WovenStmt::Release { token: _, expr } => self.gen_release_instructions(expr),
-            WovenStmt::Sign { name, marks } => {
-                return Ok(self.register_index)
-            },
+            WovenStmt::Sign { name, marks } => self.gen_sign_instructions(name, marks),
         }
     }
 
@@ -386,6 +383,26 @@ impl CodeGen {
         };
 
         self.instructions.push(Instruction::Release { dest });
+        Ok(dest)
+    }
+
+    fn gen_sign_instructions(&mut self, name: Token, marks: Vec<WovenMark>) -> GenResult<u8> {
+        let dest = self.get_next_register()?;
+        println!("{:?}", marks);
+        let mut field_names: Vec<String> = vec![];
+        let field_weaves: Vec<> = vec![];
+
+        for mark in marks {
+            field_names.push(mark.name.lexeme);
+        }
+
+        let mut schema = SignSchema {
+            name: name.lexeme.clone(),
+            field_indices: HashMap::new(),
+            field_names,
+            // field_weaves: vec![],
+        };
+
         Ok(dest)
     }
 
