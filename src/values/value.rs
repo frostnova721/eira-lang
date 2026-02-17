@@ -1,7 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use crate::values::sign::SignObject;
+use crate::values::sign::{SignObject, SignSchema};
 use crate::values::spell::{ClosureObject, SpellObject};
 
 /// The value's container for runtime
@@ -13,6 +13,7 @@ pub enum Value {
     Closure(Rc<ClosureObject>),
     Spell(Rc<SpellObject>),
     Sign(Rc<SignObject>),
+    SignSchema(Rc<SignSchema>),
     Emptiness,
 }
 
@@ -26,6 +27,7 @@ impl Value {
             Self::Spell(_) => ValueType::Spell,
             Self::Emptiness => ValueType::Emptiness,
             Self::Sign(_) => ValueType::Sign,
+            Self::SignSchema(_) => ValueType::Sign,
         }
     }
 
@@ -57,6 +59,14 @@ impl Value {
         matches!(self, Self::Spell(_))
     }
 
+    pub fn is_sign(&self) -> bool {
+        matches!(self, Self::Sign(_))
+    }
+
+    pub fn is_sign_schema(&self) -> bool {
+        matches!(self, Self::SignSchema(_))
+    }
+
     pub fn extract_number(&self) -> Option<f64> {
         if let Value::Number(n) = self {
             Some(*n)
@@ -78,6 +88,7 @@ impl Value {
             (Self::Number(a), Self::Number(b)) => a == b,
             (Self::Bool(a), Self::Bool(b)) => a == b,
             (Self::String(a), Self::String(b)) => a == b,
+            (Self::SignSchema(a), Self::SignSchema(b)) => a == b,
             _ => false,
         }
     }
@@ -111,6 +122,7 @@ impl Hash for Value {
             Self::Closure(_) => {} // not a compile time const
             Self::Spell(_) => {}   // not a compile time const
             Self::Sign(_) => {}     // not a compile time const
+            Self::SignSchema(s) => s.hash(state),
         }
     }
 }
@@ -143,6 +155,7 @@ pub fn print_value(value: Value) {
         Value::Closure(closure) => println!("Spell '{}'", closure.spell.name.clone().unwrap()),
         Value::Spell(spell) => println!("Spell '{}'", spell.name.clone().unwrap()),
         Value::Sign(sign) => println!("Sign '{}'", sign.schema.name.clone()),
+        Value::SignSchema(schema) => println!("SignSchema '{}'", schema.name.clone()),
     }
 }
 
@@ -159,5 +172,6 @@ pub enum ValueType {
     Closure,
     Spell,
     Sign,
+    SignSchema,
     Emptiness,
 }

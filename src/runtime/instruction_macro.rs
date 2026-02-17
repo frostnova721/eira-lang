@@ -239,7 +239,7 @@ define_instructions! {
     // Termination
     Halt(25, 1) {},
 
-    // Sign Stuff
+    // Sign Stuff. const_idx is the index of the sign schema in the constant pool.
     NewSign(26,1) { dest: u8, const_idx: u16 },
 }
 

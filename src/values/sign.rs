@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     SpellObject, Value,
-    frontend::{reagents::Mark, weaves::Weave},
+    frontend::{symbol_table::Symbol, weaves::Weave},
     values::spell::SpellInfo,
 };
 
@@ -28,7 +28,7 @@ impl SignObject {
     }
 
     pub fn set_field(&mut self, index: usize, value: Value) -> Result<(), String> {
-        if index > self.marks.len() {
+        if index >= self.marks.len() {
             return Err(format!("Field index {} out of bounds.", index));
         }
 
@@ -42,10 +42,10 @@ impl SignObject {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SignSchema {
     pub name: String,
-    pub field_indices: HashMap<String, usize>,
+    // pub field_indices: HashMap<String, usize>,
     pub field_names: Vec<String>,
     // pub field_weaves: Vec<Weave>,
 }
@@ -54,21 +54,21 @@ impl SignSchema {
     pub fn new(name: String) -> SignSchema {
         SignSchema {
             name,
-            field_indices: HashMap::new(),
+            // field_indices: HashMap::new(),
             field_names: vec![],
             // field_weaves: vec![],
         }
     }
 
     pub fn add_field(&mut self, name: String) {
-        let idx = self.field_names.len();
-        self.field_indices.insert(name.clone(), idx);
+        // let idx = self.field_names.len();
+        // self.field_indices.insert(name.clone(), idx);
         self.field_names.push(name);
         // self.field_weaves.push(weave);
     }
 
     pub fn get_field_index(&self, name: String) -> Option<usize> {
-        self.field_indices.get(&name).copied()
+        self.field_names.iter().position(|n| *n == name)
     }
 
     pub fn field_count(&self) -> usize {
@@ -80,4 +80,5 @@ pub struct SignInfo {
     pub name: String,
     pub marks: HashMap<String, Weave>,
     pub attunements: HashMap<String, SpellInfo>,
+    pub symbol: Symbol,
 }

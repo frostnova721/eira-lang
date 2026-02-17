@@ -387,8 +387,7 @@ impl CodeGen {
     }
 
     fn gen_sign_instructions(&mut self, name: Token, marks: Vec<WovenMark>) -> GenResult<u8> {
-        let dest = self.get_next_register()?;
-        println!("{:?}", marks);
+        // println!("{:?}", marks);
         let mut field_names: Vec<String> = vec![];
         // let field_weaves: Vec<> = vec![];
 
@@ -396,14 +395,16 @@ impl CodeGen {
             field_names.push(mark.name.lexeme);
         }
 
-        let mut schema = SignSchema {
+        let schema = SignSchema {
             name: name.lexeme.clone(),
-            field_indices: HashMap::new(),
+            // field_indices: HashMap::new(),
             field_names,
             // field_weaves: vec![],
         };
 
-        Ok(dest)
+        let reg = self.write_constant(Value::SignSchema(Rc::new(schema)))?;
+
+        Ok(reg)
     }
 
     fn gen_spell_instructions(

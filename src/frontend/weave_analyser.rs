@@ -18,7 +18,7 @@ use crate::{
     },
     values::{
         Value,
-        sign::{SignInfo, SignObject, SignSchema},
+        sign::SignInfo,
         spell::{SpellInfo, UpValue},
     },
 };
@@ -582,10 +582,9 @@ impl WeaveAnalyzer {
                 }
             }
             Stmt::Sign { name, marks } => {
-                if self.current_scope_depth != 0 {
-                    return Err(WeaveError::new("Signs must be declared at the global scope.", name))
-                }
-                
+                // if self.current_scope_depth != 0 {
+                //     return Err(WeaveError::new("Signs must be declared at the global scope.", name))
+                // }
 
                 if let Some(_) = self.symbol_table.resolve_in_current_scope(&name.lexeme) {
                     return Err(WeaveError::new(
@@ -601,10 +600,19 @@ impl WeaveAnalyzer {
                     ));
                 }
 
+                let slot = self.symbol_table.get_current_scope_size();
+                let symbol = self.symbol_table.define(
+                    name.lexeme.clone(),
+                    Weaves::EmptyWeave.get_weave(),
+                    false,
+                    slot,
+                );
+
                 let mut sign_info = SignInfo {
                     name: name.lexeme.clone(),
                     marks: HashMap::new(),
                     attunements: HashMap::new(),
+                    symbol: symbol.unwrap(),
                 };
 
                 // let mut schema = SignSchema::new(name.lexeme.clone());
@@ -1029,7 +1037,7 @@ impl WeaveAnalyzer {
 
         self.weaves_cache.get(name).cloned()
         //  {
-            // return Some(w.clone());
+        // return Some(w.clone());
         // } else {
         //     return self.signs.get(name).cloned();
         // }
