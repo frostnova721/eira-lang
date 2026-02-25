@@ -1,3 +1,5 @@
 sign Brush {
     color: TextWeave
 }
+
+cast Brush;

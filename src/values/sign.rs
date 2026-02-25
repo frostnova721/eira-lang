@@ -76,6 +76,7 @@ impl SignSchema {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct SignInfo {
     pub name: String,
     pub marks: HashMap<String, Weave>,

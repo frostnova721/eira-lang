@@ -11,7 +11,7 @@ use crate::{
             DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND,
             MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND,
         },
-        symbol_table::{Symbol, SymbolTable},
+        symbol_table::{self, Symbol, SymbolTable},
         tapestry::Tapestry,
         token_type::TokenType,
         weaves::{Weave, Weaver, Weaves, gen_weave_map},
@@ -603,7 +603,7 @@ impl WeaveAnalyzer {
                 let slot = self.symbol_table.get_current_scope_size();
                 let symbol = self.symbol_table.define(
                     name.lexeme.clone(),
-                    Weaves::EmptyWeave.get_weave(),
+                    Weaves::SignWeave.get_weave(),
                     false,
                     slot,
                 );
@@ -646,11 +646,12 @@ impl WeaveAnalyzer {
                     }
                 }
 
-                self.signs.insert(name.lexeme.clone(), sign_info);
+                self.signs.insert(name.lexeme.clone(), sign_info.clone());
 
                 Ok(WovenStmt::Sign {
                     name,
                     marks: w_marks,
+                    info: sign_info,
                     // schema
                 })
             }
@@ -948,6 +949,52 @@ impl WeaveAnalyzer {
                     callee: callee,
                     tapestry: return_tapestry,
                     spell_symbol: symbol,
+                })
+            }
+            Expr::Draw { marks, callee } => {
+                let var_name = &callee.lexeme;
+
+                if let Some(_) = self.symbol_table.resolve_in_current_scope(var_name) {
+                    return Err(WeaveError::new(
+                        "A variable with the same name as the sign exists in the current scope!",
+                        callee,
+                    ));
+                }
+
+                let sign_info = if let Some(info) = self.signs.get(&callee.lexeme) {
+                    info.clone()
+                } else {
+                    return Err(WeaveError::new(
+                        &format!(
+                            "The sign '{}' was not found in the current realm!",
+                            callee.lexeme
+                        ),
+                        callee,
+                    ));
+                };
+
+                if sign_info.marks.len() != marks.len() {
+                    return Err(WeaveError::new(
+                        &format!(
+                            "The sign expected {} marks, but you provided {} of them!",
+                            sign_info.marks.len(),
+                            marks.len()
+                        ),
+                        callee,
+                    ));
+                }
+
+                let mut w_marks: Vec<WovenExpr> = vec![];
+
+                for mark in marks.iter() {
+                    
+                }
+
+                Ok(WovenExpr::Draw {
+                    marks: w_marks,
+                    callee: callee.clone(),
+                    tapestry: Tapestry::new(NO_STRAND), // TODO: implement
+                    sign_symbol: sign_info.symbol,                // TODO: implement
                 })
             }
         }

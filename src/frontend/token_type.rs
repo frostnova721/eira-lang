@@ -31,19 +31,20 @@ pub enum TokenType {
     With, // used in casting 
 
     // Symbols
-    SemiColon,
+    SemiColon, // ;
     Colon, ColonColon, QuestionMark, // colon for typing and their pair for the thing(?:)!
     Equal, EqualEqual, // =
     Greater, GreaterEqual, // >
     Less, LessEqual, // <
     Bang, BangEqual, // !
     Minus, Plus, Star, Slash, Percent, // arithematic
-    Dot,
-    Comma,
+    Dot, // .
+    Comma, // ,
     ParenLeft, ParenRight,
     BraceLeft, BraceRight,
     And, AndAnd, // &
     Or, OrOr, // |
+    Tilde, // ~
 
     Identifier,
     Number,

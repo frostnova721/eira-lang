@@ -226,6 +226,8 @@ impl<'a> Scanner<'a> {
             '<' if self.match_char('=') => self.make_token(TokenType::LessEqual),
             '<' => self.make_token(TokenType::Less),
 
+            '~' => self.make_token(TokenType::Tilde),
+
             '"' => self.string(),
             // '\'' => self.string(),
             _ => self.error_token("error, met an unexpected token."),

@@ -14,7 +14,7 @@ use crate::{
     },
     print_instructions,
     runtime::Instruction,
-    values::{Value, sign::SignSchema, spell::{ClosureObject, SpellInfo, SpellObject}},
+    values::{Value, sign::{SignInfo, SignSchema}, spell::{ClosureObject, SpellInfo, SpellObject}},
 };
 
 #[derive(Debug)]
@@ -258,7 +258,7 @@ impl CodeGen {
                 spell,
             } => self.gen_spell_instructions(name, reagents, *body, spell),
             WovenStmt::Release { token: _, expr } => self.gen_release_instructions(expr),
-            WovenStmt::Sign { name, marks } => self.gen_sign_instructions(name, marks),
+            WovenStmt::Sign { name, marks, info } => self.gen_sign_instructions(name, marks, info),
         }
     }
 
@@ -386,7 +386,7 @@ impl CodeGen {
         Ok(dest)
     }
 
-    fn gen_sign_instructions(&mut self, name: Token, marks: Vec<WovenMark>) -> GenResult<u8> {
+    fn gen_sign_instructions(&mut self, name: Token, marks: Vec<WovenMark>, info: SignInfo) -> GenResult<u8> {
         // println!("{:?}", marks);
         let mut field_names: Vec<String> = vec![];
         // let field_weaves: Vec<> = vec![];
@@ -403,6 +403,7 @@ impl CodeGen {
         };
 
         let reg = self.write_constant(Value::SignSchema(Rc::new(schema)))?;
+        self.set_value_instruction(info.symbol, reg)?;
 
         Ok(reg)
     }

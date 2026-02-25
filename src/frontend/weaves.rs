@@ -14,6 +14,7 @@ pub enum Weaves {
     TextWeave,
     TruthWeave,
     SpellWeave,
+    SignWeave,
     EmptyWeave,
 }
 
@@ -25,6 +26,7 @@ impl Weaves {
             Weaves::TruthWeave => truth_weave(),
             Weaves::SpellWeave => spell_weave(),
             Weaves::EmptyWeave => empty_weave(),
+            Weaves::SignWeave => sign_weave(),
         }
     }
 }
@@ -52,8 +54,8 @@ pub fn gen_weave_map() -> HashMap<String, Weave> {
     weaves_map
 }
 
-fn get_weave_arr() -> [Weave; 5] {
-    [num_weave(), text_weave(), truth_weave(), empty_weave(), spell_weave()]
+fn get_weave_arr() -> [Weave; 6] {
+    [num_weave(), text_weave(), truth_weave(), empty_weave(), spell_weave(), sign_weave()]
 }
 
 /// Represents numbers
@@ -116,6 +118,15 @@ fn spell_weave() -> Weave {
         tapestry: Tapestry::new(CALLABLE_STRAND),
         base_tapestry: Tapestry::new(CALLABLE_STRAND),
         can_sub_weave: true,
+    }
+}
+
+fn sign_weave() -> Weave {
+    Weave {
+        name: "SignWeave".to_string(),
+        tapestry: Tapestry::new(CALLABLE_STRAND),
+        base_tapestry: Tapestry::new(CALLABLE_STRAND),
+        can_sub_weave: false,
     }
 }
 

@@ -8,7 +8,8 @@ pub enum Expr {
     Variable { name: Token },
     Grouping { expression: Box<Expr> },
     Assignment { name: Token, value: Box<Expr> },
-    Cast { reagents: Vec<Expr>, callee: Token }
+    Cast { reagents: Vec<Expr>, callee: Token },
+    Draw { marks: Vec<Expr>, callee: Token },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,7 +20,8 @@ pub enum WovenExpr {
     Variable { name: Token, tapestry: Tapestry, symbol: Symbol },
     Grouping { expression: Box<WovenExpr>, tapestry: Tapestry },
     Assignment { name: Token, value: Box<WovenExpr>, tapestry: Tapestry, symbol: Symbol },
-    Cast { reagents: Vec<WovenExpr>, callee: Token, tapestry: Tapestry, spell_symbol: Symbol }
+    Cast { reagents: Vec<WovenExpr>, callee: Token, tapestry: Tapestry, spell_symbol: Symbol },
+    Draw { marks: Vec<WovenExpr>, callee: Token, tapestry: Tapestry, sign_symbol: Symbol }
 }
 
 impl WovenExpr {
@@ -31,7 +33,8 @@ impl WovenExpr {
             WovenExpr::Unary { operand:_, operator:_, tapestry } => *tapestry,
             WovenExpr::Variable { name:_, tapestry, symbol:_ } => *tapestry,
             WovenExpr::Assignment { name:_, value:_, tapestry, symbol:_ } => *tapestry,
-            WovenExpr::Cast { reagents:_, callee:_, tapestry, spell_symbol: _ } => *tapestry
+            WovenExpr::Cast { reagents:_, callee:_, tapestry, spell_symbol: _ } => *tapestry,
+            WovenExpr::Draw { marks:_, callee:_, tapestry, sign_symbol: _ } => *tapestry,
         }
     }
 
@@ -53,7 +56,8 @@ impl WovenExpr {
             WovenExpr::Unary { operand:_, operator, tapestry:_ } => operator.clone(),
             WovenExpr::Variable { name, tapestry:_, symbol:_ } => name.clone(),
             WovenExpr::Assignment { name, value:_, tapestry:_, symbol:_ } => name.clone(),
-            WovenExpr::Cast { reagents:_, callee, tapestry:_, spell_symbol: _ } => callee.clone()
+            WovenExpr::Cast { reagents:_, callee, tapestry:_, spell_symbol: _ } => callee.clone(),
+            WovenExpr::Draw { marks:_, callee, tapestry:_, sign_symbol: _ } => callee.clone(),
         }
     }
 }
