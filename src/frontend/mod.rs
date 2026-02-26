@@ -10,3 +10,4 @@ pub mod tapestry;
 pub mod symbol_table;
 pub mod code_gen;
 pub mod reagents;
+pub mod mark;

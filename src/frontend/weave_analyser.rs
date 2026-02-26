@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use crate::{
     frontend::{
         expr::{Expr, WovenExpr},
-        reagents::{WovenMark, WovenReagent},
+        mark::{EtchedMark, WovenMark},
+        reagents::WovenReagent,
         scanner::Token,
         stmt::{Stmt, WovenStmt},
         strand::{
@@ -11,7 +12,7 @@ use crate::{
             DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND,
             MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND,
         },
-        symbol_table::{self, Symbol, SymbolTable},
+        symbol_table::{Symbol, SymbolTable},
         tapestry::Tapestry,
         token_type::TokenType,
         weaves::{Weave, Weaver, Weaves, gen_weave_map},
@@ -82,6 +83,10 @@ impl WeaveAnalyzer {
         }
     }
 
+    fn error<T>(&self, msg: &str, token: Token) -> Result<T, WeaveError> {
+        Err(WeaveError::new(msg, token))
+    }
+
     pub fn analyze(&mut self, ast: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
         self.analyze_statements(ast)
     }
@@ -124,10 +129,10 @@ impl WeaveAnalyzer {
                 let w_condition = self.analyze_expression(condition)?;
 
                 if !w_condition.tapestry().has_strand(CONDITIONAL_STRAND) {
-                    return Err(WeaveError::new(
+                    return self.error(
                         "The condition provided to determine the fate does not contain the 'Conditional' strand.",
                         w_condition.token(),
-                    ));
+                    );
                 }
 
                 // scoping n stuff will be added by the block!
@@ -149,13 +154,13 @@ impl WeaveAnalyzer {
             } => {
                 // allow variable shadowing from outer scopes
                 if let Some(_symbol) = self.symbol_table.resolve_in_current_scope(&name.lexeme) {
-                    return Err(WeaveError::new(
+                    return self.error(
                         &format!(
                             "The variable '{}' already exists in the current scope!",
                             name.lexeme
                         ),
                         name,
-                    ));
+                    );
                 }
 
                 let weave: Result<Weave, WeaveError>;
@@ -177,10 +182,10 @@ impl WeaveAnalyzer {
                         };
                     }
                     None => {
-                        return Err(WeaveError::new(
+                        return self.error(
                             "Couldnt get a weave for the variable! Perhaps.. ehm try specifying the Weave!",
                             name,
-                        ));
+                        );
                     }
                 }
 
@@ -242,10 +247,10 @@ impl WeaveAnalyzer {
                 let w_condition = self.analyze_expression(condition)?;
 
                 if !w_condition.tapestry().has_strand(CONDITIONAL_STRAND) {
-                    return Err(WeaveError::new(
+                    return self.error(
                         "The condition provided to determine the fate of loop does not contain the 'Conditional' strand.",
                         w_condition.token(),
-                    ));
+                    );
                 }
 
                 // enter loop scope (for sever, flow purposes)
@@ -263,39 +268,30 @@ impl WeaveAnalyzer {
             }
             Stmt::Sever { token } => {
                 if self.loop_depth == 0 {
-                    return Err(WeaveError::new(
-                        "'sever' cannot be used outside a loop circle!",
-                        token,
-                    ));
+                    return self.error("'sever' cannot be used outside a loop circle!", token);
                 }
                 Ok(WovenStmt::Sever { token })
             }
             Stmt::Flow { token } => {
                 if self.loop_depth == 0 {
-                    return Err(WeaveError::new(
-                        "'flow' cannot be used outside a loop circle!",
-                        token,
-                    ));
+                    return self.error("'flow' cannot be used outside a loop circle!", token);
                 }
                 Ok(WovenStmt::Flow { token })
             }
             Stmt::Release { token, expr } => {
                 // Ensure 'release' is only used within a spell realm
                 if self.current_realm == Realm::Genesis {
-                    return Err(WeaveError::new(
+                    return self.error(
                         "Values cannot be released from the 'Genesis' realm!\n\
                         Error: Usage of 'release' outside the spell scope.",
                         token,
-                    ));
+                    );
                 }
 
                 let curr_spell_name = match self.spell_stack.last() {
                     Some(name) => name.clone(),
                     None => {
-                        return Err(WeaveError::new(
-                            "Release used outside of any spell scope.",
-                            token,
-                        ));
+                        return self.error("Release used outside of any spell scope.", token);
                     }
                 };
 
@@ -303,13 +299,13 @@ impl WeaveAnalyzer {
                 let spell_entry = match self.spells.get(&curr_spell_name) {
                     Some(v) => v,
                     None => {
-                        return Err(WeaveError::new(
+                        return self.error(
                             &format!(
                                 "No Spell found in the realm with the name '{}'",
                                 curr_spell_name
                             ),
                             token,
-                        ));
+                        );
                     }
                 };
 
@@ -331,13 +327,13 @@ impl WeaveAnalyzer {
 
                     // Exact tapestry check (spells should return the exact weave)
                     if expected_weave.tapestry.0 != w_expr.tapestry().0 {
-                        return Err(WeaveError::new(
+                        return self.error(
                             &format!(
                                 "The spell '{}' was expected to release '{}' but '{}' was released",
                                 curr_spell_name, expected_weave.name, actual_weave.name
                             ),
                             token,
-                        ));
+                        );
                     }
 
                     // Record the actual released weave
@@ -354,13 +350,13 @@ impl WeaveAnalyzer {
                     // release; with no expression implies Emptiness.
                     // If the spell expects a non-empty weave, this is an error.
                     if expected_weave.tapestry.0 != Weaves::EmptyWeave.get_weave().tapestry.0 {
-                        return Err(WeaveError::new(
+                        return self.error(
                             &format!(
                                 "The spell '{}' expects a value of weave '{}' to be released, but no value was provided.",
                                 curr_spell_name, expected_weave.name
                             ),
                             token,
-                        ));
+                        );
                     }
 
                     // Record Emptiness as the released weave
@@ -383,13 +379,13 @@ impl WeaveAnalyzer {
                 // allow spell shadowing from outer scopes
                 let existing = self.symbol_table.resolve_in_current_scope(&name.lexeme);
                 if existing.is_some() {
-                    return Err(WeaveError::new(
+                    return self.error(
                         &format!(
                             "The spell '{}' already exists in the current scope!",
                             name.lexeme
                         ),
                         name,
-                    ));
+                    );
                 }
 
                 let mut w_reagents: Vec<WovenReagent> = vec![];
@@ -430,10 +426,7 @@ impl WeaveAnalyzer {
                         } else {
                             let final_weave = Weaver::weave(base_weave, inner.unwrap());
                             if final_weave.is_err() {
-                                return Err(WeaveError::new(
-                                    &final_weave.unwrap_err().0,
-                                    name.clone(),
-                                ));
+                                return self.error(&final_weave.unwrap_err().0, name.clone());
                             }
 
                             final_weave.unwrap()
@@ -475,13 +468,13 @@ impl WeaveAnalyzer {
 
                 for r in reagents {
                     let Some(weave) = self.get_weave_from_name(&r.weave_name.lexeme) else {
-                        return Err(WeaveError::new(
+                        return self.error(
                             &format!(
                                 "Couldn't find the weave '{}' within the Eira's library!",
                                 name.lexeme.clone()
                             ),
                             r.weave_name.clone(),
-                        ));
+                        );
                     };
                     self.symbol_table.define(
                         r.name.lexeme.clone(),
@@ -545,25 +538,25 @@ impl WeaveAnalyzer {
                                 // ok, since the expected one was emptyweave and got was none;
                                 // which implies a default emptyweave return!
                             } else {
-                                return Err(WeaveError::new(
+                                return self.error(
                                     &format!(
                                         "The spell '{}' does not release any value, but it was expected to release a value of weave '{}'",
                                         name.lexeme, ret_weave.name
                                     ),
                                     name,
-                                ));
+                                );
                             }
                         }
                         Some(rw) => {
                             // this wouldnt really be thrown if the release statment does its job
                             if rw.tapestry.0 != ret_weave.tapestry.0 {
-                                return Err(WeaveError::new(
+                                return self.error(
                                     &format!(
                                         "The spell '{}' was expected to release a value of weave '{}', but it released a value of weave '{}'",
                                         name.lexeme, ret_weave.name, rw.name
                                     ),
                                     name,
-                                ));
+                                );
                             }
                         }
                     };
@@ -575,29 +568,24 @@ impl WeaveAnalyzer {
                         spell: s.clone(),
                     })
                 } else {
-                    return Err(WeaveError::new(
-                        "Internal Error: Spell info missing after definition.",
-                        name,
-                    ));
+                    return self
+                        .error("Internal Error: Spell info missing after definition.", name);
                 }
             }
             Stmt::Sign { name, marks } => {
                 // if self.current_scope_depth != 0 {
-                //     return Err(WeaveError::new("Signs must be declared at the global scope.", name))
+                //     return self.error("Signs must be declared at the global scope.", name)
                 // }
 
                 if let Some(_) = self.symbol_table.resolve_in_current_scope(&name.lexeme) {
-                    return Err(WeaveError::new(
+                    return self.error(
                         "A variable has been declared with same name as the sign.",
                         name,
-                    ));
+                    );
                 }
 
                 if self.signs.contains_key(&name.lexeme) {
-                    return Err(WeaveError::new(
-                        "A sign with same name already exists!.",
-                        name,
-                    ));
+                    return self.error("A sign with same name already exists!.", name);
                 }
 
                 let slot = self.symbol_table.get_current_scope_size();
@@ -622,10 +610,10 @@ impl WeaveAnalyzer {
 
                 for m in marks {
                     if names.contains(&m.name.lexeme) {
-                        return Err(WeaveError::new(
+                        return self.error(
                             "A different mark with same name exists in the sign!",
                             m.name,
-                        ));
+                        );
                     }
                     names.push(m.name.lexeme.clone());
                     if let Some(mark_weave) = self.get_weave_from_name(&m.weave_name.lexeme) {
@@ -636,13 +624,13 @@ impl WeaveAnalyzer {
 
                         sign_info.marks.insert(m.name.lexeme, mark_weave);
                     } else {
-                        return Err(WeaveError::new(
+                        return self.error(
                             &format!(
                                 "Couldn't find the weave '{}' within the Eira's library!",
                                 m.weave_name.lexeme
                             ),
                             m.weave_name,
-                        ));
+                        );
                     }
                 }
 
@@ -680,37 +668,37 @@ impl WeaveAnalyzer {
                     {
                         // Valid operation
                     } else {
-                        return Err(WeaveError::new(
+                        return self.error(
                             "Cannot perform '+' operation: operands must both contain either 'Additive' or 'Concatinable' strand.",
                             operator,
-                        ));
+                        );
                     }
                 } else {
                     if let Some(req_strand) = self.strand_from_op(operator.token_type) {
                         if !w_left.tapestry().has_strand(req_strand) {
-                            return Err(WeaveError::new(
+                            return self.error(
                                 &format!(
                                     "The weave of one of the operands is not composed of {} strand.",
                                     self.strand_string_from_bits(req_strand)
                                 ),
                                 operator,
-                            ));
+                            );
                         }
 
                         if !w_right.tapestry().has_strand(req_strand) {
-                            return Err(WeaveError::new(
+                            return self.error(
                                 &format!(
                                     "The weave of one of the operands is not composed of {} strand.",
                                     self.strand_string_from_bits(req_strand)
                                 ),
                                 operator,
-                            ));
+                            );
                         }
                     } else {
-                        return Err(WeaveError::new(
+                        return self.error(
                             &format!("Unknown operation '{}'", operator.lexeme),
                             operator,
-                        ));
+                        );
                     }
                 }
 
@@ -749,10 +737,7 @@ impl WeaveAnalyzer {
                     Value::Bool(_) => Weaves::TruthWeave.get_weave().tapestry.0,
                     Value::String(_) => Weaves::TextWeave.get_weave().tapestry.0, // add indexive later,
                     _ => {
-                        return Err(WeaveError::new(
-                            "Couldnt find a weave for the value",
-                            token.clone(),
-                        ));
+                        return self.error("Couldnt find a weave for the value", token.clone());
                     }
                 };
                 let tapestry = Tapestry::new(strands);
@@ -765,19 +750,19 @@ impl WeaveAnalyzer {
             Expr::Unary { operand, operator } => {
                 if operator.token_type != TokenType::Minus && operator.token_type != TokenType::Bang
                 {
-                    return Err(WeaveError::new("Unknown Unary Operation", operator));
+                    return self.error("Unknown Unary Operation", operator);
                 }
                 if let Some(strand) = self.strand_from_op(operator.token_type) {
                     let expr = self.analyze_expression(*operand)?;
                     if !expr.tapestry().has_strand(strand) {
-                        return Err(WeaveError::new(
+                        return self.error(
                             &format!(
                                 "The operand does not contain the '{}' strand as required by '{}' operation",
                                 self.strand_string_from_bits(strand),
                                 operator.lexeme
                             ),
                             operator,
-                        ));
+                        );
                     }
                     let tapestry = expr.tapestry();
                     Ok(WovenExpr::Unary {
@@ -786,7 +771,7 @@ impl WeaveAnalyzer {
                         tapestry: tapestry,
                     })
                 } else {
-                    return Err(WeaveError::new("Unknown Operation", operator));
+                    return self.error("Unknown Operation", operator);
                 }
             }
             Expr::Variable { name } => {
@@ -803,16 +788,16 @@ impl WeaveAnalyzer {
 
                     Ok(woven)
                 } else {
-                    return Err(WeaveError::new("Variable resolution failed.", name));
+                    return self.error("Variable resolution failed.", name);
                 }
             }
             Expr::Assignment { name, value } => {
                 if let Some(resolved) = self.symbol_table.resolve(&name.lexeme).cloned() {
                     if !resolved.mutable {
-                        return Err(WeaveError::new(
+                        return self.error(
                             "Tried to reassign a value to a 'bind'. Binds cannot be reassigned!",
                             name,
-                        ));
+                        );
                     }
 
                     let woven_expr = self.analyze_expression(*value)?;
@@ -836,28 +821,28 @@ impl WeaveAnalyzer {
                         });
                     }
 
-                    return Err(WeaveError::new(
+                    return self.error(
                         "The assignee and the value to be assigned are of different Weaves!\nAssignment failed.",
                         name,
-                    ));
+                    );
                 } else {
-                    return Err(WeaveError::new(
+                    return self.error(
                         "The mark was no where to be found from this realm!\nVariable resolution failed.",
                         name,
-                    ));
+                    );
                 }
             }
             Expr::Cast { reagents, callee } => {
                 let var_name = &callee.lexeme;
 
                 let Some(symbol) = self.symbol_table.resolve(var_name).cloned() else {
-                    return Err(WeaveError::new(
+                    return self.error(
                         &format!(
                             "The spell '{}' was not found in the current realm!",
                             var_name
                         ),
                         callee,
-                    ));
+                    );
                 };
 
                 let greatest_parent = self.find_greatest_parent(&symbol).unwrap();
@@ -866,26 +851,26 @@ impl WeaveAnalyzer {
                 let (spell_info, return_tapestry) = if greatest_parent != symbol {
                     let spell_name = &greatest_parent.name;
                     let Some(info) = self.spells.get(spell_name).cloned() else {
-                        return Err(WeaveError::new(
+                        return self.error(
                             &format!(
                                 "The spell '{}' was not found in the current realm!",
                                 spell_name
                             ),
                             callee,
-                        ));
+                        );
                     };
                     (Some(info.clone()), info.release_weave.tapestry)
                 } else {
                     // this would run if the type isnt predictable at compile time
                     // Check if it's callable using the base tapestry (handles SpellWeave<...> generics)
                     if symbol.weave.base_tapestry != Tapestry::new(CALLABLE_STRAND) {
-                        return Err(WeaveError::new(
+                        return self.error(
                             &format!(
                                 "Cannot cast '{}' since it is not a spell! It has weave '{}'",
                                 var_name, symbol.weave.name
                             ),
                             callee,
-                        ));
+                        );
                     }
 
                     if let Some(info) = self.spells.get(&symbol.name).cloned() {
@@ -899,14 +884,14 @@ impl WeaveAnalyzer {
                 // reagent count checks
                 if let Some(ref info) = spell_info {
                     if info.reagents.len() != reagents.len() {
-                        return Err(WeaveError::new(
+                        return self.error(
                             &format!(
                                 "The spell expected {} reagents, but you provided {} of them!",
                                 info.reagents.len(),
                                 reagents.len()
                             ),
                             callee,
-                        ));
+                        );
                     }
                 }
 
@@ -924,7 +909,7 @@ impl WeaveAnalyzer {
                         let w_expr = self.analyze_expression(reagent.clone())?;
                         let expected = spell_reagents.get(i).unwrap();
                         if w_expr.tapestry().0 != expected.weave.tapestry.0 {
-                            return Err(WeaveError::new(
+                            return self.error(
                                 &format!(
                                     "The reagent #{} was expected to be {}, but got {}",
                                     i + 1,
@@ -932,7 +917,7 @@ impl WeaveAnalyzer {
                                     self.get_weave(w_expr.tapestry()).unwrap().name
                                 ),
                                 callee,
-                            ));
+                            );
                         }
                         w_reagents.push(w_expr.clone());
                     }
@@ -955,46 +940,65 @@ impl WeaveAnalyzer {
                 let var_name = &callee.lexeme;
 
                 if let Some(_) = self.symbol_table.resolve_in_current_scope(var_name) {
-                    return Err(WeaveError::new(
+                    return self.error(
                         "A variable with the same name as the sign exists in the current scope!",
                         callee,
-                    ));
+                    );
                 }
 
                 let sign_info = if let Some(info) = self.signs.get(&callee.lexeme) {
                     info.clone()
                 } else {
-                    return Err(WeaveError::new(
+                    return self.error(
                         &format!(
                             "The sign '{}' was not found in the current realm!",
                             callee.lexeme
                         ),
                         callee,
-                    ));
+                    );
                 };
 
+                // Will have to change for optional fields
                 if sign_info.marks.len() != marks.len() {
-                    return Err(WeaveError::new(
+                    return self.error(
                         &format!(
                             "The sign expected {} marks, but you provided {} of them!",
                             sign_info.marks.len(),
                             marks.len()
                         ),
                         callee,
-                    ));
+                    );
                 }
 
                 let mut w_marks: Vec<WovenExpr> = vec![];
 
-                for mark in marks.iter() {
-                    
+                for mark in marks {
+                    let mark_val = self.analyze_expression(mark.expr)?;
+                    if let Some(field) = sign_info.marks.get(&mark_val.token().lexeme) {
+                        match self.get_weave_from_name(&mark.weave_name.lexeme) {
+                            Some(w) => {
+                                 w_marks.push(mark_val);
+                            },
+                            None => return self.error("The ", mark.weave_name),
+                        };
+                       
+                    } else {
+                        return self.error(
+                            &format!(
+                                "The mark '{}' doesn't exist inside {}",
+                                mark.name.lexeme,
+                                callee.lexeme
+                            ),
+                            mark.name,
+                        );
+                    }
                 }
 
                 Ok(WovenExpr::Draw {
                     marks: w_marks,
                     callee: callee.clone(),
-                    tapestry: Tapestry::new(NO_STRAND), // TODO: implement
-                    sign_symbol: sign_info.symbol,                // TODO: implement
+                    tapestry: Weaves::SignWeave.get_weave().tapestry,
+                    sign_symbol: sign_info.symbol,
                 })
             }
         }

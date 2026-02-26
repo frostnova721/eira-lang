@@ -1,4 +1,4 @@
-use crate::{frontend::{scanner::Token, symbol_table::Symbol, tapestry::Tapestry}, values::Value};
+use crate::{frontend::{mark::{EtchedMark, WovenMark}, scanner::Token, symbol_table::Symbol, tapestry::Tapestry}, values::Value};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -9,7 +9,7 @@ pub enum Expr {
     Grouping { expression: Box<Expr> },
     Assignment { name: Token, value: Box<Expr> },
     Cast { reagents: Vec<Expr>, callee: Token },
-    Draw { marks: Vec<Expr>, callee: Token },
+    Draw { marks: Vec<EtchedMark>, callee: Token },
 }
 
 #[derive(Debug, Clone, PartialEq)]

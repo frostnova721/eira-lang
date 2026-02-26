@@ -2,4 +2,4 @@ sign Brush {
     color: TextWeave
 }
 
-cast Brush;
+mark a = ~Brush with ;

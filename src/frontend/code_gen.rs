@@ -3,14 +3,7 @@ use std::{collections::HashMap, rc::Rc, str, u8, vec};
 use crate::{
     assembler::Assembler,
     frontend::{
-        expr::WovenExpr,
-        reagents::{WovenMark, WovenReagent},
-        scanner::Token,
-        stmt::WovenStmt,
-        symbol_table::Symbol,
-        tapestry::Tapestry,
-        token_type::TokenType,
-        weaves::{Weave, Weaves},
+        expr::WovenExpr, mark::WovenMark, reagents::WovenReagent, scanner::Token, stmt::WovenStmt, symbol_table::Symbol, tapestry::Tapestry, token_type::TokenType, weaves::{Weave, Weaves}
     },
     print_instructions,
     runtime::Instruction,
@@ -305,6 +298,7 @@ impl CodeGen {
                 tapestry,
                 spell_symbol,
             } => self.gen_cast_instruction(reagents, callee, tapestry, spell_symbol),
+            WovenExpr::Draw { marks, callee, tapestry, sign_symbol } => todo!(),
         }
     }
 

@@ -1,10 +1,6 @@
 use crate::{
     frontend::{
-        expr::{Expr, WovenExpr},
-        parser::ParsedWeave,
-        reagents::{Mark, Reagent, WovenMark, WovenReagent},
-        scanner::Token,
-        symbol_table::Symbol,
+        expr::{Expr, WovenExpr}, mark::{Mark, WovenMark}, parser::ParsedWeave, reagents::{Reagent, WovenReagent}, scanner::Token, symbol_table::Symbol
     },
     values::{sign::SignInfo, spell::SpellInfo},
 };
