@@ -1,5 +1,5 @@
-sign Brush {
-    color: TextWeave
+sign Coffee {
+    concentration: NumWeave
 }
 
-mark a = ~Brush with ;
+mark latte = ~Coffee with { concentration: 60 };

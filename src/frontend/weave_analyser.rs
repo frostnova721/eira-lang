@@ -975,12 +975,12 @@ impl WeaveAnalyzer {
                 for mark in marks {
                     let mark_val = self.analyze_expression(mark.expr)?;
                     if let Some(field) = sign_info.marks.get(&mark_val.token().lexeme) {
-                        match self.get_weave_from_name(&mark.weave_name.lexeme) {
-                            Some(w) => {
-                                 w_marks.push(mark_val);
-                            },
-                            None => return self.error("The ", mark.weave_name),
-                        };
+                        // match self.get_weave_from_name(&mark.lexeme) {
+                        //     Some(w) => {
+                        //          w_marks.push(mark_val);
+                        //     },
+                        //     None => return self.error("The ", ),
+                        // };
                        
                     } else {
                         return self.error(

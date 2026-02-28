@@ -3,13 +3,13 @@ use std::rc::Rc;
 use crate::{
     frontend::{
         expr::Expr,
-        reagents::{Reagent},
+        mark::{EtchedMark, Mark},
+        reagents::Reagent,
         scanner::Token,
-        mark::Mark,
         stmt::Stmt,
         token_type::TokenType,
     },
-    values::Value,
+    values::{Value},
 };
 
 const MSG_MISSED_SEMICOLON: &str = "Expected a ';' after the expression. Forgot to add it?";
@@ -545,6 +545,54 @@ impl Parser {
         })
     }
 
+    fn draw(&mut self, _can_assign: bool) -> ParseResult<Expr> {
+        self.consume(TokenType::Identifier, "Expected a Sign name to draw!");
+        let sign_name = self.previous.clone();
+
+        let mut marks: Vec<EtchedMark> = vec![];
+
+        if self.match_token(TokenType::With) {
+            self.consume(TokenType::BraceLeft, "Expected '{' after 'with'");
+
+            // Parse the marks expressions
+            loop {
+                if self.match_token(TokenType::Identifier) {
+                    // self.consume(TokenType::Identifier, "Expected a mark name!");
+                    let param = self.previous.clone();
+
+                    self.consume(TokenType::Colon, "Expected a ':' after the mark name.");
+
+                    let mrk = EtchedMark {
+                        expr: self.expression()?,
+                        name: param,
+                    };
+
+                    marks.push(mrk);
+
+                    if self.match_token(TokenType::Comma) {
+                        continue;
+                    } else {
+                        // End of mark list when next token isn't a comma!
+                        break;
+                    }
+                } else {
+                    // simply break out of the loop, any errors will be caught by following code (hopefully)
+                    break;
+                }
+            }
+
+            self.consume(
+                TokenType::BraceRight,
+                "Expected '}' after defining the marks for the sign!",
+            );
+        }
+
+        Ok(Expr::Draw {
+            marks,
+            callee: sign_name,
+        })
+    }
+
     fn variable(&mut self, _can_assign: bool) -> ParseResult<Expr> {
         let var_name = self.previous.clone();
 
@@ -792,6 +840,11 @@ impl Parser {
                 prefix: Some(Self::string),
                 infix: None,
                 precedence: Precedence::None,
+            },
+            TokenType::Tilde => ParseRule {
+                prefix: Some(Self::draw),
+                infix: None,
+                precedence: Precedence::Call,
             },
             TokenType::Tome => ParseRule {
                 prefix: None,

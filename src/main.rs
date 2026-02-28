@@ -74,8 +74,8 @@ fn main() {
     match woven_tree {
         Err(no_no) => {
             println!(
-                "Weave Error: {}\nError in file: {} at '{}' in line {}:{}",
-                no_no.msg, file_path,no_no.token.lexeme, no_no.token.line, no_no.token.column,
+                "Weave Error: {}\nat '{}' in {}:{}:{}",
+                no_no.msg, no_no.token.lexeme, file_path,no_no.token.line, no_no.token.column,
             )
         }
         Ok(yes_yes) => {

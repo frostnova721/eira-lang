@@ -15,6 +15,5 @@ pub struct WovenMark {
 #[derive(Debug, Clone, PartialEq)]
 pub struct EtchedMark {
     pub name: Token,
-    pub weave_name: Token,
     pub expr: Expr,
 }
