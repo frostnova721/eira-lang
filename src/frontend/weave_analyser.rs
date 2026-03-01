@@ -939,12 +939,12 @@ impl WeaveAnalyzer {
             Expr::Draw { marks, callee } => {
                 let var_name = &callee.lexeme;
 
-                if let Some(_) = self.symbol_table.resolve_in_current_scope(var_name) {
+                let Some(_) = self.symbol_table.resolve_in_current_scope(var_name).cloned() else {
                     return self.error(
                         "A variable with the same name as the sign exists in the current scope!",
                         callee,
                     );
-                }
+                };
 
                 let sign_info = if let Some(info) = self.signs.get(&callee.lexeme) {
                     info.clone()
@@ -971,10 +971,9 @@ impl WeaveAnalyzer {
                 }
 
                 let mut w_marks: Vec<WovenExpr> = vec![];
-
                 for mark in marks {
                     let mark_val = self.analyze_expression(mark.expr)?;
-                    if let Some(field) = sign_info.marks.get(&mark_val.token().lexeme) {
+                    if let Some(field) = sign_info.marks.get(&mark.name.lexeme) {
                         // match self.get_weave_from_name(&mark.lexeme) {
                         //     Some(w) => {
                         //          w_marks.push(mark_val);
