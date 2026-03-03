@@ -12,7 +12,7 @@ mod weave_analyser_test {
     fn analyze_helper(source: &str) -> Result<Vec<WovenStmt>, String> {
         let scanner = Scanner::init(source);
         let tokens = scanner.tokenize();
-        let parser = Parser::new(tokens);
+        let parser = Parser::new(tokens, "weave_test.eira".to_string());
     let ast = parser.parse().map_err(|e| format!("Parse error: {:?}", e))?;
         let mut wa = WeaveAnalyzer::new();
         wa.analyze(ast).map_err(|e| format!("{}", e.msg))

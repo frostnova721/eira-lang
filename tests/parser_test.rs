@@ -8,7 +8,7 @@ mod parser_test {
     fn parse_helper(source: &str) -> Vec<Stmt> {
         let scanner = Scanner::init(source);
         let tokens = scanner.tokenize();
-        let parser = Parser::new(tokens);
+        let parser = Parser::new(tokens, "parser_test".to_string());
         parser.parse().unwrap()
     }
 

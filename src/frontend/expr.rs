@@ -1,4 +1,4 @@
-use crate::{frontend::{mark::{EtchedMark, WovenMark}, scanner::Token, symbol_table::Symbol, tapestry::Tapestry}, values::Value};
+use crate::{frontend::{mark::{EtchedMark}, scanner::Token, symbol_table::Symbol, tapestry::Tapestry}, values::Value};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {

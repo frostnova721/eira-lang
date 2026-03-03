@@ -54,11 +54,11 @@ fn main() {
 
     // let scanTime = start.elapsed();
 
-    let parser = Parser::new(tokens);
+    let parser = Parser::new(tokens, file_path.to_string());
     let ast = parser.parse();
 
     if ast.is_err() {
-        println!("Parse Error: {:?}", ast.unwrap_err());
+        // println!("Parse Error: {:?}", ast.unwrap_err().0);
         return;
     }
 

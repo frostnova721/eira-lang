@@ -9,7 +9,7 @@ use crate::{
         stmt::Stmt,
         token_type::TokenType,
     },
-    values::{Value, sign},
+    values::{Value},
 };
 
 const MSG_MISSED_SEMICOLON: &str = "Expected a ';' after the expression. Forgot to add it?";
@@ -18,6 +18,7 @@ const MSG_BIND_VALUE_NOT_INITIALIZED: &str = "bind values must be initialized.";
 pub struct Parser {
     // Token list
     tokens: Vec<Token>,
+    current_file: String,
 
     // current token's index
     current_pos: usize,
@@ -32,7 +33,7 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
+    pub fn new(tokens: Vec<Token>, current_file: String) -> Self {
         let temp_token = Token {
             lexeme: "tempo tokan!".to_string(),
             line: 0,
@@ -42,6 +43,7 @@ impl Parser {
 
         let mut parser = Parser {
             tokens: tokens,
+            current_file,
             current_pos: 0,
             previous: temp_token.clone(),
             current: temp_token,
@@ -116,14 +118,14 @@ impl Parser {
     }
 
     fn error_at(&mut self, msg: &str, pos: Token) {
-        println!("msg {}", msg);
+        // println!("msg {}", msg);
         if self.panic {
             return;
         }
         self.panic = true;
         println!(
-            "Woah! Caught an incorrect magic at line: {}:{}\nError: {}",
-            pos.line, pos.column, msg
+            "Woah! Caught an incorrect magic at {}:{}:{}\nError: {}",
+            self.current_file, pos.line, pos.column, msg
         );
         self.error = true;
     }

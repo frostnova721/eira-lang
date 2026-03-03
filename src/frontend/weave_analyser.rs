@@ -939,7 +939,11 @@ impl WeaveAnalyzer {
             Expr::Draw { marks, callee } => {
                 let var_name = &callee.lexeme;
 
-                let Some(_) = self.symbol_table.resolve_in_current_scope(var_name).cloned() else {
+                let Some(_) = self
+                    .symbol_table
+                    .resolve_in_current_scope(var_name)
+                    .cloned()
+                else {
                     return self.error(
                         "A variable with the same name as the sign exists in the current scope!",
                         callee,
@@ -974,19 +978,38 @@ impl WeaveAnalyzer {
                 for mark in marks {
                     let mark_val = self.analyze_expression(mark.expr)?;
                     if let Some(field) = sign_info.marks.get(&mark.name.lexeme) {
-                        // match self.get_weave_from_name(&mark.lexeme) {
-                        //     Some(w) => {
-                        //          w_marks.push(mark_val);
-                        //     },
-                        //     None => return self.error("The ", ),
-                        // };
-                       
+                        match self
+                            .get_weave_from_name(&self.get_weave(mark_val.tapestry()).unwrap().name)
+                        {
+                            Some(w) => {
+                                if field.tapestry.0 == w.tapestry.0 {
+                                    w_marks.push(mark_val);
+
+                                } else {
+                                    return self.error(
+                                        &format!(
+                                            "The mark '{}' was expected to have weave '{}' but got '{}'",
+                                            mark.name.lexeme, field.name, w.name
+                                        ),
+                                        mark.name,
+                                    );
+                                }
+                            }
+                            None => {
+                                return self.error(
+                                    &format!(
+                                        "The mark '{}' was expected to have {} but has no weave",
+                                        mark.name.lexeme, field.name,
+                                    ),
+                                    mark.name,
+                                );
+                            }
+                        };
                     } else {
                         return self.error(
                             &format!(
                                 "The mark '{}' doesn't exist inside {}",
-                                mark.name.lexeme,
-                                callee.lexeme
+                                mark.name.lexeme, callee.lexeme
                             ),
                             mark.name,
                         );
