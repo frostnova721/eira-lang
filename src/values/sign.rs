@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use crate::{
     SpellObject, Value,
@@ -42,11 +42,11 @@ impl SignObject {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SignSchema {
     pub name: String,
-    // pub field_indices: HashMap<String, usize>,
     pub field_names: Vec<String>,
+    field_indices: HashMap<String, usize>,
     // pub field_weaves: Vec<Weave>,
 }
 
@@ -54,21 +54,22 @@ impl SignSchema {
     pub fn new(name: String) -> SignSchema {
         SignSchema {
             name,
-            // field_indices: HashMap::new(),
+            field_indices: HashMap::new(),
             field_names: vec![],
             // field_weaves: vec![],
         }
     }
 
     pub fn add_field(&mut self, name: String) {
-        // let idx = self.field_names.len();
-        // self.field_indices.insert(name.clone(), idx);
+        let idx = self.field_names.len();
+        self.field_indices.insert(name.clone(), idx);
         self.field_names.push(name);
         // self.field_weaves.push(weave);
     }
 
     pub fn get_field_index(&self, name: String) -> Option<usize> {
-        self.field_names.iter().position(|n| *n == name)
+        self.field_indices.get(&name).copied()
+        // self.field_names.iter().position(|n| *n == name)
     }
 
     pub fn field_count(&self) -> usize {
@@ -76,9 +77,17 @@ impl SignSchema {
     }
 }
 
+impl Hash for SignSchema {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.field_names.hash(state);
+        // self.field_indices.len().hash(state);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignInfo {
-    pub name: String,
+    pub schema: SignSchema,
     pub marks: HashMap<String, Weave>,
     pub attunements: HashMap<String, SpellInfo>,
     pub symbol: Symbol,

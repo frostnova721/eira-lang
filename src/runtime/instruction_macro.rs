@@ -240,7 +240,11 @@ define_instructions! {
     Halt(25, 1) {},
 
     // Sign Stuff. const_idx is the index of the sign schema in the constant pool.
-    NewSign(26,1) { dest: u8, const_idx: u16 },
+    NewSign(26,4) { dest: u8, const_idx: u16 },
+
+    // Set a field to a sign. [field_name] is the string constant's index in the const pool
+    // The [val_reg] is the register where the value for the field is stored
+    SetField(27,5) { sign_reg: u8, field_name: u16, val_reg: u8 },
 }
 
 #[cfg(test)]

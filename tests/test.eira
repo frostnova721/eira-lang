@@ -1,5 +1,9 @@
 sign Coffee {
-    concentration: NumWeave
+    concentration: NumWeave,
+    milk: NumWeave,
+    sweetened: TruthWeave,
 }
 
 mark latte = ~Coffee with { concentration: 60 };
+
+chant latte;

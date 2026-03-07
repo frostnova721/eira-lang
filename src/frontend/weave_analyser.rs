@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     frontend::{
         expr::{Expr, WovenExpr},
-        mark::{EtchedMark, WovenMark},
+        mark::{EtchedMark, WovenEtchedMark, WovenMark},
         reagents::WovenReagent,
         scanner::Token,
         stmt::{Stmt, WovenStmt},
@@ -19,7 +19,7 @@ use crate::{
     },
     values::{
         Value,
-        sign::SignInfo,
+        sign::{SignInfo, SignSchema},
         spell::{SpellInfo, UpValue},
     },
 };
@@ -597,13 +597,12 @@ impl WeaveAnalyzer {
                 );
 
                 let mut sign_info = SignInfo {
-                    name: name.lexeme.clone(),
+                    schema: SignSchema::new(name.lexeme.clone()),
+                    // name: name.lexeme.clone(),
                     marks: HashMap::new(),
                     attunements: HashMap::new(),
                     symbol: symbol.unwrap(),
                 };
-
-                // let mut schema = SignSchema::new(name.lexeme.clone());
 
                 let mut names: Vec<String> = vec![];
                 let mut w_marks: Vec<WovenMark> = vec![];
@@ -622,7 +621,8 @@ impl WeaveAnalyzer {
                             weave: mark_weave.clone(),
                         });
 
-                        sign_info.marks.insert(m.name.lexeme, mark_weave);
+                        sign_info.marks.insert(m.name.lexeme.clone(), mark_weave);
+                        sign_info.schema.add_field(m.name.lexeme);
                     } else {
                         return self.error(
                             &format!(
@@ -974,7 +974,7 @@ impl WeaveAnalyzer {
                     );
                 }
 
-                let mut w_marks: Vec<WovenExpr> = vec![];
+                let mut w_marks: Vec<WovenEtchedMark> = vec![];
                 for mark in marks {
                     let mark_val = self.analyze_expression(mark.expr)?;
                     if let Some(field) = sign_info.marks.get(&mark.name.lexeme) {
@@ -983,7 +983,10 @@ impl WeaveAnalyzer {
                         {
                             Some(w) => {
                                 if field.tapestry.0 == w.tapestry.0 {
-                                    w_marks.push(mark_val);
+                                    w_marks.push(WovenEtchedMark {
+                                        name: mark.name.clone(),
+                                        expr: mark_val.clone(),
+                                    });
 
                                 } else {
                                     return self.error(
@@ -1020,7 +1023,7 @@ impl WeaveAnalyzer {
                     marks: w_marks,
                     callee: callee.clone(),
                     tapestry: Weaves::SignWeave.get_weave().tapestry,
-                    sign_symbol: sign_info.symbol,
+                    sign_info: sign_info,
                 })
             }
         }

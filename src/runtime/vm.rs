@@ -1,7 +1,13 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    SpellObject, runtime::OpCode, values::{Value, print_value, spell::{ClosureObject, UpValue}}
+    SpellObject,
+    runtime::OpCode,
+    values::{
+        Value, print_value,
+        sign::{SignObject, SignSchema},
+        spell::{ClosureObject, UpValue},
+    },
 };
 
 pub enum InterpretResult {
@@ -109,7 +115,7 @@ impl EiraVM {
         // }
     }
 
-    pub fn start(&mut self) -> InterpretResult {        
+    pub fn start(&mut self) -> InterpretResult {
         macro_rules! set_register {
             ($base:expr, $index:expr, $value:expr) => {{
                 let idx = $base + $index as usize;
@@ -413,7 +419,37 @@ impl EiraVM {
                     self.frames.push(new_frame);
                 }
                 OpCode::Mod => binary_op!(%),
-                OpCode::NewSign => {},
+                OpCode::NewSign => {
+                    let dest = frame!().read_byte();
+                    let value = frame!().read_constant().clone();
+                    let schema = match value {
+                        Value::SignSchema(sc) => sc,
+                        _ => {
+                            self.runtime_error(&format!(
+                                "The constant {:?} in the constant table is not a sign!",
+                                value
+                            ));
+                            return InterpretResult::RuntimeError;
+                        }
+                    };
+
+                    let sign = SignObject::new(schema);
+                    set_register!(base, dest, Value::Sign(Rc::new(sign)));
+                }
+                OpCode::SetField => {
+                    let sign_reg = frame!().read_byte();
+                    let field_name_idx = frame!().read_u16();
+                    let val_reg = frame!().read_byte();
+
+                    let val = get_register!(base, val_reg).clone();
+
+                    let sign_idx = base + sign_reg as usize;
+                    if let Value::Sign(s) = &mut self.stack[sign_idx] {
+                        let _ = Rc::make_mut(s).set_field(field_name_idx as usize, val);
+                    } else {
+                        return InterpretResult::RuntimeError;
+                    }
+                }
             }
         }
         // println!("Program completed after {} instructions.", instruction_count);

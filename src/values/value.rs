@@ -154,7 +154,7 @@ pub fn print_value(value: Value) {
         Value::String(value) => println!("{}", value),
         Value::Closure(closure) => println!("Spell '{}'", closure.spell.name.clone().unwrap()),
         Value::Spell(spell) => println!("Spell '{}'", spell.name.clone().unwrap()),
-        Value::Sign(sign) => println!("Sign '{}'", sign.schema.name.clone()),
+        Value::Sign(sign) => println!("Sign '{}' {:?}", sign.schema.name.clone(), sign.marks),
         Value::SignSchema(schema) => println!("SignSchema '{}'", schema.name.clone()),
     }
 }

@@ -3,11 +3,23 @@ use std::{collections::HashMap, rc::Rc, str, u8, vec};
 use crate::{
     assembler::Assembler,
     frontend::{
-        expr::WovenExpr, mark::WovenMark, reagents::WovenReagent, scanner::Token, stmt::WovenStmt, symbol_table::Symbol, tapestry::Tapestry, token_type::TokenType, weaves::{Weave, Weaves}
+        expr::WovenExpr,
+        mark::{WovenEtchedMark, WovenMark},
+        reagents::WovenReagent,
+        scanner::Token,
+        stmt::WovenStmt,
+        symbol_table::Symbol,
+        tapestry::Tapestry,
+        token_type::TokenType,
+        weaves::{Weave, Weaves},
     },
     print_instructions,
     runtime::Instruction,
-    values::{Value, sign::{SignInfo, SignSchema}, spell::{ClosureObject, SpellInfo, SpellObject}},
+    values::{
+        Value,
+        sign::{SignInfo, SignSchema},
+        spell::{ClosureObject, SpellInfo, SpellObject},
+    },
 };
 
 #[derive(Debug)]
@@ -64,6 +76,7 @@ impl CodeGen {
 
     //--------------- Helpers ---------------
 
+    /// Returns the next free register
     fn get_next_register(&mut self) -> GenResult<u8> {
         if self.register_index == u8::MAX {
             panic!("Maximum registers allocated! Register overflow?!")
@@ -298,8 +311,58 @@ impl CodeGen {
                 tapestry,
                 spell_symbol,
             } => self.gen_cast_instruction(reagents, callee, tapestry, spell_symbol),
-            WovenExpr::Draw { marks, callee, tapestry, sign_symbol } => todo!(),
+            WovenExpr::Draw {
+                marks,
+                callee,
+                tapestry,
+                sign_info,
+            } => self.gen_draw_instruction(marks, callee, tapestry, sign_info),
         }
+    }
+
+    fn gen_draw_instruction(
+        &mut self,
+        marks: Vec<WovenEtchedMark>,
+        callee: Token,
+        tapestry: Tapestry,
+        sign_info: SignInfo,
+    ) -> GenResult<u8> {
+        let sign = self.gen_variable_instruction(sign_info.symbol.clone())?;
+        let mut mark_regs: Vec<u8> = Vec::with_capacity(marks.len());
+
+        let new_sign_reg = self.get_next_register()?;
+
+        let inst = Instruction::NewSign {
+            dest: new_sign_reg,
+            const_idx: sign_info.symbol.slot_idx as u16,
+        };
+
+        self.instructions.push(inst);
+
+        let schema = sign_info.schema;
+
+        for mark in marks.iter() {
+            let r = self.gen_from_expr(mark.expr.clone())?;
+            mark_regs.push(r);
+
+            let field_name_idx = schema
+                .get_field_index(mark.name.lexeme.clone())
+                .ok_or_else(|| {
+                    error(&format!(
+                        "Field '{}' not found in sign schema '{}'",
+                        mark.name.lexeme, schema.name
+                    ))
+                })?;
+
+            let set_inst = Instruction::SetField {
+                sign_reg: new_sign_reg,
+                field_name: field_name_idx as u16,
+                val_reg: r,
+            };
+            self.instructions.push(set_inst);
+        }
+
+        Ok(new_sign_reg)
     }
 
     fn gen_cast_instruction(
@@ -380,23 +443,27 @@ impl CodeGen {
         Ok(dest)
     }
 
-    fn gen_sign_instructions(&mut self, name: Token, marks: Vec<WovenMark>, info: SignInfo) -> GenResult<u8> {
+    fn gen_sign_instructions(
+        &mut self,
+        _name: Token,
+        _marks: Vec<WovenMark>,
+        info: SignInfo,
+    ) -> GenResult<u8> {
         // println!("{:?}", marks);
-        let mut field_names: Vec<String> = vec![];
+        // let mut field_names: Vec<String> = vec![];
         // let field_weaves: Vec<> = vec![];
 
-        for mark in marks {
-            field_names.push(mark.name.lexeme);
-        }
+        // let mut schema = SignSchema::new(name.lexeme.clone());
 
-        let schema = SignSchema {
-            name: name.lexeme.clone(),
-            // field_indices: HashMap::new(),
-            field_names,
-            // field_weaves: vec![],
-        };
+        // for mark in marks {
+        //     // field_names.push(mark.name.lexeme);
+        //      schema.add_field(mark.name.lexeme);
+        // }
 
-        let reg = self.write_constant(Value::SignSchema(Rc::new(schema)))?;
+        // for field_name in field_names {
+        // }
+
+        let reg = self.write_constant(Value::SignSchema(Rc::new(info.schema)))?;
         self.set_value_instruction(info.symbol, reg)?;
 
         Ok(reg)

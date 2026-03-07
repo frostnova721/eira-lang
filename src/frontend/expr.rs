@@ -1,4 +1,4 @@
-use crate::{frontend::{mark::{EtchedMark}, scanner::Token, symbol_table::Symbol, tapestry::Tapestry}, values::Value};
+use crate::{frontend::{mark::{EtchedMark, WovenEtchedMark}, scanner::Token, symbol_table::Symbol, tapestry::Tapestry}, values::{Value, sign::SignInfo}};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -21,7 +21,7 @@ pub enum WovenExpr {
     Grouping { expression: Box<WovenExpr>, tapestry: Tapestry },
     Assignment { name: Token, value: Box<WovenExpr>, tapestry: Tapestry, symbol: Symbol },
     Cast { reagents: Vec<WovenExpr>, callee: Token, tapestry: Tapestry, spell_symbol: Symbol },
-    Draw { marks: Vec<WovenExpr>, callee: Token, tapestry: Tapestry, sign_symbol: Symbol }
+    Draw { marks: Vec<WovenEtchedMark>, callee: Token, tapestry: Tapestry, sign_info: SignInfo }
 }
 
 impl WovenExpr {
@@ -34,7 +34,7 @@ impl WovenExpr {
             WovenExpr::Variable { name:_, tapestry, symbol:_ } => *tapestry,
             WovenExpr::Assignment { name:_, value:_, tapestry, symbol:_ } => *tapestry,
             WovenExpr::Cast { reagents:_, callee:_, tapestry, spell_symbol: _ } => *tapestry,
-            WovenExpr::Draw { marks:_, callee:_, tapestry, sign_symbol: _ } => *tapestry,
+            WovenExpr::Draw { marks:_, callee:_, tapestry, sign_info: _ } => *tapestry,
         }
     }
 
@@ -57,7 +57,7 @@ impl WovenExpr {
             WovenExpr::Variable { name, tapestry:_, symbol:_ } => name.clone(),
             WovenExpr::Assignment { name, value:_, tapestry:_, symbol:_ } => name.clone(),
             WovenExpr::Cast { reagents:_, callee, tapestry:_, spell_symbol: _ } => callee.clone(),
-            WovenExpr::Draw { marks:_, callee, tapestry:_, sign_symbol: _ } => callee.clone(),
+            WovenExpr::Draw { marks:_, callee, tapestry:_, sign_info: _ } => callee.clone(),
         }
     }
 }

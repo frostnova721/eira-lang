@@ -1,4 +1,4 @@
-use crate::{Token, frontend::{expr::Expr, weaves::Weave}};
+use crate::{Token, frontend::{expr::{Expr, WovenExpr}, weaves::Weave}};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mark {
@@ -16,4 +16,10 @@ pub struct WovenMark {
 pub struct EtchedMark {
     pub name: Token,
     pub expr: Expr,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WovenEtchedMark {
+    pub name: Token,
+    pub expr: WovenExpr,
 }
