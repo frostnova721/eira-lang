@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{clone, collections::HashMap};
 
 use crate::{
     frontend::{
@@ -232,6 +232,17 @@ impl WeaveAnalyzer {
                                 // self.set_parent(s.clone(), spell_symbol.clone());
                             }
                         }
+                        // WovenExpr::Draw {
+                        //     marks: _,
+                        //     callee: _,
+                        //     tapestry: _,
+                        //     sign_info,
+                        // } => {
+                        //     // check the mark infos
+                        //     if let Some(parent) = self.find_greatest_parent(&sign_info.symbol) {
+                        //         self.set_parent(s.clone(), parent.clone());
+                        //     }
+                        // }
                         _ => {}
                     }
                 }
@@ -838,7 +849,7 @@ impl WeaveAnalyzer {
                 let Some(symbol) = self.symbol_table.resolve(var_name).cloned() else {
                     return self.error(
                         &format!(
-                            "The spell '{}' was not found in the current realm!",
+                            "The spell '{}' was not found across the eira realms!",
                             var_name
                         ),
                         callee,
@@ -853,7 +864,7 @@ impl WeaveAnalyzer {
                     let Some(info) = self.spells.get(spell_name).cloned() else {
                         return self.error(
                             &format!(
-                                "The spell '{}' was not found in the current realm!",
+                                "The spell '{}' was not found across the eira realms!",
                                 spell_name
                             ),
                             callee,
@@ -886,7 +897,8 @@ impl WeaveAnalyzer {
                     if info.reagents.len() != reagents.len() {
                         return self.error(
                             &format!(
-                                "The spell expected {} reagents, but you provided {} of them!",
+                                "The spell '{}' expected {} reagents, but you provided {} of them!",
+                                info.name,
                                 info.reagents.len(),
                                 reagents.len()
                             ),
@@ -966,8 +978,14 @@ impl WeaveAnalyzer {
                 if sign_info.marks.len() != marks.len() {
                     return self.error(
                         &format!(
-                            "The sign expected {} marks, but you provided {} of them!",
+                            "The sign '{}' expected {} marks, but you provided{} {} of them!",
+                            callee.lexeme,
                             sign_info.marks.len(),
+                            if marks.len() < sign_info.marks.len() {
+                                " only"
+                            } else {
+                                ""
+                            },
                             marks.len()
                         ),
                         callee,
@@ -986,8 +1004,7 @@ impl WeaveAnalyzer {
                                     w_marks.push(WovenEtchedMark {
                                         name: mark.name.clone(),
                                         expr: mark_val.clone(),
-                                    });
-
+                                    })
                                 } else {
                                     return self.error(
                                         &format!(
@@ -1024,6 +1041,44 @@ impl WeaveAnalyzer {
                     callee: callee.clone(),
                     tapestry: Weaves::SignWeave.get_weave().tapestry,
                     sign_info: sign_info,
+                })
+            }
+            Expr::Access { material, property } => {
+                // it should be a variable expression
+                let token = match self.analyze_expression(*material)? {
+                    WovenExpr::Variable {
+                        name,
+                        symbol,
+                        tapestry,
+                    } => name,
+                    _ => {
+                        return self.error(
+                            "Only variables can be accessed with '.' operator!",
+                            property,
+                        );
+                    }
+                };
+
+                let Some(symbol) = self.symbol_table.resolve(&token.lexeme).cloned() else {
+                    return self.error(
+                        &format!(
+                            "The mark '{}' was not found across the eira realms!",
+                            token.lexeme
+                        ),
+                        token,
+                    );
+                };
+
+                let w_expr = WovenExpr::Variable {
+                    name: token.clone(),
+                    tapestry: symbol.weave.tapestry,
+                    symbol: symbol.clone(),
+                };
+
+                Ok(WovenExpr::Access {
+                    material: Box::new(w_expr),
+                    property,
+                    tapestry: Tapestry(0),
                 })
             }
         }
@@ -1130,6 +1185,12 @@ impl WeaveAnalyzer {
             }
             x if x == Weaves::SpellWeave.get_weave().tapestry.0 => {
                 Some(Weaves::SpellWeave.get_weave())
+            }
+            x if x == Weaves::EmptyWeave.get_weave().tapestry.0 => {
+                Some(Weaves::EmptyWeave.get_weave())
+            }
+            x if x == Weaves::SignWeave.get_weave().tapestry.0 => {
+                Some(Weaves::SignWeave.get_weave())
             }
             _ => None,
         }

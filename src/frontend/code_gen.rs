@@ -317,6 +317,7 @@ impl CodeGen {
                 tapestry,
                 sign_info,
             } => self.gen_draw_instruction(marks, callee, tapestry, sign_info),
+            WovenExpr::Access { material, property, tapestry } => todo!(),
         }
     }
 

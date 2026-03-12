@@ -10,6 +10,7 @@ pub enum Expr {
     Assignment { name: Token, value: Box<Expr> },
     Cast { reagents: Vec<Expr>, callee: Token },
     Draw { marks: Vec<EtchedMark>, callee: Token },
+    Access { material: Box<Expr>, property: Token },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,7 +22,8 @@ pub enum WovenExpr {
     Grouping { expression: Box<WovenExpr>, tapestry: Tapestry },
     Assignment { name: Token, value: Box<WovenExpr>, tapestry: Tapestry, symbol: Symbol },
     Cast { reagents: Vec<WovenExpr>, callee: Token, tapestry: Tapestry, spell_symbol: Symbol },
-    Draw { marks: Vec<WovenEtchedMark>, callee: Token, tapestry: Tapestry, sign_info: SignInfo }
+    Draw { marks: Vec<WovenEtchedMark>, callee: Token, tapestry: Tapestry, sign_info: SignInfo },
+    Access { material: Box<WovenExpr>, property: Token, tapestry: Tapestry },
 }
 
 impl WovenExpr {
@@ -35,6 +37,7 @@ impl WovenExpr {
             WovenExpr::Assignment { name:_, value:_, tapestry, symbol:_ } => *tapestry,
             WovenExpr::Cast { reagents:_, callee:_, tapestry, spell_symbol: _ } => *tapestry,
             WovenExpr::Draw { marks:_, callee:_, tapestry, sign_info: _ } => *tapestry,
+            WovenExpr::Access { material:_, property:_, tapestry } => *tapestry,
         }
     }
 
@@ -44,6 +47,7 @@ impl WovenExpr {
             WovenExpr::Variable { name:_, tapestry:_, symbol } => Some(symbol),
             WovenExpr::Assignment { name:_, value:_, tapestry:_, symbol } => Some(symbol),
             WovenExpr::Cast { reagents:_, callee:_, tapestry:_, spell_symbol } => Some(spell_symbol),
+            WovenExpr::Draw { marks:_, callee:_, tapestry:_, sign_info } => Some(&sign_info.symbol),
             _ => None
         }
     }
@@ -58,6 +62,7 @@ impl WovenExpr {
             WovenExpr::Assignment { name, value:_, tapestry:_, symbol:_ } => name.clone(),
             WovenExpr::Cast { reagents:_, callee, tapestry:_, spell_symbol: _ } => callee.clone(),
             WovenExpr::Draw { marks:_, callee, tapestry:_, sign_info: _ } => callee.clone(),
+            WovenExpr::Access { material:_, property, tapestry:_ } => property.clone(),
         }
     }
 }

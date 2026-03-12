@@ -124,8 +124,8 @@ fn spell_weave() -> Weave {
 fn sign_weave() -> Weave {
     Weave {
         name: "SignWeave".to_string(),
-        tapestry: Tapestry::new(CALLABLE_STRAND),
-        base_tapestry: Tapestry::new(CALLABLE_STRAND),
+        tapestry: Tapestry::new(NO_STRAND),
+        base_tapestry: Tapestry::new(NO_STRAND),
         can_sub_weave: false,
     }
 }

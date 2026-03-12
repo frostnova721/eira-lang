@@ -9,7 +9,7 @@ use crate::{
         stmt::Stmt,
         token_type::TokenType,
     },
-    values::{Value},
+    values::Value,
 };
 
 const MSG_MISSED_SEMICOLON: &str = "Expected a ';' after the expression. Forgot to add it?";
@@ -393,25 +393,30 @@ impl Parser {
 
         if !self.check(TokenType::BraceRight) {
             loop {
-                self.consume(TokenType::Identifier, "Expected a mark name!");
-                let mark_name = self.previous.clone();
-                self.consume(
-                    TokenType::Colon,
-                    "Expected a weave definition for the field.",
-                );
-                self.consume(
-                    TokenType::Identifier,
-                    "Expected a weave name to bind with the sign's mark!",
-                );
-                let weave_name = self.previous.clone();
+                if self.match_token(TokenType::Identifier) {
+                    let mark_name = self.previous.clone();
+                    self.consume(
+                        TokenType::Colon,
+                        "Expected a weave definition for the field.",
+                    );
+                    self.consume(
+                        TokenType::Identifier,
+                        "Expected a weave name to bind with the sign's mark!",
+                    );
+                    let weave_name = self.previous.clone();
 
-                marks.push(Mark {
-                    name: mark_name,
-                    weave_name,
-                });
+                    marks.push(Mark {
+                        name: mark_name,
+                        weave_name,
+                    });
 
-                if !self.match_token(TokenType::Comma) {
-                    break;
+                    if self.match_token(TokenType::Comma) {
+                        continue;
+                    } else {
+                        break; // break out of the loop if no comma is found, meaning the end of the mark list!
+                    }
+                } else {
+                    break; // simply break out of the loop, any errors should be caught by following codes (hopefully)
                 }
             }
         }
@@ -595,6 +600,12 @@ impl Parser {
         })
     }
 
+    fn access(&mut self, lhs: Expr) -> ParseResult<Expr> {
+        // nothing much to do here than just getting the property name.
+        self.consume(TokenType::Identifier, "Expected a property name after '.'!");
+        Ok(Expr::Access { material: Box::new(lhs), property: self.previous.clone() })
+    }
+
     fn variable(&mut self, _can_assign: bool) -> ParseResult<Expr> {
         let var_name = self.previous.clone();
 
@@ -710,7 +721,7 @@ impl Parser {
             },
             TokenType::Dot => ParseRule {
                 prefix: None,
-                infix: None,
+                infix: Some(Self::access),
                 precedence: Precedence::Call,
             },
             TokenType::Eof => ParseRule {
