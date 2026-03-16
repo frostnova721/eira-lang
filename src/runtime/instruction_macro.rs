@@ -245,6 +245,8 @@ define_instructions! {
     // Set a field to a sign. [field_name] is the string constant's index in the const pool
     // The [val_reg] is the register where the value for the field is stored
     SetField(27,5) { sign_reg: u8, field_name: u16, val_reg: u8 },
+
+    GetField(28, 5) { dest: u8, sign_reg: u8, field_name: u16}
 }
 
 #[cfg(test)]

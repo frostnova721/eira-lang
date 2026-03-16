@@ -10,4 +10,4 @@ mark a = ~Coffee with {
 	sweetened: true,
 };
 
-chant a;
+chant a.milk;

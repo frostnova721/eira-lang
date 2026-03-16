@@ -23,7 +23,7 @@ pub enum WovenExpr {
     Assignment { name: Token, value: Box<WovenExpr>, tapestry: Tapestry, symbol: Symbol },
     Cast { reagents: Vec<WovenExpr>, callee: Token, tapestry: Tapestry, spell_symbol: Symbol },
     Draw { marks: Vec<WovenEtchedMark>, callee: Token, tapestry: Tapestry, sign_info: SignInfo },
-    Access { material: Box<WovenExpr>, property: Token, tapestry: Tapestry },
+    Access { material: Box<WovenExpr>, property: Token, tapestry: Tapestry, },
 }
 
 impl WovenExpr {

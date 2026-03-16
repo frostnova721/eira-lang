@@ -13,7 +13,7 @@ pub struct Symbol {
     pub depth: usize,
     pub mutable: bool,
     pub slot_idx: usize,
-    pub callable: bool,
+    pub parent: Option<Box<Symbol>>,
 }
 
 impl SymbolTable {
@@ -31,7 +31,7 @@ impl SymbolTable {
         self.scopes.pop();
     }
 
-    pub fn define(&mut self, name: String, weave: Weave, mutable: bool, slot_idx: usize) -> Option<Symbol> {
+    pub fn define(&mut self, name: String, weave: Weave, mutable: bool, slot_idx: usize, parent: Option<Box<Symbol>>) -> Option<Symbol> {
         let depth = self.scopes.len() - 1;
 
         if let Some(scope) = self.scopes.last_mut() {
@@ -41,7 +41,7 @@ impl SymbolTable {
                 weave: weave,
                 depth: depth,
                 slot_idx: slot_idx,
-                callable: false, // Default: not a callable reference
+                parent,
             };
             scope.insert(name, symbol.clone());
             return Some(symbol);
