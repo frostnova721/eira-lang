@@ -317,18 +317,37 @@ impl CodeGen {
                 tapestry,
                 sign_info,
             } => self.gen_draw_instruction(marks, callee, tapestry, sign_info),
-            WovenExpr::Access { material, property, tapestry } => self.gen_access_instruction(*material, property, tapestry),
+            WovenExpr::Access {
+                material,
+                property,
+                field_name_idx,
+                tapestry,
+            } => self.gen_access_instruction(*material, property, field_name_idx, tapestry),
         }
     }
 
-    fn gen_access_instruction(&mut self, material: WovenExpr , property: Token, tapestry: Tapestry) -> GenResult<u8> {
+    fn gen_access_instruction(
+        &mut self,
+        material: WovenExpr,
+        property: Token,
+        field_name_idx: u16,
+        tapestry: Tapestry,
+    ) -> GenResult<u8> {
         let s_reg = self.gen_from_expr(material)?;
 
-        let inst = Instruction::GetField { dest: self.get_next_register()?, sign_reg: s_reg, field_name:  }
-        Ok(self.register_index)
+        let dest = self.get_next_register()?;
+
+        let inst = Instruction::GetField {
+            dest,
+            sign_reg: s_reg,
+            field_name: field_name_idx,
+        };
+
+        self.instructions.push(inst);
+        Ok(dest)
     }
 
-    fn gen_draw_instruction(-
+    fn gen_draw_instruction(
         &mut self,
         marks: Vec<WovenEtchedMark>,
         callee: Token,

@@ -450,6 +450,20 @@ impl EiraVM {
                         return InterpretResult::RuntimeError;
                     }
                 }
+                OpCode::GetField => {
+                    let dest = frame!().read_byte();
+                    let sign_reg = frame!().read_byte();
+                    let field_name = frame!().read_u16();
+
+                    let sign = get_register!(base, sign_reg);
+                    match sign {
+                        Value::Sign(s) => {
+                            let val = s.get_field(field_name as usize);
+                            set_register!(base, dest, val);
+                        }
+                        _ => self.runtime_error("GET_FIELD Operation was used with a non 'Sign' value"),
+                    }
+                }
             }
         }
         // println!("Program completed after {} instructions.", instruction_count);

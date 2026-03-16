@@ -1,14 +1,14 @@
 use std::fs;
 
-use eira::{CodeGen, EiraVM, Parser, Scanner, WeaveAnalyzer, print_byte_code};
+use eira::{CodeGen, EiraVM, Parser, Scanner, WeaveAnalyzer, print_byte_code, print_ast, print_woven_ast};
 
 fn main() {
     // let start = Instant::now();
     let mut args = std::env::args().collect::<Vec<String>>();
 
     let mut flag_print_tokens = false;
-    let mut flag_print_ast = false;
-    let mut flag_print_woven_ast = false;
+    let mut flag_print_ast: Option<u8> = None;
+    let mut flag_print_woven_ast: Option<u8> = None;
     let mut flag_print_instructions = false;
     let mut flag_print_bytecode = false;
 
@@ -24,10 +24,12 @@ fn main() {
             let arg = &arg.replace("--", "");
             if *arg == "ptkn".to_owned() {
                 flag_print_tokens = true;
-            } else if *arg == "past".to_owned() {
-                flag_print_ast = true;
-            } else if *arg == "pwast".to_owned() {
-                flag_print_woven_ast = true;
+            } else if arg.starts_with("past") {
+                let verbosity = arg.strip_prefix("past=").and_then(|v| v.parse().ok()).unwrap_or(0);
+                flag_print_ast = Some(verbosity);
+            } else if arg.starts_with("pwast") {
+                let verbosity = arg.strip_prefix("pwast=").and_then(|v| v.parse().ok()).unwrap_or(0);
+                flag_print_woven_ast = Some(verbosity);
             } else if *arg == "pinst".to_owned() {
                 flag_print_instructions = true;
             } else if *arg == "pbc".to_owned() {
@@ -64,9 +66,9 @@ fn main() {
 
     // let parseTime = start.elapsed();
 
-    if flag_print_ast {
+    if let Some(verbosity) = flag_print_ast {
         println!("AST:");
-        println!("{:?}", ast.as_ref().unwrap());
+        print_ast(ast.as_ref().unwrap(), verbosity);
     }
 
     let mut weave_analyzer = WeaveAnalyzer::new();
@@ -79,9 +81,9 @@ fn main() {
             )
         }
         Ok(yes_yes) => {
-            if flag_print_woven_ast {
+            if let Some(verbosity) = flag_print_woven_ast {
                 println!("\nWoven Tree:");
-                println!("{:?}", yes_yes);
+                print_woven_ast(&yes_yes, verbosity);
             }
 
             let mut generator = CodeGen::new(yes_yes);

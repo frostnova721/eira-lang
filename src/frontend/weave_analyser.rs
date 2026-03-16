@@ -1053,8 +1053,8 @@ impl WeaveAnalyzer {
                 let token = match self.analyze_expression(*material)? {
                     WovenExpr::Variable {
                         name,
-                        symbol,
-                        tapestry,
+                        symbol: _,
+                        tapestry: _,
                     } => name,
                     _ => {
                         return self.error(
@@ -1074,7 +1074,7 @@ impl WeaveAnalyzer {
                     );
                 };
 
-                let Some(sign_symbol) = symbol.parent else {
+                let Some(ref sign_symbol) = symbol.parent else {
                     return self.error(
                         &format!(
                             "The mark '{}' is not a material of a sign",
@@ -1084,7 +1084,7 @@ impl WeaveAnalyzer {
                     );
                 };
 
-                let sign_name = sign_symbol.name;
+                let sign_name = sign_symbol.name.clone();
 
                 let Some(sign) = self.symbol_table.resolve(&sign_name) else {
                     return self.error(
@@ -1106,20 +1106,29 @@ impl WeaveAnalyzer {
                     );
                 };
 
-                // let Some(mark) = sign_info.marks.get(&property.lexeme) else {
-                    // return self.error(&format!("The mark '{}' is not defined for '{}'", property.lexeme.clone(), sign_name), property);
-                // }
+                let Some(mark) = sign_info.schema.get_field_index(property.lexeme.clone()) else {
+                    return self.error(
+                        &format!(
+                            "The mark '{}' is not defined for '{}'",
+                            property.lexeme, sign_name
+                        ),
+                        property,
+                    );
+                };
+
+                let property_tapestry = sign_info.marks.get(&property.lexeme).unwrap().tapestry;
 
                 let w_expr = WovenExpr::Variable {
                     name: token.clone(),
                     tapestry: symbol.weave.tapestry,
-                    symbol: sign.clone(),
+                    symbol: symbol.clone(),
                 };
 
                 Ok(WovenExpr::Access {
                     material: Box::new(w_expr),
                     property,
-                    tapestry: Tapestry(0),
+                    field_name_idx: mark as u16,
+                    tapestry: property_tapestry,
                 })
             }
         }
