@@ -51,7 +51,9 @@ fn main() {
 
     if flag_print_tokens {
         println!("Tokens:");
-        println!("{:?}", tokens)
+        for token in &tokens {
+            println!("{}", token);
+        }
     }
 
     // let scanTime = start.elapsed();

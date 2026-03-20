@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use crate::{
     SpellObject, Value,
-    frontend::{symbol_table::Symbol, weaves::Weave},
+    compiler::{symbol_table::Symbol, weaves::Weave},
     values::spell::SpellInfo,
 };
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{frontend::{weaves::Weave}};
+use crate::{compiler::{weaves::Weave}};
 
 pub struct SymbolTable {
     scopes: Vec<HashMap<String, Symbol>>,

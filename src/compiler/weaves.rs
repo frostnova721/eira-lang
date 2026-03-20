@@ -1,6 +1,6 @@
 use std::{collections::HashMap};
 
-use crate::frontend::{
+use crate::compiler::{
     strand::{
         ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND,
         EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND,

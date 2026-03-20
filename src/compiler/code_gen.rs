@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc, str, u8, vec};
 
 use crate::{
     assembler::Assembler,
-    frontend::{
+    compiler::{
         expr::WovenExpr,
         mark::{WovenEtchedMark, WovenMark},
         reagents::WovenReagent,
@@ -17,7 +17,7 @@ use crate::{
     runtime::Instruction,
     values::{
         Value,
-        sign::{SignInfo, SignSchema},
+        sign::{SignInfo},
         spell::{ClosureObject, SpellInfo, SpellObject},
     },
 };
@@ -329,9 +329,9 @@ impl CodeGen {
     fn gen_access_instruction(
         &mut self,
         material: WovenExpr,
-        property: Token,
+        _property: Token,
         field_name_idx: u16,
-        tapestry: Tapestry,
+        _tapestry: Tapestry,
     ) -> GenResult<u8> {
         let s_reg = self.gen_from_expr(material)?;
 
@@ -350,11 +350,11 @@ impl CodeGen {
     fn gen_draw_instruction(
         &mut self,
         marks: Vec<WovenEtchedMark>,
-        callee: Token,
-        tapestry: Tapestry,
+        _callee: Token,
+        _tapestry: Tapestry,
         sign_info: SignInfo,
     ) -> GenResult<u8> {
-        let sign = self.gen_variable_instruction(sign_info.symbol.clone())?;
+        self.gen_variable_instruction(sign_info.symbol.clone())?;
         let mut mark_regs: Vec<u8> = Vec::with_capacity(marks.len());
 
         let new_sign_reg = self.get_next_register()?;

@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::{
-    frontend::{
+    compiler::{
         expr::Expr,
         mark::{EtchedMark, Mark},
         reagents::Reagent,
@@ -766,6 +766,16 @@ impl Parser {
             },
             TokenType::Identifier => ParseRule {
                 prefix: Some(Self::variable),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::InterpolateStart => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::InterpolateEnd => ParseRule {
+                prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },

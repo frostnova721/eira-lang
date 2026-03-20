@@ -1,4 +1,4 @@
-use crate::frontend::{scanner::Token, weaves::Weave};
+use crate::compiler::{scanner::Token, weaves::Weave};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Reagent {

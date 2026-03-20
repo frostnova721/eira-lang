@@ -2,7 +2,7 @@
 mod parser_test {
     use eira::{
         Parser, Scanner, Value,
-        frontend::{expr::Expr, stmt::Stmt, token_type::TokenType},
+        compiler::{expr::Expr, stmt::Stmt, token_type::TokenType},
     };
 
     fn parse_helper(source: &str) -> Vec<Stmt> {

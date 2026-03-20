@@ -1,9 +1,9 @@
-use std::{clone, collections::HashMap};
+use std::{collections::HashMap};
 
 use crate::{
-    frontend::{
+    compiler::{
         expr::{Expr, WovenExpr},
-        mark::{EtchedMark, WovenEtchedMark, WovenMark},
+        mark::{WovenEtchedMark, WovenMark},
         reagents::WovenReagent,
         scanner::Token,
         stmt::{Stmt, WovenStmt},
@@ -1086,7 +1086,7 @@ impl WeaveAnalyzer {
 
                 let sign_name = sign_symbol.name.clone();
 
-                let Some(sign) = self.symbol_table.resolve(&sign_name) else {
+                let Some(_) = self.symbol_table.resolve(&sign_name) else {
                     return self.error(
                         &format!(
                             "The sign '{}' was not found across the eira realms!",

@@ -1,4 +1,4 @@
-use crate::frontend::{
+use crate::compiler::{
     expr::{Expr, WovenExpr},
     stmt::{Stmt, WovenStmt},
     mark::{EtchedMark, WovenEtchedMark, Mark, WovenMark},
@@ -384,7 +384,7 @@ impl AstPrinter {
         self.print_woven_expr(&Self::next_prefix(prefix, is_last), &mark.expr, true);
     }
 
-    fn symbol_info(&self, symbol: &crate::frontend::symbol_table::Symbol) -> String {
+    fn symbol_info(&self, symbol: &crate::compiler::symbol_table::Symbol) -> String {
         if self.verbosity >= 1 {
             format!(" [slot:{}, depth:{}]", symbol.slot_idx, symbol.depth)
         } else {
@@ -392,7 +392,7 @@ impl AstPrinter {
         }
     }
 
-    fn tapestry_info(&self, tapestry: &crate::frontend::tapestry::Tapestry) -> String {
+    fn tapestry_info(&self, tapestry: &crate::compiler::tapestry::Tapestry) -> String {
         if self.verbosity >= 2 {
             format!(" <tap:0x{:X}>", tapestry.0)
         } else {

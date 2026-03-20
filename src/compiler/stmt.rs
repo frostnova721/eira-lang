@@ -1,5 +1,5 @@
 use crate::{
-    frontend::{
+    compiler::{
         expr::{Expr, WovenExpr}, mark::{Mark, WovenMark}, parser::ParsedWeave, reagents::{Reagent, WovenReagent}, scanner::Token, symbol_table::Symbol
     },
     values::{sign::SignInfo, spell::SpellInfo},

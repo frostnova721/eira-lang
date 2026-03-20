@@ -2,7 +2,7 @@
 mod weave_analyser_test {
     use eira::{
         Parser, Scanner, WeaveAnalyzer,
-        frontend::{
+        compiler::{
             expr::WovenExpr,
             stmt::WovenStmt,
             strand::{ADDITIVE_STRAND, CONDITIONAL_STRAND, MULTIPLICATIVE_STRAND},

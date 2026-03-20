@@ -1,4 +1,4 @@
-use crate::{Token, frontend::{expr::{Expr, WovenExpr}, weaves::Weave}};
+use crate::{Token, compiler::{expr::{Expr, WovenExpr}, weaves::Weave}};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mark {

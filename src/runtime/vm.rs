@@ -5,7 +5,7 @@ use crate::{
     runtime::OpCode,
     values::{
         Value, print_value,
-        sign::{SignObject, SignSchema},
+        sign::{SignObject},
         spell::{ClosureObject, UpValue},
     },
 };

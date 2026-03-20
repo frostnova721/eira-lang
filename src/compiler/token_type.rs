@@ -49,10 +49,7 @@ pub enum TokenType {
     Identifier,
     Number,
     String,
-    StringStart, // starting "
-    StringEnd, // closing " 
-    InterpolateStart, // <
-    InterpolateEnd, // >
-
+    InterpolateStart, // @ and maybe ( in a string
+    InterpolateEnd, // ) inside a string, closing the interpolation
     Error, Eof, // well.. idk
 }
