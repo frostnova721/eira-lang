@@ -1,3 +1,3 @@
 
 bind x = "69";
-chant "asd @x";
+chant "x's value is @x. Say hi to @(x+ x)";

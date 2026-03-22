@@ -481,10 +481,54 @@ impl Parser {
 
     fn string(&mut self, _can_assign: bool) -> ParseResult<Expr> {
         let string = self.previous.lexeme.clone();
-        Ok(Expr::Literal {
+
+        let mut expr = Expr::Literal {
             value: Value::String(Rc::new(string)),
             token: self.previous.clone(),
-        })
+        };
+        loop {
+            while self.match_token(TokenType::InterpolateStart) {
+                let inner_expr = self.expression()?;
+                let plus = Token {
+                    column: self.previous.column,
+                    line: self.previous.line,
+                    token_type: TokenType::Plus,
+                    lexeme: self.previous.lexeme.clone(),
+                };
+
+                self.consume(
+                    TokenType::InterpolateEnd,
+                    "Expected ')' after interpolated expression.",
+                );
+
+                expr = Expr::Binary {
+                    left: Box::new(expr),
+                    right: Box::new(inner_expr),
+                    operator: plus,
+                };
+            }
+
+            if self.match_token(TokenType::String) {
+                let next_str = Expr::Literal {
+                    value: Value::String(Rc::new(self.previous.lexeme.clone())),
+                    token: self.previous.clone(),
+                };
+
+                expr = Expr::Binary {
+                    left: Box::new(expr),
+                    right: Box::new(next_str),
+                    operator: Token {
+                        column: self.previous.column,
+                        line: self.previous.line,
+                        token_type: TokenType::Plus,
+                        lexeme: self.previous.lexeme.clone(),
+                    },
+                };
+            } else {
+                break;
+            }
+        }
+        Ok(expr)
     }
 
     fn unary(&mut self, _can_assign: bool) -> ParseResult<Expr> {
@@ -521,7 +565,7 @@ impl Parser {
                 right: Box::new(rhs),
                 operator: op,
             }),
-            _ => Err(ParseError("idk anymore, maybe unreachable".to_owned())),
+            _ => Err(ParseError("idk anymore, unreachable ig".to_owned())),
         }
     }
 
@@ -603,7 +647,10 @@ impl Parser {
     fn access(&mut self, lhs: Expr) -> ParseResult<Expr> {
         // nothing much to do here than just getting the property name.
         self.consume(TokenType::Identifier, "Expected a property name after '.'!");
-        Ok(Expr::Access { material: Box::new(lhs), property: self.previous.clone() })
+        Ok(Expr::Access {
+            material: Box::new(lhs),
+            property: self.previous.clone(),
+        })
     }
 
     fn variable(&mut self, _can_assign: bool) -> ParseResult<Expr> {

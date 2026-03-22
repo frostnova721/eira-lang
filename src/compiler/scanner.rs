@@ -224,9 +224,9 @@ impl<'a> Scanner<'a> {
                         self.token_buffer.push_back(
                             self.make_token_with_lexeme(TokenType::InterpolateStart, "@".to_owned()),
                         );
-                        self.token_buffer.push_back(self.make_token_with_lexeme(ident_type, ident));
+                        self.token_buffer.push_back(self.make_token_with_lexeme(ident_type, ident.clone()));
                         self.token_buffer.push_back(
-                            self.make_token_with_lexeme(TokenType::InterpolateEnd, "".to_owned()),
+                            self.make_token_with_lexeme(TokenType::InterpolateEnd, ident),
                         );
 
                         return self.token_buffer.pop_front().unwrap();

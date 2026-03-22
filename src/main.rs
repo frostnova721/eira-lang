@@ -20,7 +20,6 @@ fn main() {
         }
         let arg = &args[i];
         if arg.starts_with("--") {
-            println!("{:?}", arg);
             let arg = &arg.replace("--", "");
             if *arg == "ptkn".to_owned() {
                 flag_print_tokens = true;
