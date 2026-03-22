@@ -4,6 +4,7 @@ pub mod debug;
 pub mod compiler;
 pub mod runtime;
 pub mod values;
+pub mod logger;
 
 pub use compiler::scanner::{Scanner, Token};
 pub use compiler::parser::{Parser};

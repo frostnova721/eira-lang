@@ -1,6 +1,8 @@
 use std::fs;
 
-use eira::{CodeGen, EiraVM, Parser, Scanner, WeaveAnalyzer, print_byte_code, print_ast, print_woven_ast};
+use eira::{
+    CodeGen, EiraVM, Parser, Scanner, WeaveAnalyzer, print_ast, print_byte_code, print_woven_ast,
+};
 
 fn main() {
     // let start = Instant::now();
@@ -24,10 +26,16 @@ fn main() {
             if *arg == "ptkn".to_owned() {
                 flag_print_tokens = true;
             } else if arg.starts_with("past") {
-                let verbosity = arg.strip_prefix("past=").and_then(|v| v.parse().ok()).unwrap_or(0);
+                let verbosity = arg
+                    .strip_prefix("past=")
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(0);
                 flag_print_ast = Some(verbosity);
             } else if arg.starts_with("pwast") {
-                let verbosity = arg.strip_prefix("pwast=").and_then(|v| v.parse().ok()).unwrap_or(0);
+                let verbosity = arg
+                    .strip_prefix("pwast=")
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(0);
                 flag_print_woven_ast = Some(verbosity);
             } else if *arg == "pinst".to_owned() {
                 flag_print_instructions = true;
@@ -44,6 +52,33 @@ fn main() {
     let file_path = args.get(1).unwrap_or(&default_debug_file);
 
     let f = fs::read_to_string(file_path);
+
+    if f.is_err() {
+        println!("The eira was cursed while reading the scroll '{}'.", file_path);
+        match f.err().unwrap().kind() {
+            std::io::ErrorKind::NotFound => {
+                println!("The scroll '{}' could not be found. Has it been lost to the void?", file_path);
+                return;
+            },
+            std::io::ErrorKind::PermissionDenied => {
+                println!("The scroll '{}' is protected by ancient magic. You don't have permission to read it.", file_path);
+                return;
+            },
+            std::io::ErrorKind::IsADirectory => {
+                println!("The path you gave is not of a scroll, but an archive (directory).");
+                return;
+            },
+            std::io::ErrorKind::InvalidData => {
+                println!("The scroll '{}' is corrupted and cannot be read.", file_path);
+                return;
+            },
+            _ => {
+                println!("The eira was struck by unknown curses while reading the scroll '{}'.", file_path);
+                return;
+            }
+        }
+    }
+
     let binding = f.unwrap();
     let scanner = Scanner::init(&binding);
     let tokens = scanner.tokenize();
@@ -78,7 +113,7 @@ fn main() {
         Err(no_no) => {
             println!(
                 "Weave Error: {}\nat '{}' in {}:{}:{}",
-                no_no.msg, no_no.token.lexeme, file_path,no_no.token.line, no_no.token.column,
+                no_no.msg, no_no.token.lexeme, file_path, no_no.token.line, no_no.token.column,
             )
         }
         Ok(yes_yes) => {

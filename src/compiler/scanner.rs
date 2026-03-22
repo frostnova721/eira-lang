@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, fmt::{Display, Write}};
+use std::{collections::VecDeque, fmt::{Display}};
 
 use crate::compiler::token_type::TokenType;
 
@@ -242,7 +242,7 @@ impl<'a> Scanner<'a> {
                 self.line += 1;
                 self.column = 0;
             }
-            let _ = &str_chunk.write_char(character);
+            str_chunk.push(character);
         }
 
         self.error_token("Don't you think that a string is unterminated?")
@@ -253,6 +253,7 @@ impl<'a> Scanner<'a> {
         self.start = self.current;
 
         if self.reached_end() {
+            self.mode = ScanMode::Normal;
             return self.error_token("Interpolation expression wasn't closed.");
         }
 
@@ -310,7 +311,17 @@ impl<'a> Scanner<'a> {
             '<' => self.make_token(TokenType::Less),
 
             '~' => self.make_token(TokenType::Tilde),
-            _ => self.error_token("error, met an unexpected token."),
+            '"' => {
+                self.error_token("Eira doesn't support direct strings on interpolation.")
+                // self.mode = ScanMode::InString { quote: '"' };
+                // self.scan_string_mode('"')
+            }
+            '\'' => {
+                self.error_token("Eira doesn't support direct strings on interpolation.")
+                // self.mode = ScanMode::InString { quote: '\'' };
+                // self.scan_string_mode('\'')
+            }
+            _ => self.error_token("met an unexpected token."),
         }
     }
 

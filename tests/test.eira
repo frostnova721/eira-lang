@@ -1,3 +1,5 @@
 
 bind x = "69";
-chant "x's value is @x. Say hi to @(x+ x)";
+bind y = '67';
+bind z = 33;
+chant "x's value is @x. Say hi to @x and @(y)";
