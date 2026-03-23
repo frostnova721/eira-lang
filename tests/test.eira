@@ -1,5 +1,9 @@
+sign Brush {
+    color: TextWeave,
+}
 
-bind x = "69";
-bind y = '67';
-bind z = 33;
-chant "x's value is @x. Say hi to @x and @(y)";
+bind drawing_brush = ~Brush with {
+    color: "Black",
+};
+
+chant "Brush uses @(drawing_brush.color) color";

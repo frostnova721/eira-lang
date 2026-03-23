@@ -480,12 +480,38 @@ impl Parser {
     }
 
     fn string(&mut self, _can_assign: bool) -> ParseResult<Expr> {
-        let string = self.previous.lexeme.clone();
+        let string = if self.previous.token_type ==TokenType::String { self.previous.lexeme.clone()}
+        else {
+            "".to_owned()
+        };
 
         let mut expr = Expr::Literal {
             value: Value::String(Rc::new(string)),
             token: self.previous.clone(),
         };
+
+        // Handle case where string starts with interpolation
+        if self.previous.token_type == TokenType::InterpolateStart {
+            let inner_expr = self.expression()?;
+            let plus = Token {
+                column: self.previous.column,
+                line: self.previous.line,
+                token_type: TokenType::Plus,
+                lexeme: self.previous.lexeme.clone(),
+            };
+
+            self.consume(
+                TokenType::InterpolateEnd,
+                "Expected ')' after interpolated expression.",
+            );
+
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                right: Box::new(inner_expr),
+                operator: plus,
+            };
+        }
+
         loop {
             while self.match_token(TokenType::InterpolateStart) {
                 let inner_expr = self.expression()?;
@@ -817,7 +843,7 @@ impl Parser {
                 precedence: Precedence::None,
             },
             TokenType::InterpolateStart => ParseRule {
-                prefix: None,
+                prefix: Some(Self::string),
                 infix: None,
                 precedence: Precedence::None,
             },
