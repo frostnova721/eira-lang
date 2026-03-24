@@ -1,6 +1,6 @@
 use crate::compiler::{
-    expr::{Expr, WovenExpr},
-    stmt::{Stmt, WovenStmt},
+    Expr, WovenExpr,
+    Stmt, WovenStmt,
     mark::{EtchedMark, WovenEtchedMark, Mark, WovenMark},
     reagents::{Reagent, WovenReagent},
 };

@@ -1,13 +1,11 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    SpellObject,
-    runtime::OpCode,
-    values::{
+    SpellObject, compiler::compiler::CompiledCode, runtime::OpCode, values::{
         Value, print_value,
-        sign::{SignObject},
+        sign::SignObject,
         spell::{ClosureObject, UpValue},
-    },
+    }
 };
 
 pub enum InterpretResult {
@@ -70,7 +68,7 @@ pub struct EiraVM {
 }
 
 impl EiraVM {
-    pub fn init(byte_code: Vec<u8>, constants: Vec<Value>) -> Self {
+    pub fn init(compiled_code: CompiledCode) -> Self {
         let mut vm = EiraVM {
             globals: HashMap::new(),
             stack: Vec::with_capacity(256),
@@ -80,8 +78,8 @@ impl EiraVM {
         let closure = ClosureObject {
             spell: Rc::new(SpellObject {
                 arity: 0,
-                bytecode: byte_code,
-                constants: constants,
+                bytecode: compiled_code.bytecode,
+                constants: compiled_code.constants,
                 name: None,
                 upvalue_count: 0,
             }),

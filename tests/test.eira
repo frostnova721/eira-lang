@@ -6,4 +6,4 @@ bind drawing_brush = ~Brush with {
     color: "Black",
 };
 
-chant "Brush uses @(drawing_brush.color) color";
+chant "Brush uses @(drawing_brush.color) color @ee aa";

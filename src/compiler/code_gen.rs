@@ -3,11 +3,11 @@ use std::{collections::HashMap, rc::Rc, str, u8, vec};
 use crate::{
     assembler::Assembler,
     compiler::{
-        expr::WovenExpr,
+        WovenExpr,
         mark::{WovenEtchedMark, WovenMark},
         reagents::WovenReagent,
         scanner::Token,
-        stmt::WovenStmt,
+        WovenStmt,
         symbol_table::Symbol,
         tapestry::Tapestry,
         token_type::TokenType,
@@ -17,7 +17,7 @@ use crate::{
     runtime::Instruction,
     values::{
         Value,
-        sign::{SignInfo},
+        sign::SignInfo,
         spell::{ClosureObject, SpellInfo, SpellObject},
     },
 };
@@ -59,7 +59,7 @@ pub struct CodeGen {
 }
 
 impl CodeGen {
-    pub fn new(w_ast: Vec<WovenStmt>) -> Self {
+    pub fn new(w_ast: Vec<WovenStmt>, print_instructions: bool) -> Self {
         CodeGen {
             woven_ast: w_ast,
             instructions: vec![],
@@ -70,8 +70,28 @@ impl CodeGen {
             in_spell: false,
             curr_upval_count: 0,
             upval_map: HashMap::new(),
-            print_instructions: false,
+            print_instructions,
         }
+    }
+
+    //--------------- Interface/ Public fns ---------------
+
+    // Create instructions
+    pub fn summon_instructions(&mut self) -> GenResult<Vec<Instruction>> {
+        let stmts = self.woven_ast.clone();
+
+        let _ = self.gen_from_stmts(stmts)?;
+
+        self.instructions.push(Instruction::Halt {});
+
+        if self.print_instructions {
+            print_instructions(
+                "<0: The Origin>",
+                &self.instructions,
+                &self.constants.last().unwrap(),
+            );
+        }
+        Ok(self.instructions.clone())
     }
 
     //--------------- Helpers ---------------
@@ -199,28 +219,6 @@ impl CodeGen {
         }
 
         Ok(())
-    }
-
-    //--------------- Interface/ Public fns ---------------
-
-    // Thought this name is fun, nothing else, its the main entry point btw
-    pub fn summon_bytecode(&mut self) -> GenResult<Vec<u8>> {
-        let stmts = self.woven_ast.clone();
-
-        let _ = self.gen_from_stmts(stmts)?;
-
-        self.instructions.push(Instruction::Halt {});
-
-        if self.print_instructions {
-            print_instructions(
-                "<0: The Origin>",
-                &self.instructions,
-                &self.constants.last().unwrap(),
-            );
-        }
-
-        let bc = Assembler::convert_to_byte_code(&self.instructions);
-        Ok(bc) // change later!
     }
 
     pub fn get_constants(&mut self) -> Vec<Value> {

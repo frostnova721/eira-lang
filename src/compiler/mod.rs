@@ -1,13 +1,18 @@
+pub mod code_gen;
+pub mod compiler;
+pub mod diagnostics;
 pub mod parser;
 pub mod scanner;
+pub mod scroll_reader;
+pub mod symbol_table;
 pub mod token_type;
 pub mod weave_analyser;
-pub mod weaves;
-pub mod strand;
-pub mod expr;
-pub mod stmt;
-pub mod tapestry;
-pub mod symbol_table;
-pub mod code_gen;
-pub mod reagents;
-pub mod mark;
+
+pub mod ast;
+pub use ast::{
+    expr::{Expr, WovenExpr},
+    stmt::{Stmt, WovenStmt},
+};
+
+pub mod types;
+pub use types::{mark, reagents, strand, tapestry, weaves};

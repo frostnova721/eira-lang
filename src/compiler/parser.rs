@@ -2,11 +2,11 @@ use std::rc::Rc;
 
 use crate::{
     compiler::{
-        expr::Expr,
+        Expr,
         mark::{EtchedMark, Mark},
         reagents::Reagent,
         scanner::Token,
-        stmt::Stmt,
+        Stmt,
         token_type::TokenType,
     },
     values::Value,
@@ -118,7 +118,6 @@ impl Parser {
     }
 
     fn error_at(&mut self, msg: &str, pos: Token) {
-        // println!("msg {}", msg);
         if self.panic {
             return;
         }

@@ -2,11 +2,11 @@ use std::{collections::HashMap};
 
 use crate::{
     compiler::{
-        expr::{Expr, WovenExpr},
+        Expr, WovenExpr,
         mark::{WovenEtchedMark, WovenMark},
         reagents::WovenReagent,
         scanner::Token,
-        stmt::{Stmt, WovenStmt},
+        Stmt, WovenStmt,
         strand::{
             ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND,
             DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND,
@@ -804,7 +804,7 @@ impl WeaveAnalyzer {
 
                     Ok(woven)
                 } else {
-                    return self.error("Variable resolution failed.", name);
+                    return self.error(&format!("'{}' was undeclared in the eira-verse!",name.lexeme), name);
                 }
             }
             Expr::Assignment { name, value } => {
