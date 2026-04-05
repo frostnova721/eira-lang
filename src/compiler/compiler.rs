@@ -107,7 +107,7 @@ impl Compiler {
             Err(parse_error) => {
                 // println!("Parse Error: {:?}", parse_error.0);
                 return Err(CompileError {
-                    msg: format!("Parse Error: {:?}", parse_error.0),
+                    msg: format!("Parse Error: {}", parse_error.0),
                 });
             }
             Ok(ast) => Ok(ast),

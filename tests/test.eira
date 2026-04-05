@@ -1,9 +1,1 @@
-sign Brush {
-    color: TextWeave,
-}
-
-bind drawing_brush = ~Brush with {
-    color: "Black",
-};
-
-chant "Brush uses @(drawing_brush.color) color @ee aa";
+bind candies = [ "mangobite", "jolly rancher", ];

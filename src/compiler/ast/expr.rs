@@ -11,6 +11,7 @@ pub enum Expr {
     Cast { reagents: Vec<Expr>, callee: Token },
     Draw { marks: Vec<EtchedMark>, callee: Token },
     Access { material: Box<Expr>, property: Token },
+    Deck { elements: Vec<Expr> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -24,6 +25,7 @@ pub enum WovenExpr {
     Cast { reagents: Vec<WovenExpr>, callee: Token, tapestry: Tapestry, spell_symbol: Symbol },
     Draw { marks: Vec<WovenEtchedMark>, callee: Token, tapestry: Tapestry, sign_info: SignInfo },
     Access { material: Box<WovenExpr>, property: Token, field_name_idx: u16, tapestry: Tapestry },
+    Deck { elements: Vec<WovenExpr>, tapestry: Tapestry },
 }
 
 impl WovenExpr {
@@ -38,6 +40,7 @@ impl WovenExpr {
             WovenExpr::Cast { reagents:_, callee:_, tapestry, spell_symbol: _ } => *tapestry,
             WovenExpr::Draw { marks:_, callee:_, tapestry, sign_info: _ } => *tapestry,
             WovenExpr::Access { material:_, property:_, field_name_idx:_, tapestry } => *tapestry,
+            WovenExpr::Deck { elements:_, tapestry } => *tapestry,
         }
     }
 
@@ -63,6 +66,7 @@ impl WovenExpr {
             WovenExpr::Cast { reagents:_, callee, tapestry:_, spell_symbol: _ } => callee.clone(),
             WovenExpr::Draw { marks:_, callee, tapestry:_, sign_info: _ } => callee.clone(),
             WovenExpr::Access { material:_, property, field_name_idx:_, tapestry:_ } => property.clone(),
+            WovenExpr::Deck { elements:_, tapestry:_ } => Token::dummy(),
         }
     }
 }

@@ -284,6 +284,8 @@ impl<'a> Scanner<'a> {
             }
             '{' => self.make_token(TokenType::BraceLeft),
             '}' => self.make_token(TokenType::BraceRight),
+            '[' => self.make_token(TokenType::SquareLeft),
+            ']' => self.make_token(TokenType::SquareRight),
             ';' => self.make_token(TokenType::SemiColon),
 
             ':' if self.match_char(':') => self.make_token(TokenType::ColonColon),
@@ -380,6 +382,8 @@ impl<'a> Scanner<'a> {
             ')' => self.make_token(TokenType::ParenRight),
             '{' => self.make_token(TokenType::BraceLeft),
             '}' => self.make_token(TokenType::BraceRight),
+            '[' => self.make_token(TokenType::SquareLeft),
+            ']' => self.make_token(TokenType::SquareRight),
             ';' => self.make_token(TokenType::SemiColon),
 
             ':' if self.match_char(':') => self.make_token(TokenType::ColonColon),

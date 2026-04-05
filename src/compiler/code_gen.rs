@@ -321,6 +321,7 @@ impl CodeGen {
                 field_name_idx,
                 tapestry,
             } => self.gen_access_instruction(*material, property, field_name_idx, tapestry),
+            WovenExpr::Deck { elements, tapestry } => todo!(),
         }
     }
 

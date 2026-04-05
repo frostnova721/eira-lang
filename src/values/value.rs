@@ -14,6 +14,7 @@ pub enum Value {
     Spell(Rc<SpellObject>),
     Sign(Rc<SignObject>),
     SignSchema(Rc<SignSchema>),
+    Deck(Rc<Vec<Value>>),
     Emptiness,
 }
 
@@ -28,6 +29,7 @@ impl Value {
             Self::Emptiness => ValueType::Emptiness,
             Self::Sign(_) => ValueType::Sign,
             Self::SignSchema(_) => ValueType::Sign,
+            Self::Deck(_) => ValueType::Deck,
         }
     }
 
@@ -67,6 +69,10 @@ impl Value {
         matches!(self, Self::SignSchema(_))
     }
 
+    pub fn is_deck(&self) -> bool {
+        matches!(self, Self::Deck(_))
+    }
+
     pub fn extract_number(&self) -> Option<f64> {
         if let Value::Number(n) = self {
             Some(*n)
@@ -89,6 +95,7 @@ impl Value {
             (Self::Bool(a), Self::Bool(b)) => a == b,
             (Self::String(a), Self::String(b)) => a == b,
             (Self::SignSchema(a), Self::SignSchema(b)) => a == b,
+            (Self::Deck(a), Self::Deck(b)) => a == b,
             _ => false,
         }
     }
@@ -123,6 +130,7 @@ impl Hash for Value {
             Self::Spell(_) => {}   // not a compile time const
             Self::Sign(_) => {}     // not a compile time const
             Self::SignSchema(s) => s.hash(state),
+            Self::Deck(d) => d.hash(state),
         }
     }
 }
@@ -156,6 +164,7 @@ pub fn print_value(value: Value) {
         Value::Spell(spell) => println!("Spell '{}'", spell.name.clone().unwrap()),
         Value::Sign(sign) => println!("Sign '{}' {:?}", sign.schema.name.clone(), sign.marks),
         Value::SignSchema(schema) => println!("SignSchema '{}'", schema.name.clone()),
+        Value::Deck(deck) => println!("Deck '{:?}'", deck)
     }
 }
 
@@ -173,5 +182,6 @@ pub enum ValueType {
     Spell,
     Sign,
     SignSchema,
+    Deck,
     Emptiness,
 }

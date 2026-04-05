@@ -26,6 +26,7 @@ pub enum TokenType {
     Sever, // break
     Flow, // continue
     Weave, // types (more like set of behaviours)d
+    Deck, // array type
 
     // Connector words
     With, // used in casting 
@@ -42,6 +43,7 @@ pub enum TokenType {
     Comma, // ,
     ParenLeft, ParenRight,
     BraceLeft, BraceRight,
+    SquareLeft, SquareRight,
     And, AndAnd, // &
     Or, OrOr, // |
     Tilde, // ~

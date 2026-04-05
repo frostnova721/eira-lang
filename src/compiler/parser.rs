@@ -693,6 +693,30 @@ impl Parser {
         Ok(Expr::Variable { name: var_name })
     }
 
+    fn deck(&mut self, _can_assign: bool) -> ParseResult<Expr> {
+        let mut elements: Vec<Expr> = vec![];
+
+        // Handle empty deck case []
+        if self.check(TokenType::SquareRight) {
+            self.advance();
+            return Ok(Expr::Deck { elements });
+        }
+
+        // Parse elements
+        loop {
+            elements.push(self.expression()?);
+
+            if self.match_token(TokenType::Comma) && !self.check(TokenType::SquareRight) {
+                continue;
+            } else {
+                break;
+            }
+        }
+
+        self.consume(TokenType::SquareRight, "Expected ']' after deck elements.");
+        Ok(Expr::Deck { elements })
+    }
+
     // ----------------------- Core -------------------------------//
 
     fn parse_precedence(&mut self, precedence: Precedence) -> ParseResult<Expr> {
@@ -922,6 +946,16 @@ impl Parser {
                 precedence: Precedence::Factor,
             },
             TokenType::Spell => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::SquareLeft => ParseRule {
+                prefix: Some(Self::deck),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::SquareRight => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,

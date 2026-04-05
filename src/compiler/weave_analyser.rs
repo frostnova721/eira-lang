@@ -1131,6 +1131,19 @@ impl WeaveAnalyzer {
                     tapestry: property_tapestry,
                 })
             }
+            Expr::Deck { elements } => {
+                let mut w_elements = vec![];
+
+                for element in elements {
+                    let w_element = self.analyze_expression(element)?;
+                    w_elements.push(w_element);
+                }
+
+                Ok(WovenExpr::Deck {
+                    elements: w_elements,
+                    tapestry: Weaves::DeckWeave.get_weave().tapestry,
+                })
+            }
         }
     }
 

@@ -180,6 +180,9 @@ impl AstPrinter {
                 self.write(prefix, is_last, &format!("Access: .{}", property.lexeme));
                 self.print_expr(&Self::next_prefix(prefix, is_last), material, true);
             }
+            Expr::Deck { elements } => {
+                self.write(prefix, is_last, &format!("Deck: {:?}", elements));
+            },
         }
     }
 
@@ -368,6 +371,10 @@ impl AstPrinter {
                 self.write(prefix, is_last, &format!("Access: .{}{}{}", property.lexeme, idx_str, tap));
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), material, true);
             }
+            WovenExpr::Deck { elements, tapestry } => {
+                let tap = self.tapestry_info(tapestry);
+                self.write(prefix, is_last, &format!("Deck: {:?}{}", elements, tap));
+            },
         }
     }
 

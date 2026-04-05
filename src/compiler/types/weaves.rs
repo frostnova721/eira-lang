@@ -2,9 +2,7 @@ use std::{collections::HashMap};
 
 use crate::compiler::{
     strand::{
-        ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND,
-        EQUATABLE_STRAND, INDEXIVE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND,
-        SUBTRACTIVE_STRAND,
+        ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND
     },
     tapestry::Tapestry,
 };
@@ -15,6 +13,7 @@ pub enum Weaves {
     TruthWeave,
     SpellWeave,
     SignWeave,
+    DeckWeave,
     EmptyWeave,
 }
 
@@ -27,6 +26,7 @@ impl Weaves {
             Weaves::SpellWeave => spell_weave(),
             Weaves::EmptyWeave => empty_weave(),
             Weaves::SignWeave => sign_weave(),
+            Weaves::DeckWeave => deck_weave(),
         }
     }
 }
@@ -54,8 +54,8 @@ pub fn gen_weave_map() -> HashMap<String, Weave> {
     weaves_map
 }
 
-fn get_weave_arr() -> [Weave; 6] {
-    [num_weave(), text_weave(), truth_weave(), empty_weave(), spell_weave(), sign_weave()]
+fn get_weave_arr() -> [Weave; 7] {
+    [num_weave(), text_weave(), truth_weave(), empty_weave(), spell_weave(), sign_weave(), deck_weave()]
 }
 
 /// Represents numbers
@@ -130,6 +130,15 @@ fn sign_weave() -> Weave {
     }
 }
 
+fn deck_weave() -> Weave {
+    Weave {
+        name: "DeckWeave".to_string(),
+        tapestry: Tapestry::new(INDEXIVE_STRAND | ITERABLE_STRAND),
+        base_tapestry: Tapestry::new(INDEXIVE_STRAND | ITERABLE_STRAND),
+        can_sub_weave: true,
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct WeaverError(pub String);
 
@@ -151,12 +160,3 @@ impl Weaver {
         Err(WeaverError(format!("The weave '{}' cannot contain any sub weaves!", base.name)))
     }
 }
-
-// /// Numbers
-// pub const NUMWEAVE: u64 = ADDITIVE_STRAND | MULTIPLICATIVE_STRAND | ORDINAL_STRAND | EQUATABLE_STRAND;
-
-// /// Boolean representation
-// pub const TRUTHWEAVE: u64 = CONDITIONAL_STRAND | EQUATABLE_STRAND;
-
-// /// String representation
-// pub const TEXTWEAVE: u64 = INDEXIVE_STRAND | CONCATINABLE_STRAND | EQUATABLE_STRAND;
