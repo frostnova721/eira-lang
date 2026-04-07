@@ -1,1 +1,3 @@
-bind candies = [ "mangobite", "jolly rancher", ];
+bind candies = [ "caramel", "eclair", "gummy" ];
+
+chant candies[0];

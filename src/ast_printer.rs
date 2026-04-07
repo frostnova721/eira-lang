@@ -180,8 +180,14 @@ impl AstPrinter {
                 self.write(prefix, is_last, &format!("Access: .{}", property.lexeme));
                 self.print_expr(&Self::next_prefix(prefix, is_last), material, true);
             }
-            Expr::Deck { elements } => {
+            Expr::Deck { elements, token:_ } => {
                 self.write(prefix, is_last, &format!("Deck: {:?}", elements));
+            },
+            Expr::Extract { deck, index, token } => {
+                self.write(prefix, is_last, "Extract");
+                let next = Self::next_prefix(prefix, is_last);
+                self.print_expr(&next, deck, false);
+                self.print_expr(&next, index, true);
             },
         }
     }
@@ -375,6 +381,13 @@ impl AstPrinter {
                 let tap = self.tapestry_info(tapestry);
                 self.write(prefix, is_last, &format!("Deck: {:?}{}", elements, tap));
             },
+            WovenExpr::Extract { deck, index, token: _, tapestry } => {
+                let tap = self.tapestry_info(tapestry);
+                self.write(prefix, is_last, &format!("Extract{}", tap));
+                let next = Self::next_prefix(prefix, is_last);
+                self.print_woven_expr(&next, deck, false);
+                self.print_woven_expr(&next, index, true);
+            }
         }
     }
 

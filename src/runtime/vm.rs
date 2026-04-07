@@ -1,11 +1,14 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    SpellObject, compiler::compiler::CompiledCode, runtime::OpCode, values::{
+    SpellObject,
+    compiler::compiler::CompiledCode,
+    runtime::OpCode,
+    values::{
         Value, print_value,
         sign::SignObject,
         spell::{ClosureObject, UpValue},
-    }
+    },
 };
 
 pub enum InterpretResult {
@@ -459,7 +462,71 @@ impl EiraVM {
                             let val = s.get_field(field_name as usize);
                             set_register!(base, dest, val);
                         }
-                        _ => self.runtime_error("GET_FIELD Operation was used with a non 'Sign' value"),
+                        _ => self
+                            .runtime_error("GET_FIELD Operation was used with a non 'Sign' value"),
+                    }
+                }
+                OpCode::NewDeck => {
+                    let reg = frame!().read_byte();
+                    let start = frame!().read_byte();
+                    let count = frame!().read_byte();
+
+                    let mut values: Vec<Value> = vec![];
+
+                    for i in start..start + count {
+                        let val = get_register!(base, i).clone();
+                        values.push(val);
+                    }
+
+                    set_register!(base, reg, Value::Deck(Rc::new(values)));
+                }
+                OpCode::AddToDeck => {
+                    let deck_reg = frame!().read_byte();
+                    let position = frame!().read_u16();
+                    let val = get_register!(base, frame!().read_byte()).clone();
+                    let deck = &mut self.stack[deck_reg as usize];
+
+                    match deck {
+                        Value::Deck(d) => {
+                            Rc::make_mut(d).insert(position as usize, val);
+                            // d.push();
+                            // set_register!(base, deck_reg, );
+                        }
+                        _ => {
+                            self.runtime_error(
+                                "Value is not a Deck to perform 'ADD_TO_DECK Operation'",
+                            );
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+
+                OpCode::ExtractFromDeck => {
+                    let dest = frame!().read_byte();
+                    let deck_reg = frame!().read_byte();
+                    let index = frame!().read_byte();
+
+                    let deck_val = get_register!(base, deck_reg).clone();
+
+                    let idx = get_register!(base, index).clone().extract_number().unwrap() as usize;
+                    match deck_val {
+                        Value::Deck(d) => {
+                            if idx < d.len() {
+                                let val = d[idx].clone();
+                                set_register!(base, dest, val);
+                            } else {
+                                self.runtime_error(
+                                    "Index out of bounds in 'EXTRACT_FROM_DECK' operation",
+                                );
+                                return InterpretResult::RuntimeError;
+                            }
+                        }
+                        _ => {
+                            self.runtime_error(
+                                "Value is not a Deck to perform 'EXTRACT_FROM_DECK' Operation'",
+                            );
+                            return InterpretResult::RuntimeError;
+                        }
                     }
                 }
             }

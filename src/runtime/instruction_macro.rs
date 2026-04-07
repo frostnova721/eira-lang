@@ -246,7 +246,13 @@ define_instructions! {
     // The [val_reg] is the register where the value for the field is stored
     SetField(27,5) { sign_reg: u8, field_name: u16, val_reg: u8 },
 
-    GetField(28, 5) { dest: u8, sign_reg: u8, field_name: u16}
+    GetField(28, 5) { dest: u8, sign_reg: u8, field_name: u16 },
+
+    // Deck operations. 
+    NewDeck(29, 4) { dest: u8, start_reg: u8, count: u8 },
+    AddToDeck(30, 5) { deck: u8, position: u16, value: u8 },
+    ExtractFromDeck(31, 4) { dest: u8, deck: u8, index: u8 },
+
 }
 
 #[cfg(test)]

@@ -3,11 +3,10 @@ use std::{collections::HashMap, rc::Rc, str, u8, vec};
 use crate::{
     assembler::Assembler,
     compiler::{
-        WovenExpr,
+        WovenExpr, WovenStmt,
         mark::{WovenEtchedMark, WovenMark},
         reagents::WovenReagent,
         scanner::Token,
-        WovenStmt,
         symbol_table::Symbol,
         tapestry::Tapestry,
         token_type::TokenType,
@@ -321,8 +320,55 @@ impl CodeGen {
                 field_name_idx,
                 tapestry,
             } => self.gen_access_instruction(*material, property, field_name_idx, tapestry),
-            WovenExpr::Deck { elements, tapestry } => todo!(),
+            WovenExpr::Deck { elements, tapestry } => self.gen_deck_instruction(elements, tapestry),
+            WovenExpr::Extract { deck, index, token, tapestry } => self.gen_extract_instruction(*deck, *index, token, tapestry),
         }
+    }
+
+    fn gen_extract_instruction(
+        &mut self,
+        deck: WovenExpr,
+        index: WovenExpr,
+        _token: Token,
+        _tapestry: Tapestry,
+    ) -> GenResult<u8> {
+        let deck_reg = self.gen_from_expr(deck)?;
+        let index_reg = self.gen_from_expr(index)?;
+
+        let dest = self.get_next_register()?;
+
+        self.instructions.push(Instruction::ExtractFromDeck {
+            dest,
+            deck: deck_reg,
+            index: index_reg,
+        });
+
+        Ok(dest)
+    }
+
+    fn gen_deck_instruction(
+        &mut self,
+        elements: Vec<WovenExpr>,
+        _tapestry: Tapestry,
+    ) -> GenResult<u8> {
+        let start_reg = self.register_index;
+
+        if elements.len() > u8::MAX as usize {
+            return Err(error("Deck size exceeds the maximum of 255 elements!"));
+        }
+
+        for element in &elements {
+            self.gen_from_expr(element.clone())?;
+        }
+
+        let deck_reg = self.get_next_register()?;
+
+        self.instructions.push(Instruction::NewDeck {
+            dest: deck_reg,
+            count: elements.len() as u8,
+            start_reg: start_reg,
+        });
+        Ok(deck_reg)
     }
 
     fn gen_access_instruction(

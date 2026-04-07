@@ -258,7 +258,6 @@ impl Parser {
     }
 
     fn variable_declaration(&mut self, mutable: bool) -> ParseResult<Stmt> {
-        // let thing = if mutable { "mark" } else { "bind" };
         self.consume(TokenType::Identifier, "Expected a variable name!");
         let name = self.previous.clone();
         let initializer: Option<Expr>;
@@ -699,7 +698,7 @@ impl Parser {
         // Handle empty deck case []
         if self.check(TokenType::SquareRight) {
             self.advance();
-            return Ok(Expr::Deck { elements });
+            return Ok(Expr::Deck { elements, token: self.previous.clone() });
         }
 
         // Parse elements
@@ -714,7 +713,18 @@ impl Parser {
         }
 
         self.consume(TokenType::SquareRight, "Expected ']' after deck elements.");
-        Ok(Expr::Deck { elements })
+        Ok(Expr::Deck { elements, token: self.previous.clone() })
+    }
+
+    fn extract(&mut self, lhs: Expr) -> ParseResult<Expr> {
+        let index_expr = self.expression()?;
+        self.consume(TokenType::SquareRight, "Expected ']' after deck access expression.");
+
+        Ok(Expr::Extract {
+            deck: Box::new(lhs),
+            index: Box::new(index_expr),
+            token: self.previous.clone(),
+        })
     }
 
     // ----------------------- Core -------------------------------//
@@ -952,8 +962,8 @@ impl Parser {
             },
             TokenType::SquareLeft => ParseRule {
                 prefix: Some(Self::deck),
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Self::extract),
+                precedence: Precedence::Call,
             },
             TokenType::SquareRight => ParseRule {
                 prefix: None,

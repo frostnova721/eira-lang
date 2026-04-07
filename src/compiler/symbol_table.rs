@@ -72,15 +72,4 @@ impl SymbolTable {
     pub fn get_depth(&self) -> usize {
         self.scopes.len() - 1
     }
-    
-    // Update a symbol's callable_info to point to the actual callable
-    // pub fn set_callable_info(&mut self, symbol_name: &String) -> bool {
-    //     for scope in self.scopes.iter_mut().rev() {
-    //         if let Some(sym) = scope.get_mut(symbol_name) {
-    //             sym.callable_info = true;
-    //             return true;
-    //         }
-    //     }
-    //     false
-    // }
 }

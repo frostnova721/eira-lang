@@ -1,12 +1,11 @@
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
 use crate::{
     compiler::{
-        Expr, WovenExpr,
+        Expr, Stmt, WovenExpr, WovenStmt,
         mark::{WovenEtchedMark, WovenMark},
         reagents::WovenReagent,
         scanner::Token,
-        Stmt, WovenStmt,
         strand::{
             ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND,
             DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND,
@@ -804,7 +803,10 @@ impl WeaveAnalyzer {
 
                     Ok(woven)
                 } else {
-                    return self.error(&format!("'{}' was undeclared in the eira-verse!",name.lexeme), name);
+                    return self.error(
+                        &format!("'{}' was undeclared in the eira-verse!", name.lexeme),
+                        name,
+                    );
                 }
             }
             Expr::Assignment { name, value } => {
@@ -1131,19 +1133,38 @@ impl WeaveAnalyzer {
                     tapestry: property_tapestry,
                 })
             }
-            Expr::Deck { elements } => {
+            Expr::Deck { elements, token } => {
                 let mut w_elements = vec![];
+
+                // let weave;
+
+                if elements.len() > u8::MAX as usize {
+                    return self.error("Deck size exceeds the maximum of 255 elements!", token);
+                }
 
                 for element in elements {
                     let w_element = self.analyze_expression(element)?;
+                    //  let w =  self.get_weave(w_element.tapestry())
                     w_elements.push(w_element);
                 }
+
+                // self.symbol_table.define(name, weave, mutable, slot_idx, parent)
 
                 Ok(WovenExpr::Deck {
                     elements: w_elements,
                     tapestry: Weaves::DeckWeave.get_weave().tapestry,
                 })
             }
+            Expr::Extract { deck, index, token } => {
+                let index_expr = self.analyze_expression(*index)?;
+                Ok(WovenExpr::Extract {
+                    deck: Box::new(self.analyze_expression(*deck)?),
+                    index: Box::new(index_expr),
+                    tapestry: Tapestry::new(INDEXIVE_STRAND),
+                    token
+                })
+
+            },
         }
     }
 
@@ -1254,6 +1275,9 @@ impl WeaveAnalyzer {
             }
             x if x == Weaves::SignWeave.get_weave().tapestry.0 => {
                 Some(Weaves::SignWeave.get_weave())
+            }
+            x if x == Weaves::DeckWeave.get_weave().tapestry.0 => {
+                Some(Weaves::DeckWeave.get_weave())
             }
             _ => None,
         }
