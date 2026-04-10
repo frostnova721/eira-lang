@@ -181,13 +181,30 @@ impl AstPrinter {
                 self.print_expr(&Self::next_prefix(prefix, is_last), material, true);
             }
             Expr::Deck { elements, token:_ } => {
-                self.write(prefix, is_last, &format!("Deck: {:?}", elements));
+                self.write(prefix, is_last, "Deck");
+                let next = Self::next_prefix(prefix, is_last);
+                if elements.is_empty() {
+                    self.write(&next, true, "(empty)");
+                } else {
+                    let len = elements.len();
+                    for (i, element) in elements.iter().enumerate() {
+                        self.print_expr(&next, element, i == len - 1);
+                    }
+                }
             },
-            Expr::Extract { deck, index, token } => {
+            Expr::Extract { deck, index, token:_ } => {
                 self.write(prefix, is_last, "Extract");
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_expr(&next, deck, false);
                 self.print_expr(&next, index, true);
+            },
+            Expr::DeckSet { deck, index, value, token:_ } => {
+                self.write(prefix, is_last, "DeckSet");
+                let next = Self::next_prefix(prefix, is_last);
+                self.print_expr(&next, deck, false);
+                self.print_expr(&next, index, false);
+                self.print_expr(&next, value, true);
+
             },
         }
     }
@@ -379,7 +396,16 @@ impl AstPrinter {
             }
             WovenExpr::Deck { elements, tapestry } => {
                 let tap = self.tapestry_info(tapestry);
-                self.write(prefix, is_last, &format!("Deck: {:?}{}", elements, tap));
+                self.write(prefix, is_last, &format!("Deck{}", tap));
+                let next = Self::next_prefix(prefix, is_last);
+                if elements.is_empty() {
+                    self.write(&next, true, "(empty)");
+                } else {
+                    let len = elements.len();
+                    for (i, element) in elements.iter().enumerate() {
+                        self.print_woven_expr(&next, element, i == len - 1);
+                    }
+                }
             },
             WovenExpr::Extract { deck, index, token: _, tapestry } => {
                 let tap = self.tapestry_info(tapestry);
@@ -387,7 +413,15 @@ impl AstPrinter {
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_woven_expr(&next, deck, false);
                 self.print_woven_expr(&next, index, true);
-            }
+            },
+            WovenExpr::DeckSet { deck, index, value, token: _, tapestry } => {
+                let tap = self.tapestry_info(tapestry);
+                self.write(prefix, is_last, &format!("DeckSet{}", tap));
+                let next = Self::next_prefix(prefix, is_last);
+                self.print_woven_expr(&next, deck, false);
+                self.print_woven_expr(&next, index, false);
+                self.print_woven_expr(&next, value, true);
+            },
         }
     }
 

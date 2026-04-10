@@ -568,7 +568,7 @@ impl Parser {
         }
     }
 
-    fn binary(&mut self, lhs: Expr) -> ParseResult<Expr> {
+    fn binary(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
         let op = self.previous.clone();
         let rule = self.get_rule(op.token_type);
         let rhs = self.parse_precedence(rule.precedence.next())?;
@@ -668,7 +668,7 @@ impl Parser {
         })
     }
 
-    fn access(&mut self, lhs: Expr) -> ParseResult<Expr> {
+    fn access(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
         // nothing much to do here than just getting the property name.
         self.consume(TokenType::Identifier, "Expected a property name after '.'!");
         Ok(Expr::Access {
@@ -716,7 +716,7 @@ impl Parser {
         Ok(Expr::Deck { elements, token: self.previous.clone() })
     }
 
-    fn extract(&mut self, lhs: Expr) -> ParseResult<Expr> {
+    fn extract(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
         let index_expr = self.expression()?;
         self.consume(TokenType::SquareRight, "Expected ']' after deck access expression.");
 
@@ -749,10 +749,39 @@ impl Parser {
                     self.advance();
                     // println!("{:?}", self.previous);
                     let infix_rule = self.get_rule(self.previous.token_type).infix.unwrap();
-                    lhs = infix_rule(self, lhs?);
+                    lhs = infix_rule(self, lhs?, can_assign);
                 }
 
                 if can_assign && self.match_token(TokenType::Equal) {
+                    let equals = self.previous.clone();
+                    let value = self.expression()?;
+
+                    match lhs? {
+                        Expr::Variable { name } => {
+                            return Ok(Expr::Assignment {
+                                name,
+                                value: Box::new(value),
+                            });
+                        }
+                        Expr::Extract { deck, index, token:_ } => {
+                            return Ok(Expr::DeckSet {
+                                deck,
+                                index,
+                                value: Box::new(value),
+                                token: equals,
+                            });
+                        }
+                        // Expr::Access { material, property } => {
+                        //     return Ok(Expr::Set {
+                        //         material,
+                        //         property,
+                        //         value: Box::new(value),
+                        //         token: equals,
+                        //     });
+                    // }
+                    _ => {}
+                }
+
                     self.throw_error("Assignment target provided is invalid! Take a look at it!");
                     // return 0;
                     return Err(ParseError("".to_owned()));
@@ -1023,7 +1052,7 @@ pub type ParseResult<T> = Result<T, ParseError>;
 
 type ParseFun = fn(&mut Parser, bool) -> ParseResult<Expr>;
 
-type InfixParseFun = fn(&mut Parser, Expr) -> ParseResult<Expr>;
+type InfixParseFun = fn(&mut Parser, Expr, bool) -> ParseResult<Expr>;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct ParsedWeave {

@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -14,7 +15,7 @@ pub enum Value {
     Spell(Rc<SpellObject>),
     Sign(Rc<SignObject>),
     SignSchema(Rc<SignSchema>),
-    Deck(Rc<Vec<Value>>),
+    Deck(Rc<RefCell<Vec<Value>>>),
     Emptiness,
 }
 
@@ -130,7 +131,7 @@ impl Hash for Value {
             Self::Spell(_) => {}   // not a compile time const
             Self::Sign(_) => {}     // not a compile time const
             Self::SignSchema(s) => s.hash(state),
-            Self::Deck(d) => d.hash(state),
+            Self::Deck(d) => d.borrow().hash(state),
         }
     }
 }
@@ -164,7 +165,7 @@ pub fn print_value(value: Value) {
         Value::Spell(spell) => println!("Spell '{}'", spell.name.clone().unwrap()),
         Value::Sign(sign) => println!("Sign '{}' {:?}", sign.schema.name.clone(), sign.marks),
         Value::SignSchema(schema) => println!("SignSchema '{}'", schema.name.clone()),
-        Value::Deck(deck) => println!("Deck '{:?}'", deck)
+        Value::Deck(deck) => println!("Deck '{:?}'", deck.borrow())
     }
 }
 

@@ -191,7 +191,7 @@ mod weave_analyser_test {
     fn variable_undefined_error() {
         let src = "chant nonexistent;";
         let err = analyze_helper(src).err().expect("should error");
-        assert!(err.contains("resolution failed"));
+        assert!(err.contains("was undefined"));
     }
 
     #[test]

@@ -322,7 +322,18 @@ impl CodeGen {
             } => self.gen_access_instruction(*material, property, field_name_idx, tapestry),
             WovenExpr::Deck { elements, tapestry } => self.gen_deck_instruction(elements, tapestry),
             WovenExpr::Extract { deck, index, token, tapestry } => self.gen_extract_instruction(*deck, *index, token, tapestry),
+            WovenExpr::DeckSet { deck, index, value, token, tapestry } => self.gen_deck_set_instruction(*deck, *index, *value, token, tapestry),
         }
+    }
+
+    fn gen_deck_set_instruction(&mut self, deck: WovenExpr, index: WovenExpr, value: WovenExpr, _token: Token, _tapestry: Tapestry) -> GenResult<u8> {
+        let deck_reg = self.gen_from_expr(deck)?;
+        let idx = self.gen_from_expr(index)?;
+        let val = self.gen_from_expr(value)?;
+
+        self.instructions.push(Instruction::AddToDeck { deck: deck_reg, position: idx, value: val });
+
+        Ok(deck_reg)
     }
 
     fn gen_extract_instruction(

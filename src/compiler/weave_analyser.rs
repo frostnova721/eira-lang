@@ -804,7 +804,7 @@ impl WeaveAnalyzer {
                     Ok(woven)
                 } else {
                     return self.error(
-                        &format!("'{}' was undeclared in the eira-verse!", name.lexeme),
+                        &format!("'{}' was undefined in the eira-verse!", name.lexeme),
                         name,
                     );
                 }
@@ -1156,14 +1156,46 @@ impl WeaveAnalyzer {
                 })
             }
             Expr::Extract { deck, index, token } => {
-                let index_expr = self.analyze_expression(*index)?;
+                let w_index = self.analyze_expression(*index)?;
+
+                 let index_tapestry = w_index.tapestry();
+                
+                if index_tapestry.0 != Weaves::NumWeave.get_weave().tapestry.0 {
+                    return self.error(
+                        "The index expression of a deck set operation must be of NumWeave!",
+                        token.clone(),
+                    );
+                }
+
                 Ok(WovenExpr::Extract {
                     deck: Box::new(self.analyze_expression(*deck)?),
-                    index: Box::new(index_expr),
+                    index: Box::new(w_index),
                     tapestry: Tapestry::new(INDEXIVE_STRAND),
                     token
                 })
 
+            },
+            Expr::DeckSet { deck, index, value, token } => {
+                let w_deck = self.analyze_expression(*deck)?;
+                let w_index = self.analyze_expression(*index)?;
+                let w_value = self.analyze_expression(*value)?;
+
+                let index_tapestry = w_index.tapestry();
+
+                if index_tapestry.0 != Weaves::NumWeave.get_weave().tapestry.0 {
+                    return self.error(
+                        "The index expression of a deck set operation must be of NumWeave!",
+                        token.clone(),
+                    );
+                }
+
+                Ok(WovenExpr::DeckSet {
+                    deck: Box::new(w_deck),
+                    index: Box::new(w_index),
+                    value: Box::new(w_value),
+                    tapestry: Tapestry::new(INDEXIVE_STRAND), // this is a gamble, but it should work for now
+                    token, 
+                })
             },
         }
     }

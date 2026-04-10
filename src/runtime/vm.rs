@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     SpellObject,
@@ -478,19 +478,25 @@ impl EiraVM {
                         values.push(val);
                     }
 
-                    set_register!(base, reg, Value::Deck(Rc::new(values)));
+                    set_register!(base, reg, Value::Deck(Rc::new(RefCell::new(values))));
                 }
                 OpCode::AddToDeck => {
                     let deck_reg = frame!().read_byte();
-                    let position = frame!().read_u16();
+                    let position = frame!().read_byte();
                     let val = get_register!(base, frame!().read_byte()).clone();
-                    let deck = &mut self.stack[deck_reg as usize];
+                    let idx = get_register!(base, position).extract_number().unwrap() as usize;
 
-                    match deck {
+                    let deck_val = get_register!(base, deck_reg).clone();
+
+                    match deck_val {
                         Value::Deck(d) => {
-                            Rc::make_mut(d).insert(position as usize, val);
-                            // d.push();
-                            // set_register!(base, deck_reg, );
+                            if idx >= d.borrow().len() {
+                                self.runtime_error(
+                                    &format!("Index out of bounds while adding element to a deck. Tried to access {} while deck size is {}.", idx,d.borrow().len()),
+                                );
+                                return InterpretResult::RuntimeError;
+                            }
+                            d.borrow_mut()[idx] = val;
                         }
                         _ => {
                             self.runtime_error(
@@ -511,12 +517,12 @@ impl EiraVM {
                     let idx = get_register!(base, index).clone().extract_number().unwrap() as usize;
                     match deck_val {
                         Value::Deck(d) => {
-                            if idx < d.len() {
-                                let val = d[idx].clone();
+                            if idx < d.borrow().len() {
+                                let val = d.borrow()[idx].clone();
                                 set_register!(base, dest, val);
                             } else {
                                 self.runtime_error(
-                                    "Index out of bounds in 'EXTRACT_FROM_DECK' operation",
+                                    &format!("Index out of bounds while extracting element from a deck. Tried to access {} while deck size is {}.", idx,d.borrow().len()),
                                 );
                                 return InterpretResult::RuntimeError;
                             }

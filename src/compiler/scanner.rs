@@ -245,6 +245,9 @@ impl<'a> Scanner<'a> {
             str_chunk.push(character);
         }
 
+        // Unterminated strings reach EOF while still in string mode; switch back to
+        // normal mode so subsequent scans can terminate instead of looping on Error.
+        self.mode = ScanMode::Normal;
         self.error_token("Don't you think that a string is unterminated?")
     }
 
@@ -440,12 +443,25 @@ impl<'a> Scanner<'a> {
     pub fn tokenize(mut self) -> Vec<Token> {
         let mut tokens: Vec<Token> = Vec::new();
         loop {
+            let previous_current = self.current;
+            let previous_mode = self.mode;
+            
             let token = self.scan_token();
             if token.token_type == TokenType::Eof {
                 tokens.push(token);
                 break;
             }
             tokens.push(token);
+
+            if tokens.last().is_some_and(|t| t.token_type == TokenType::Error)
+                && self.current == previous_current
+                && self.mode == previous_mode
+            {
+                self.mode = ScanMode::Normal;
+                self.start = self.current;
+                tokens.push(self.make_token(TokenType::Eof));
+                break;
+            }
         }
         tokens
     }

@@ -250,7 +250,7 @@ define_instructions! {
 
     // Deck operations. 
     NewDeck(29, 4) { dest: u8, start_reg: u8, count: u8 },
-    AddToDeck(30, 5) { deck: u8, position: u16, value: u8 },
+    AddToDeck(30, 4) { deck: u8, position: u8, value: u8 },
     ExtractFromDeck(31, 4) { dest: u8, deck: u8, index: u8 },
 
 }
