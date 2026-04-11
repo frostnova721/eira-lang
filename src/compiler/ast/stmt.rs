@@ -14,6 +14,7 @@ pub enum Stmt {
         name: Token,
         mutable: bool,
         initializer: Option<Expr>,
+        weave: Option<ParsedWeave>,
     },
     Fate {
         condition: Expr,

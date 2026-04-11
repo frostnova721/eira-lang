@@ -50,11 +50,14 @@ impl AstPrinter {
                 self.write(prefix, is_last, "ExprStmt");
                 self.print_expr(&Self::next_prefix(prefix, is_last), expr, true);
             }
-            Stmt::VarDeclaration { name, mutable, initializer } => {
+            Stmt::VarDeclaration { name, mutable, initializer, weave } => {
                 let mut_str = if *mutable { "mut " } else { "" };
                 self.write(prefix, is_last, &format!("VarDecl: {}{}", mut_str, name.lexeme));
                 if let Some(init) = initializer {
                     self.print_expr(&Self::next_prefix(prefix, is_last), init, true);
+                }
+                if let Some(weave) = weave {
+                    self.write(&Self::next_prefix(prefix, is_last), true, &format!("weave: {}", weave.base.lexeme));
                 }
             }
             Stmt::Fate { condition, then_branch, else_branch } => {

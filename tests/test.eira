@@ -1,5 +1,7 @@
-bind candies = [ "caramel"];
+bind candies = [ ];
+
+bind x: TextWeave = "";
 
 //candies[2] = "choco-late";
 
-chant candies[0];
+//chant candies[0];

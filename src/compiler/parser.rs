@@ -2,11 +2,10 @@ use std::rc::Rc;
 
 use crate::{
     compiler::{
-        Expr,
+        Expr, Stmt,
         mark::{EtchedMark, Mark},
         reagents::Reagent,
         scanner::Token,
-        Stmt,
         token_type::TokenType,
     },
     values::Value,
@@ -140,10 +139,10 @@ impl Parser {
     fn parse_weave(&mut self, msg: &str) -> ParseResult<ParsedWeave> {
         self.consume(TokenType::Identifier, msg);
         let weave = self.previous.clone();
-        let mut inner: Option<Token> = None;
+        let mut inner: Option<Box<ParsedWeave>> = None;
         if self.match_token(TokenType::Less) {
             self.consume(TokenType::Identifier, "Expected a inner weave after '<'.");
-            inner = Some(self.previous.clone());
+            inner = Some(Box::new(self.parse_weave("Expected a weave name to bind with the inner weave!")?));
             self.consume(
                 TokenType::Greater,
                 "Expected closing '>' after inner weave.",
@@ -173,7 +172,7 @@ impl Parser {
                 TokenType::Chant => return,
                 TokenType::Release => return,
                 TokenType::Fate => return,
-
+                TokenType::Sign => return,
                 _ => {}
             }
 
@@ -191,6 +190,8 @@ impl Parser {
             res = self.variable_declaration(false);
         } else if self.match_token(TokenType::Spell) {
             res = self.spell_declaration();
+        } else if self.match_token(TokenType::Sign) {
+            res = self.sign_declaration();
         } else {
             res = self.statement();
         }
@@ -262,7 +263,11 @@ impl Parser {
         let name = self.previous.clone();
         let initializer: Option<Expr>;
 
-        // TODO: Add explicit weave assigning
+        let mut weave: Option<ParsedWeave> = None;
+
+        if self.match_token(TokenType::Colon) {
+            weave = Some(self.parse_weave("Expected a weave name to bind with the variable!")?);
+        }
 
         if self.match_token(TokenType::Equal) {
             initializer = Some(self.expression()?);
@@ -277,6 +282,7 @@ impl Parser {
             name: name,
             mutable: mutable,
             initializer: initializer,
+            weave: weave,
         })
     }
 
@@ -295,8 +301,6 @@ impl Parser {
             self.flow_statement()
         } else if self.match_token(TokenType::Release) {
             self.release_statement()
-        } else if self.match_token(TokenType::Sign) {
-            self.sign_statement()
         } else {
             self.expression_statement()
         }
@@ -382,7 +386,7 @@ impl Parser {
         })
     }
 
-    fn sign_statement(&mut self) -> ParseResult<Stmt> {
+    fn sign_declaration(&mut self) -> ParseResult<Stmt> {
         self.consume(TokenType::Identifier, "Expected a name for the sign.");
         let name = self.previous.clone();
         self.consume(TokenType::BraceLeft, "Expected '{' after the sign name.");
@@ -478,8 +482,9 @@ impl Parser {
     }
 
     fn string(&mut self, _can_assign: bool) -> ParseResult<Expr> {
-        let string = if self.previous.token_type ==TokenType::String { self.previous.lexeme.clone()}
-        else {
+        let string = if self.previous.token_type == TokenType::String {
+            self.previous.lexeme.clone()
+        } else {
             "".to_owned()
         };
 
@@ -698,7 +703,10 @@ impl Parser {
         // Handle empty deck case []
         if self.check(TokenType::SquareRight) {
             self.advance();
-            return Ok(Expr::Deck { elements, token: self.previous.clone() });
+            return Ok(Expr::Deck {
+                elements,
+                token: self.previous.clone(),
+            });
         }
 
         // Parse elements
@@ -713,12 +721,18 @@ impl Parser {
         }
 
         self.consume(TokenType::SquareRight, "Expected ']' after deck elements.");
-        Ok(Expr::Deck { elements, token: self.previous.clone() })
+        Ok(Expr::Deck {
+            elements,
+            token: self.previous.clone(),
+        })
     }
 
     fn extract(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
         let index_expr = self.expression()?;
-        self.consume(TokenType::SquareRight, "Expected ']' after deck access expression.");
+        self.consume(
+            TokenType::SquareRight,
+            "Expected ']' after deck access expression.",
+        );
 
         Ok(Expr::Extract {
             deck: Box::new(lhs),
@@ -736,7 +750,6 @@ impl Parser {
         match rule {
             None => {
                 self.throw_error("An expression was expected!");
-                // return 0; // dummy stuff, might change later!
                 return Err(ParseError("".to_owned()));
             }
             Some(prefix_rule) => {
@@ -763,7 +776,11 @@ impl Parser {
                                 value: Box::new(value),
                             });
                         }
-                        Expr::Extract { deck, index, token:_ } => {
+                        Expr::Extract {
+                            deck,
+                            index,
+                            token: _,
+                        } => {
                             return Ok(Expr::DeckSet {
                                 deck,
                                 index,
@@ -778,9 +795,9 @@ impl Parser {
                         //         value: Box::new(value),
                         //         token: equals,
                         //     });
-                    // }
-                    _ => {}
-                }
+                        // }
+                        _ => {}
+                    }
 
                     self.throw_error("Assignment target provided is invalid! Take a look at it!");
                     // return 0;
@@ -1057,7 +1074,7 @@ type InfixParseFun = fn(&mut Parser, Expr, bool) -> ParseResult<Expr>;
 #[derive(PartialEq, Debug, Clone)]
 pub struct ParsedWeave {
     pub base: Token,
-    pub inner: Option<Token>,
+    pub inner: Option<Box<ParsedWeave>>,
 }
 
 enum Precedence {

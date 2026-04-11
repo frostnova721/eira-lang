@@ -23,6 +23,7 @@ use crate::{
     },
 };
 
+#[derive(Debug)]
 pub struct WeaveError {
     pub msg: String,
     pub token: Token,
@@ -150,6 +151,7 @@ impl WeaveAnalyzer {
                 name,
                 mutable,
                 initializer,
+                weave,
             } => {
                 // allow variable shadowing from outer scopes
                 if let Some(_symbol) = self.symbol_table.resolve_in_current_scope(&name.lexeme) {
@@ -162,7 +164,7 @@ impl WeaveAnalyzer {
                     );
                 }
 
-                let weave: Result<Weave, WeaveError>;
+                let expr_weave: Result<Weave, WeaveError>;
                 let w_initializer = match initializer {
                     Some(val) => Some(self.analyze_expression(val)?),
                     None => None,
@@ -173,7 +175,7 @@ impl WeaveAnalyzer {
                 match &w_initializer {
                     Some(val) => {
                         // Try to get weave from symbol first (for composite weaves like SpellWeave<TextWeave>)
-                        weave = if let Some(symbol) = val.symbol() {
+                        expr_weave = if let Some(symbol) = val.symbol() {
                             parent = Some(Box::new(symbol.clone()));
                             Ok(symbol.weave.clone())
                         } else {
@@ -191,6 +193,28 @@ impl WeaveAnalyzer {
                     }
                 }
 
+                if weave.is_some() {
+                    let base_weave_name = weave.unwrap().base.lexeme;
+                    let specified_weave = self.get_weave_from_name(&base_weave_name);
+                    if specified_weave.is_none() {
+                        return self.error(
+                            &format!(
+                                "Couldn't find the weave '{}' within the Eira's library!",
+                                base_weave_name
+                            ),
+                            name.clone(),
+                        );
+                    }
+                    let specified_weave = specified_weave.unwrap();
+
+                    if expr_weave.as_ref().unwrap().tapestry.0 != specified_weave.tapestry.0 {
+                        return self.error(
+                            "The specified weave does not match the weave of the initializer expression!",
+                            name,
+                        );
+                    }
+                }
+
                 let slot = if matches!(self.current_realm, Realm::Spell) {
                     // Inside a spell, use continuous slot counter
                     let current_slot = self.spell_slot_counter;
@@ -203,7 +227,7 @@ impl WeaveAnalyzer {
 
                 let s = self
                     .symbol_table
-                    .define(name.lexeme.clone(), weave?, mutable, slot, parent)
+                    .define(name.lexeme.clone(), expr_weave?, mutable, slot, parent)
                     .unwrap();
 
                 // set a parent relationship if the initializer is a variable
@@ -417,14 +441,15 @@ impl WeaveAnalyzer {
                                     name.clone(),
                                 ))?;
 
+                        // TODO: make the check recursive
                         let inner: Option<Weave> = match rw.inner {
                             Some(tkn) => {
                                 let w =
-                            self.get_weave_from_name(&tkn.lexeme)
+                            self.get_weave_from_name(&tkn.base.lexeme)
                                 .ok_or(WeaveError::new(
                                     &format!(
                                         "Couldn't find the weave '{}' within the Eira's library!",
-                                        tkn.lexeme
+                                        tkn.base.lexeme
                                     ),
                                     name.clone(),
                                 ))?;
