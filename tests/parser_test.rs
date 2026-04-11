@@ -28,6 +28,7 @@ mod parser_test {
             name,
             mutable,
             initializer,
+            weave: _,
         } = &statements[0]
         {
             assert_eq!(name.lexeme, "a");
@@ -42,6 +43,7 @@ mod parser_test {
             name,
             mutable,
             initializer,
+            weave: _,
         } = &statements[1]
         {
             assert_eq!(name.lexeme, "b");
