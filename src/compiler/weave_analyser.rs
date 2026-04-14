@@ -12,7 +12,6 @@ use crate::{
             MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND,
         },
         symbol_table::{Symbol, SymbolTable},
-        tapestry::Tapestry,
         token_type::TokenType,
         weaves::{Weave, Weaver},
     },
@@ -49,7 +48,6 @@ enum Realm {
 pub struct WeaveAnalyzer {
     symbol_table: SymbolTable,
     loop_depth: usize,
-    weaves_cache: HashMap<String, Weave>,
     spells: HashMap<String, SpellInfo>, // The return weaves of spells
     current_realm: Realm,               // track the realm (scope type) the analyzer is in!
     spell_stack: Vec<String>,           // track the current spell name
@@ -70,7 +68,6 @@ impl WeaveAnalyzer {
         WeaveAnalyzer {
             symbol_table: st,
             loop_depth: 0,
-            weaves_cache: HashMap::new(),
             spells: HashMap::new(),
             current_realm: Realm::Genesis,
             spell_stack: vec![],
