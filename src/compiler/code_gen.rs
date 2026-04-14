@@ -8,9 +8,8 @@ use crate::{
         reagents::WovenReagent,
         scanner::Token,
         symbol_table::Symbol,
-        tapestry::Tapestry,
         token_type::TokenType,
-        weaves::{Weave, Weaves},
+        weaves::Weave,
     },
     print_instructions,
     runtime::Instruction,
@@ -98,7 +97,7 @@ impl CodeGen {
     /// Returns the next free register
     fn get_next_register(&mut self) -> GenResult<u8> {
         if self.register_index == u8::MAX {
-            panic!("Maximum registers allocated! Register overflow?!")
+            return Err(error("Maximum registers allocated! Register overflow?!"));
         }
         self.register_index += 1;
         Ok(self.register_index - 1)
@@ -272,16 +271,16 @@ impl CodeGen {
                 left,
                 right,
                 operator,
-                tapestry,
-            } => self.gen_binary_instruction(*left, *right, operator, tapestry),
+                weave,
+            } => self.gen_binary_instruction(*left, *right, operator, weave),
             WovenExpr::Unary {
                 operand,
                 operator,
-                tapestry: _,
+                weave: _,
             } => self.gen_unary_instruction(*operand, operator),
             WovenExpr::Literal {
                 value,
-                tapestry: _,
+                weave: _,
                 token: _,
             } => {
                 let val = self.write_constant(value)?;
@@ -289,49 +288,71 @@ impl CodeGen {
             }
             WovenExpr::Variable {
                 name: _,
-                tapestry: _,
+                weave: _,
                 symbol,
             } => self.gen_variable_instruction(symbol),
             WovenExpr::Grouping {
                 expression,
-                tapestry: _,
+                weave: _,
             } => self.gen_from_expr(*expression),
             WovenExpr::Assignment {
                 name: _,
                 value,
-                tapestry: _,
+                weave: _,
                 symbol,
             } => self.gen_assignment_instruction(*value, symbol),
             WovenExpr::Cast {
                 reagents,
                 callee,
-                tapestry,
+                weave,
                 spell_symbol,
-            } => self.gen_cast_instruction(reagents, callee, tapestry, spell_symbol),
+            } => self.gen_cast_instruction(reagents, callee, weave, spell_symbol),
             WovenExpr::Draw {
                 marks,
                 callee,
-                tapestry,
+                weave,
                 sign_info,
-            } => self.gen_draw_instruction(marks, callee, tapestry, sign_info),
+            } => self.gen_draw_instruction(marks, callee, weave, sign_info),
             WovenExpr::Access {
                 material,
                 property,
                 field_name_idx,
-                tapestry,
-            } => self.gen_access_instruction(*material, property, field_name_idx, tapestry),
-            WovenExpr::Deck { elements, tapestry } => self.gen_deck_instruction(elements, tapestry),
-            WovenExpr::Extract { deck, index, token, tapestry } => self.gen_extract_instruction(*deck, *index, token, tapestry),
-            WovenExpr::DeckSet { deck, index, value, token, tapestry } => self.gen_deck_set_instruction(*deck, *index, *value, token, tapestry),
+                weave,
+            } => self.gen_access_instruction(*material, property, field_name_idx, weave),
+            WovenExpr::Deck { elements, weave } => self.gen_deck_instruction(elements, weave),
+            WovenExpr::Extract {
+                deck,
+                index,
+                token,
+                weave,
+            } => self.gen_extract_instruction(*deck, *index, token, weave),
+            WovenExpr::DeckSet {
+                deck,
+                index,
+                value,
+                token,
+                weave,
+            } => self.gen_deck_set_instruction(*deck, *index, *value, token, weave),
         }
     }
 
-    fn gen_deck_set_instruction(&mut self, deck: WovenExpr, index: WovenExpr, value: WovenExpr, _token: Token, _tapestry: Tapestry) -> GenResult<u8> {
+    fn gen_deck_set_instruction(
+        &mut self,
+        deck: WovenExpr,
+        index: WovenExpr,
+        value: WovenExpr,
+        _token: Token,
+        _weave: Weave,
+    ) -> GenResult<u8> {
         let deck_reg = self.gen_from_expr(deck)?;
         let idx = self.gen_from_expr(index)?;
         let val = self.gen_from_expr(value)?;
 
-        self.instructions.push(Instruction::AddToDeck { deck: deck_reg, position: idx, value: val });
+        self.instructions.push(Instruction::AddToDeck {
+            deck: deck_reg,
+            position: idx,
+            value: val,
+        });
 
         Ok(deck_reg)
     }
@@ -341,7 +362,7 @@ impl CodeGen {
         deck: WovenExpr,
         index: WovenExpr,
         _token: Token,
-        _tapestry: Tapestry,
+        _weave: Weave,
     ) -> GenResult<u8> {
         let deck_reg = self.gen_from_expr(deck)?;
         let index_reg = self.gen_from_expr(index)?;
@@ -357,22 +378,48 @@ impl CodeGen {
         Ok(dest)
     }
 
-    fn gen_deck_instruction(
-        &mut self,
-        elements: Vec<WovenExpr>,
-        _tapestry: Tapestry,
-    ) -> GenResult<u8> {
-        let start_reg = self.register_index;
+    fn gen_deck_instruction(&mut self, elements: Vec<WovenExpr>, _weave: Weave) -> GenResult<u8> {
+        // let start_reg = self.register_index;
+
+        let mut elem_regs: Vec<u8> = Vec::with_capacity(elements.len());
 
         if elements.len() > u8::MAX as usize {
             return Err(error("Deck size exceeds the maximum of 255 elements!"));
         }
 
         for element in &elements {
-            self.gen_from_expr(element.clone())?;
+            elem_regs.push(self.gen_from_expr(element.clone())?);
         }
 
         let deck_reg = self.get_next_register()?;
+
+        let start_reg = if elem_regs.is_empty() {
+            self.register_index
+        } else if elem_regs.len() == 1 {
+            elem_regs[0]
+        } else {
+            let mut contiguous = true;
+            for w in elem_regs.windows(2) {
+                if w[1] != w[0].saturating_add(1) {
+                    contiguous = false;
+                    break;
+                }
+            }
+
+            if contiguous {
+                elem_regs[0]
+            } else {
+                let start = self.register_index;
+                for (_, &src) in elem_regs.iter().enumerate() {
+                    let dest = self.get_next_register()?;
+                    self.instructions.push(Instruction::Move {
+                        dest,
+                        source: src as u16,
+                    });
+                }
+                start
+            }
+        };
 
         self.instructions.push(Instruction::NewDeck {
             dest: deck_reg,
@@ -387,7 +434,7 @@ impl CodeGen {
         material: WovenExpr,
         _property: Token,
         field_name_idx: u16,
-        _tapestry: Tapestry,
+        _weave: Weave,
     ) -> GenResult<u8> {
         let s_reg = self.gen_from_expr(material)?;
 
@@ -407,7 +454,7 @@ impl CodeGen {
         &mut self,
         marks: Vec<WovenEtchedMark>,
         _callee: Token,
-        _tapestry: Tapestry,
+        _weave: Weave,
         sign_info: SignInfo,
     ) -> GenResult<u8> {
         self.gen_variable_instruction(sign_info.symbol.clone())?;
@@ -452,7 +499,7 @@ impl CodeGen {
         &mut self,
         reagents: Vec<WovenExpr>,
         _callee: Token,
-        _tapestry: Tapestry,
+        _weave: Weave,
         spell_symbol: Symbol,
     ) -> GenResult<u8> {
         let spell_reg = self.gen_variable_instruction(spell_symbol)?;
@@ -467,7 +514,7 @@ impl CodeGen {
 
         if reagents.len() > u8::MAX as usize {
             return Err(error(
-                "Too many reagents passed to cast! This should'nt be thrown, pls report!",
+                "Too many reagents passed to cast! What are you scheming with all these reagents?!",
             ));
         }
 
@@ -842,7 +889,7 @@ impl CodeGen {
         left: WovenExpr,
         right: WovenExpr,
         op: Token,
-        tapestry: Tapestry,
+        weave: Weave,
     ) -> GenResult<u8> {
         // generate left
         let r1 = self.gen_from_expr(left.clone())?;
@@ -850,14 +897,10 @@ impl CodeGen {
         //generate right
         let r2 = self.gen_from_expr(right.clone())?;
 
-        let reg = match self.get_weave(tapestry)?.tapestry.0 {
-            num if num == Weaves::NumWeave.get_weave().tapestry.0 => self.gen_num_op(r1, r2, op),
-            truth if truth == Weaves::TruthWeave.get_weave().tapestry.0 => {
-                self.gen_bin_truth_op(r1, r2, op)
-            }
-            text if text == Weaves::TextWeave.get_weave().tapestry.0 => {
-                self.gen_bin_text_op(r1, r2, op)
-            }
+        let reg = match weave {
+            num if num == Weave::Num => self.gen_num_op(r1, r2, op),
+            truth if truth == Weave::Truth => self.gen_bin_truth_op(r1, r2, op),
+            text if text == Weave::Text => self.gen_bin_text_op(r1, r2, op),
             _ => return Err(error("Unknown weave brotha, check it.")),
         }?;
         return Ok(reg);
@@ -1013,29 +1056,6 @@ impl CodeGen {
             }
         }
         Ok(self.get_last_allocated_register())
-    }
-
-    fn get_weave(&self, tapestry: Tapestry) -> GenResult<Weave> {
-        // println!("{:?}", tapestry);
-        match tapestry.0 {
-            x if x == Weaves::NumWeave.get_weave().tapestry.0 => Ok(Weaves::NumWeave.get_weave()),
-            x if x == Weaves::TextWeave.get_weave().tapestry.0 => Ok(Weaves::TextWeave.get_weave()),
-            x if x == Weaves::TruthWeave.get_weave().tapestry.0 => {
-                Ok(Weaves::TruthWeave.get_weave())
-            }
-            _ => {
-                // let demo_tkn = Token {
-                //     column: 0,
-                //     lexeme: "idk".to_owned(),
-                //     line: 0,
-                //     token_type: TokenType::Identifier,
-                // };
-                Err(error(
-                    "The tapestries and the weaves were undefined.\nCare to define those weaves?",
-                    // demo_tkn,
-                ))
-            }
-        }
     }
 }
 

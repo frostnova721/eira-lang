@@ -331,40 +331,40 @@ impl AstPrinter {
 
     fn print_woven_expr(&mut self, prefix: &str, expr: &WovenExpr, is_last: bool) {
         match expr {
-            WovenExpr::Binary { left, right, operator, tapestry } => {
-                let tap = self.tapestry_info(tapestry);
+            WovenExpr::Binary { left, right, operator, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 self.write(prefix, is_last, &format!("Binary: {}{}", operator.lexeme, tap));
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_woven_expr(&next, left, false);
                 self.print_woven_expr(&next, right, true);
             }
-            WovenExpr::Unary { operand, operator, tapestry } => {
-                let tap = self.tapestry_info(tapestry);
+            WovenExpr::Unary { operand, operator, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 self.write(prefix, is_last, &format!("Unary: {}{}", operator.lexeme, tap));
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), operand, true);
             }
-            WovenExpr::Literal { value, token: _, tapestry } => {
-                let tap = self.tapestry_info(tapestry);
+            WovenExpr::Literal { value, token: _, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 self.write(prefix, is_last, &format!("Literal: {:?}{}", value, tap));
             }
-            WovenExpr::Variable { name, tapestry, symbol } => {
-                let tap = self.tapestry_info(tapestry);
+            WovenExpr::Variable { name, weave, symbol } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 let sym = self.symbol_info(symbol);
                 self.write(prefix, is_last, &format!("Variable: {}{}{}", name.lexeme, sym, tap));
             }
-            WovenExpr::Grouping { expression, tapestry } => {
-                let tap = self.tapestry_info(tapestry);
+            WovenExpr::Grouping { expression, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 self.write(prefix, is_last, &format!("Grouping{}", tap));
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), expression, true);
             }
-            WovenExpr::Assignment { name, value, tapestry, symbol } => {
-                let tap = self.tapestry_info(tapestry);
+            WovenExpr::Assignment { name, value, weave, symbol } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 let sym = self.symbol_info(symbol);
                 self.write(prefix, is_last, &format!("Assign: {}{}{}", name.lexeme, sym, tap));
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), value, true);
             }
-            WovenExpr::Cast { reagents, callee, tapestry, spell_symbol } => {
-                let tap = self.tapestry_info(tapestry);
+            WovenExpr::Cast { reagents, callee, weave, spell_symbol } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 let sym = self.symbol_info(spell_symbol);
                 self.write(prefix, is_last, &format!("Cast: {}{}{}", callee.lexeme, sym, tap));
                 let next = Self::next_prefix(prefix, is_last);
@@ -373,8 +373,8 @@ impl AstPrinter {
                     self.print_woven_expr(&next, r, i == len - 1);
                 }
             }
-            WovenExpr::Draw { marks, callee, tapestry, sign_info } => {
-                let tap = self.tapestry_info(tapestry);
+            WovenExpr::Draw { marks, callee, weave, sign_info } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 let info_str = if self.verbosity >= 1 {
                     format!(" [slot:{}, fields:{}]", sign_info.symbol.slot_idx, sign_info.schema.field_count())
                 } else {
@@ -387,8 +387,8 @@ impl AstPrinter {
                     self.print_woven_etched_mark(&next, m, i == len - 1);
                 }
             }
-            WovenExpr::Access { material, property, field_name_idx, tapestry } => {
-                let tap = self.tapestry_info(tapestry);
+            WovenExpr::Access { material, property, field_name_idx, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 let idx_str = if self.verbosity >= 1 {
                     format!(" [idx:{}]", field_name_idx)
                 } else {
@@ -397,8 +397,8 @@ impl AstPrinter {
                 self.write(prefix, is_last, &format!("Access: .{}{}{}", property.lexeme, idx_str, tap));
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), material, true);
             }
-            WovenExpr::Deck { elements, tapestry } => {
-                let tap = self.tapestry_info(tapestry);
+            WovenExpr::Deck { elements, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 self.write(prefix, is_last, &format!("Deck{}", tap));
                 let next = Self::next_prefix(prefix, is_last);
                 if elements.is_empty() {
@@ -410,15 +410,15 @@ impl AstPrinter {
                     }
                 }
             },
-            WovenExpr::Extract { deck, index, token: _, tapestry } => {
-                let tap = self.tapestry_info(tapestry);
+            WovenExpr::Extract { deck, index, token: _, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 self.write(prefix, is_last, &format!("Extract{}", tap));
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_woven_expr(&next, deck, false);
                 self.print_woven_expr(&next, index, true);
             },
-            WovenExpr::DeckSet { deck, index, value, token: _, tapestry } => {
-                let tap = self.tapestry_info(tapestry);
+            WovenExpr::DeckSet { deck, index, value, token: _, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 self.write(prefix, is_last, &format!("DeckSet{}", tap));
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_woven_expr(&next, deck, false);

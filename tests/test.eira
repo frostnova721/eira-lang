@@ -1,7 +1,7 @@
-bind candies = [ ];
+bind candies: Deck<Num> = [1, 2+2];
 
-bind x: TextWeave = "";
+
 
 //candies[2] = "choco-late";
 
-//chant candies[0];
+chant candies;

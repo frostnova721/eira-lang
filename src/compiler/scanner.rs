@@ -61,7 +61,7 @@ impl<'a> Scanner<'a> {
     fn advance(&mut self) -> char {
         let ch = self.source[self.current..].chars().next().unwrap();
         self.current += ch.len_utf8();
-        self.column += ch.len_utf8();
+        self.column += 1;
         ch
     }
 
@@ -155,11 +155,11 @@ impl<'a> Scanner<'a> {
             if self.peek() == Some(quote) {
                 self.advance();
 
-                if !str_chunk.is_empty() {
+                // if !str_chunk.is_empty() {
                     self.token_buffer.push_back(
                         self.make_token_with_lexeme(TokenType::String, str_chunk.clone()),
                     );
-                }
+                // }
 
                 self.mode = ScanMode::Normal;
 
@@ -219,14 +219,15 @@ impl<'a> Scanner<'a> {
                         }
 
                         let ident = self.source[ident_start..self.current].to_string();
-                        let ident_type = identifier_type(&ident);
+                        
+                        // let ident_type = identifier_type(&ident);
 
                         self.token_buffer.push_back(
                             self.make_token_with_lexeme(TokenType::InterpolateStart, "@".to_owned()),
                         );
-                        self.token_buffer.push_back(self.make_token_with_lexeme(ident_type, ident.clone()));
+                        self.token_buffer.push_back(self.make_token_with_lexeme(TokenType::Identifier, ident.clone()));
                         self.token_buffer.push_back(
-                            self.make_token_with_lexeme(TokenType::InterpolateEnd, ident),
+                            self.make_token_with_lexeme(TokenType::InterpolateEnd, "".to_owned()),
                         );
 
                         return self.token_buffer.pop_front().unwrap();
@@ -245,8 +246,6 @@ impl<'a> Scanner<'a> {
             str_chunk.push(character);
         }
 
-        // Unterminated strings reach EOF while still in string mode; switch back to
-        // normal mode so subsequent scans can terminate instead of looping on Error.
         self.mode = ScanMode::Normal;
         self.error_token("Don't you think that a string is unterminated?")
     }
@@ -317,12 +316,12 @@ impl<'a> Scanner<'a> {
 
             '~' => self.make_token(TokenType::Tilde),
             '"' => {
-                self.error_token("Eira doesn't support direct strings on interpolation.")
+                self.error_token("Direct strings on interpolation is'nt supported.")
                 // self.mode = ScanMode::InString { quote: '"' };
                 // self.scan_string_mode('"')
             }
             '\'' => {
-                self.error_token("Eira doesn't support direct strings on interpolation.")
+                self.error_token("Direct strings on interpolation is'nt supported.")
                 // self.mode = ScanMode::InString { quote: '\'' };
                 // self.scan_string_mode('\'')
             }
@@ -336,7 +335,7 @@ impl<'a> Scanner<'a> {
         }
         let ch = self.source[self.current..].chars().next().unwrap();
         self.current += ch.len_utf8();
-        self.column += ch.len_utf8();
+        self.column += 1;
         true
     }
 

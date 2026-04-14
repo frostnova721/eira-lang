@@ -1,7 +1,10 @@
 pub mod code_gen;
 pub mod compiler;
 pub mod diagnostics;
+
 pub mod parser;
+// pub use parser::{}
+
 pub mod scanner;
 pub mod scroll_reader;
 pub mod symbol_table;

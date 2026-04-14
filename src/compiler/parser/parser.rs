@@ -4,6 +4,7 @@ use crate::{
     compiler::{
         Expr, Stmt,
         mark::{EtchedMark, Mark},
+        parser::types::{ParseError, ParseResult, ParseRule, ParsedWeave, Precedence},
         reagents::Reagent,
         scanner::Token,
         token_type::TokenType,
@@ -136,13 +137,14 @@ impl Parser {
         self.error_at(msg, self.previous.clone());
     }
 
-    fn parse_weave(&mut self, msg: &str) -> ParseResult<ParsedWeave> {
-        self.consume(TokenType::Identifier, msg);
+    fn parse_weave(&mut self, err_msg: &str) -> ParseResult<ParsedWeave> {
+        self.consume(TokenType::Identifier, err_msg);
         let weave = self.previous.clone();
         let mut inner: Option<Box<ParsedWeave>> = None;
         if self.match_token(TokenType::Less) {
-            self.consume(TokenType::Identifier, "Expected a inner weave after '<'.");
-            inner = Some(Box::new(self.parse_weave("Expected a weave name to bind with the inner weave!")?));
+            inner = Some(Box::new(self.parse_weave(
+                "Expected a weave name to bind with the weave after the '<'!",
+            )?));
             self.consume(
                 TokenType::Greater,
                 "Expected closing '>' after inner weave.",
@@ -1054,90 +1056,4 @@ impl Parser {
             _ => panic!("Some rule went haywire!"),
         }
     }
-}
-
-struct ParseRule {
-    prefix: Option<ParseFun>,
-    infix: Option<InfixParseFun>,
-    precedence: Precedence,
-}
-
-#[derive(Debug)] // Add this to allow printing the error
-pub struct ParseError(pub String);
-
-pub type ParseResult<T> = Result<T, ParseError>;
-
-type ParseFun = fn(&mut Parser, bool) -> ParseResult<Expr>;
-
-type InfixParseFun = fn(&mut Parser, Expr, bool) -> ParseResult<Expr>;
-
-#[derive(PartialEq, Debug, Clone)]
-pub struct ParsedWeave {
-    pub base: Token,
-    pub inner: Option<Box<ParsedWeave>>,
-}
-
-enum Precedence {
-    None,
-    Assign,
-    Or,
-    And,
-    Equality,
-    Compare,
-    Term,
-    Factor,
-    Unary,
-    Call,
-    Primary,
-}
-
-impl Precedence {
-    pub fn next(&self) -> Precedence {
-        match self {
-            Precedence::None => Precedence::Assign,
-            Precedence::Assign => Precedence::Or,
-            Precedence::Or => Precedence::And,
-            Precedence::And => Precedence::Equality,
-            Precedence::Equality => Precedence::Compare,
-            Precedence::Compare => Precedence::Term,
-            Precedence::Term => Precedence::Factor,
-            Precedence::Factor => Precedence::Unary,
-            Precedence::Unary => Precedence::Call,
-            Precedence::Call => Precedence::Primary,
-            Precedence::Primary => Precedence::Primary,
-        }
-    }
-
-    pub fn power(&self) -> u8 {
-        match self {
-            Precedence::None => 0,
-            Precedence::Assign => 1,
-            Precedence::Or => 2,
-            Precedence::And => 3,
-            Precedence::Equality => 4,
-            Precedence::Compare => 5,
-            Precedence::Term => 6,
-            Precedence::Factor => 7,
-            Precedence::Unary => 8,
-            Precedence::Call => 9,
-            Precedence::Primary => 10,
-        }
-    }
-
-    // pub fn from_power(power: u8) -> Self {
-    //     match power {
-    //         0 => Precedence::None,
-    //         1 => Precedence::Assign,
-    //         2 => Precedence::Or,
-    //         3 => Precedence::And,
-    //         4 => Precedence::Equality,
-    //         5 => Precedence::Compare,
-    //         6 => Precedence::Term,
-    //         7 => Precedence::Factor,
-    //         8 => Precedence::Unary,
-    //         9 => Precedence::Call,
-    //         10 => Precedence::Primary,
-    //         _ => panic!("Unknown precedence to match the power!"),
-    //     }
-    // }
 }

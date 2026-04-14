@@ -1,143 +1,92 @@
-use std::{collections::HashMap};
+use std::{collections::HashMap, iter};
 
 use crate::compiler::{
     strand::{
-        ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND
+        ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND,
+        EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND,
+        ORDINAL_STRAND, SUBTRACTIVE_STRAND,
     },
     tapestry::Tapestry,
 };
 
-pub enum Weaves {
-    NumWeave,
-    TextWeave,
-    TruthWeave,
-    SpellWeave,
-    SignWeave,
-    DeckWeave,
-    EmptyWeave,
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum Weave {
+    Num,
+    Text,
+    Truth,
+    Spell {
+        reagents: Vec<Weave>,
+        release: Box<Weave>,
+    },
+    Sign(String /* name */),
+    Deck(Box<Weave>),
+    Empty,
 }
 
-impl Weaves {
-    pub fn get_weave(&self) -> Weave {
+impl Weave {
+    pub fn can_sub_weave(&self) -> bool {
+        matches!(self, Weave::Spell { .. } | Weave::Deck(_))
+    }
+
+    pub fn get_tapestry(&self) -> Tapestry {
         match self {
-            Weaves::NumWeave => num_weave(),
-            Weaves::TextWeave => text_weave(),
-            Weaves::TruthWeave => truth_weave(),
-            Weaves::SpellWeave => spell_weave(),
-            Weaves::EmptyWeave => empty_weave(),
-            Weaves::SignWeave => sign_weave(),
-            Weaves::DeckWeave => deck_weave(),
+            Weave::Num => Tapestry::new(
+                ADDITIVE_STRAND
+                    | SUBTRACTIVE_STRAND
+                    | ORDINAL_STRAND
+                    | MULTIPLICATIVE_STRAND
+                    | DIVISIVE_STRAND
+                    | EQUATABLE_STRAND,
+            ),
+            Weave::Text => Tapestry::new(CONCATINABLE_STRAND | INDEXIVE_STRAND | EQUATABLE_STRAND),
+            Weave::Truth => Tapestry::new(CONDITIONAL_STRAND | EQUATABLE_STRAND),
+            Weave::Empty => Tapestry::new(NO_STRAND),
+            Weave::Spell { .. } => Tapestry::new(CALLABLE_STRAND),
+            Weave::Sign(_) => Tapestry::new(NO_STRAND),
+            Weave::Deck(_) => Tapestry::new(INDEXIVE_STRAND | ITERABLE_STRAND),
+        }
+    }
+
+    pub fn get_name(&self) -> String {
+        match self {
+            Weave::Num => "NumWeave".to_string(),
+            Weave::Text => "TextWeave".to_string(),
+            Weave::Truth => "TruthWeave".to_string(),
+            Weave::Empty => "EmptyWeave".to_string(),
+            Weave::Spell { .. } => "SpellWeave".to_string(),
+            Weave::Sign(name) => format!("SignWeave<{}>", name),
+            Weave::Deck(inner) => format!("DeckWeave<{}>", inner.get_name()),
         }
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Weave {
-    /// The base tapestry (without sub-weaves)
-    pub base_tapestry: Tapestry,
 
-    /// The tapestry of the current weave
-    pub tapestry: Tapestry,
+// #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+// pub struct Weave {
+//     /// The base tapestry (without sub-weaves)
+//     pub base_tapestry: Tapestry,
 
-    /// Whether this weave can have sub-weaves
-    pub can_sub_weave: bool,
+//     /// The tapestry of the current weave
+//     pub tapestry: Tapestry,
 
-    /// The name of the weave
-    pub name: String,
-}
+//     /// Whether this weave can have sub-weaves
+//     pub can_sub_weave: bool,
 
-pub fn gen_weave_map() -> HashMap<String, Weave> {
-    let mut weaves_map: HashMap<String, Weave> = HashMap::new();
-    for i in get_weave_arr() {
-        weaves_map.insert(i.name.to_string(), i);
-    }
-    weaves_map
-}
+//     /// The name of the weave
+//     pub name: String,
+// }
 
-fn get_weave_arr() -> [Weave; 7] {
-    [num_weave(), text_weave(), truth_weave(), empty_weave(), spell_weave(), sign_weave(), deck_weave()]
-}
+// pub fn gen_weave_map() -> HashMap<String, Weave> {
+//     let mut weaves_map: HashMap<String, Weave> = HashMap::new();
+//     for i in get_weave_arr() {
+//         weaves_map.insert(i.get_name(), i);
+//     }
+//     weaves_map
+// }
 
-/// Represents numbers
-fn num_weave() -> Weave {
-    Weave {
-        name: "NumWeave".to_string(),
-        tapestry: Tapestry::new(
-            ADDITIVE_STRAND
-                | SUBTRACTIVE_STRAND
-                | ORDINAL_STRAND
-                | MULTIPLICATIVE_STRAND
-                | DIVISIVE_STRAND
-                | EQUATABLE_STRAND,
-        ),
-        can_sub_weave: false,
-        base_tapestry: Tapestry::new(
-            ADDITIVE_STRAND
-                | SUBTRACTIVE_STRAND
-                | ORDINAL_STRAND
-                | MULTIPLICATIVE_STRAND
-                | DIVISIVE_STRAND
-                | EQUATABLE_STRAND,
-        ),
-    }
-}
-
-/// Represents string
-fn text_weave() -> Weave {
-    Weave {
-        name: "TextWeave".to_string(),
-        tapestry: Tapestry::new(CONCATINABLE_STRAND | INDEXIVE_STRAND | EQUATABLE_STRAND),
-        base_tapestry: Tapestry::new(CONCATINABLE_STRAND | INDEXIVE_STRAND | EQUATABLE_STRAND),
-        can_sub_weave: false,
-    }
-}
-
-/// Represents boolean
-fn truth_weave() -> Weave {
-    Weave {
-        name: "TruthWeave".to_string(),
-        tapestry: Tapestry::new(CONDITIONAL_STRAND | EQUATABLE_STRAND),
-        base_tapestry: Tapestry::new(CONDITIONAL_STRAND | EQUATABLE_STRAND),
-        can_sub_weave: false,
-    }
-}
-
-/// Void
-fn empty_weave() -> Weave {
-    Weave {
-        name: "EmptyWeave".to_string(),
-        tapestry: Tapestry::new(NO_STRAND),
-        base_tapestry: Tapestry::new(NO_STRAND),
-        can_sub_weave: false,
-    }
-}
-
-fn spell_weave() -> Weave {
-    Weave {
-        name: "SpellWeave".to_string(),
-        tapestry: Tapestry::new(CALLABLE_STRAND),
-        base_tapestry: Tapestry::new(CALLABLE_STRAND),
-        can_sub_weave: true,
-    }
-}
-
-fn sign_weave() -> Weave {
-    Weave {
-        name: "SignWeave".to_string(),
-        tapestry: Tapestry::new(NO_STRAND),
-        base_tapestry: Tapestry::new(NO_STRAND),
-        can_sub_weave: false,
-    }
-}
-
-fn deck_weave() -> Weave {
-    Weave {
-        name: "DeckWeave".to_string(),
-        tapestry: Tapestry::new(INDEXIVE_STRAND | ITERABLE_STRAND),
-        base_tapestry: Tapestry::new(INDEXIVE_STRAND | ITERABLE_STRAND),
-        can_sub_weave: true,
-    }
-}
+// fn get_weave_arr() -> [Weave; 7] {
+//     Weave::iter
+// }
 
 #[derive(Debug, Clone)]
 pub struct WeaverError(pub String);
@@ -147,16 +96,20 @@ type WeaverResult<T> = Result<T, WeaverError>;
 pub struct Weaver();
 impl Weaver {
     pub fn weave(base: Weave, inner: Weave) -> WeaverResult<Weave> {
-        if base.can_sub_weave {
-            let mut new_tape = base.clone().tapestry;
-            new_tape.weave(inner.tapestry.0);
-            return Ok(Weave {
-                name: format!("{}<{}>", base.name, inner.name),
-                can_sub_weave: true,
-                tapestry: new_tape,
-                base_tapestry: base.base_tapestry.clone(),
-            });
+        match base {
+            Weave::Spell { reagents, release } => {
+                let mut new_reagents = reagents.clone();
+                new_reagents.push(inner);
+                Ok(Weave::Spell {
+                    reagents: new_reagents,
+                    release,
+                })
+            }
+            Weave::Deck(_) => Ok(Weave::Deck(Box::new(inner))),
+            _ => Err(WeaverError(format!(
+                "The weave '{}' cannot contain any sub weaves!",
+                base.get_name()
+            ))),
         }
-        Err(WeaverError(format!("The weave '{}' cannot contain any sub weaves!", base.name)))
     }
 }
