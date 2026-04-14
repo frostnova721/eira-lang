@@ -16,7 +16,8 @@ Eira is aimed to be:
 - [x] Scopes (Realms in Eira)
 - [x] Control flow (using fate (if), divert (else), while)
 - [x] Function and Closures (spells!)
-- [ ] Structs (signs! Work in progressss)
+- [x] Structs (signs! declaration, object creation done)
+- [ ] Arrays (deck!. almost done)
 
 ## Current State
 
@@ -57,8 +58,8 @@ channel 'magic_forest/secret_knowledge';
 
 // Like structs, acts as types
 sign Magic {
-    type: NumWeave,
-    offensive: TruthWeave,
+    type: Num,
+    offensive: Truth,
 }
 
 // Add methods to a sign
@@ -84,13 +85,13 @@ tome SuperSecretMagicTome {
     // Public functions [forge = public]
     forge spell fireBall():: Magic {
         chant "pooof .... BOOOM!";
-        release cast Magic { type: 01, offensive: true }
+        release ~Magic { type: 01, offensive: true }
     }
 
     // Private functions [secret = private]
     secret spell summon():: Magic {
         chant "something rose up!.... A DEMON????!!!";
-        release cast Magic { type: 05, offensive: false }
+        release ~Magic { type: 05, offensive: false }
     }
 }
 ```
