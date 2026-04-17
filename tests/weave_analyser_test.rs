@@ -3,8 +3,7 @@ mod weave_analyser_test {
     use eira::{
         Parser, Scanner, WeaveAnalyzer,
         compiler::{
-            WovenExpr,
-            WovenStmt,
+            WovenExpr, WovenStmt,
             strand::{ADDITIVE_STRAND, CONDITIONAL_STRAND, MULTIPLICATIVE_STRAND},
         },
     };
@@ -13,7 +12,9 @@ mod weave_analyser_test {
         let scanner = Scanner::init(source);
         let tokens = scanner.tokenize();
         let parser = Parser::new(tokens, "weave_test.eira".to_string());
-    let ast = parser.parse().map_err(|e| format!("Parse error: {:?}", e))?;
+        let ast = parser
+            .parse()
+            .map_err(|e| format!("Parse error: {:?}", e))?;
         let mut wa = WeaveAnalyzer::new();
         wa.analyze(ast).map_err(|e| format!("{}", e.msg))
     }
@@ -35,9 +36,9 @@ mod weave_analyser_test {
         let src = "chant 1 + 2;";
         let stmts = analyze_helper(src).expect("weave analyze ok");
         let expr = first_expr(&stmts);
-        if let WovenExpr::Binary { tapestry, .. } = expr {
+        if let WovenExpr::Binary { weave, .. } = expr {
             // result supports additive
-            assert!(tapestry.has_strand(ADDITIVE_STRAND));
+            assert!(weave.get_tapestry().has_strand(ADDITIVE_STRAND));
         } else {
             panic!("Expected Binary expr");
         }
@@ -55,9 +56,12 @@ mod weave_analyser_test {
         let src = "chant -1;";
         let stmts = analyze_helper(src).expect("weave analyze ok");
         let expr = first_expr(&stmts);
-        if let WovenExpr::Unary { tapestry, .. } = expr {
+        if let WovenExpr::Unary { weave, .. } = expr {
             // result of -1 should be numeric; check it supports multiplicative strand set on literal number
-            assert!(tapestry.has_strand(MULTIPLICATIVE_STRAND) || tapestry.0 != 0);
+            assert!(
+                weave.get_tapestry().has_strand(MULTIPLICATIVE_STRAND)
+                    || weave.get_tapestry().0 != 0
+            );
         } else {
             panic!("Expected Unary expr");
         }
@@ -81,9 +85,9 @@ mod weave_analyser_test {
         // second stmt uses variable
         match &stmts[1] {
             WovenStmt::Chant { expression } => match expression {
-                WovenExpr::Variable { tapestry, .. } => {
+                WovenExpr::Variable { weave, .. } => {
                     // at least not empty
-                    assert!(tapestry.0 != 0);
+                    assert!(weave.get_tapestry().0 != 0);
                 }
                 _ => panic!("Expected variable in chant"),
             },
@@ -113,9 +117,9 @@ mod weave_analyser_test {
         "#;
         let stmts = analyze_helper(src).expect("analyze ok");
         let expr = first_expr(&stmts);
-        if let WovenExpr::Cast { tapestry, .. } = expr {
+        if let WovenExpr::Cast { weave, .. } = expr {
             // numeric results should be usable in multiplicative/additive contexts; just check not empty
-            assert!(tapestry.0 != 0);
+            assert!(weave.get_tapestry().0 != 0);
         } else {
             panic!("Expected Cast in chant");
         }
@@ -225,9 +229,9 @@ mod weave_analyser_test {
         let src = "mark result = 5 > 3;";
         let stmts = analyze_helper(src).expect("comparison ok");
         if let WovenStmt::VarDeclaration { initializer, .. } = &stmts[0] {
-            if let Some(WovenExpr::Binary { tapestry, .. }) = initializer {
+            if let Some(WovenExpr::Binary { weave, .. }) = initializer {
                 // truth weave has conditional strand
-                assert!(tapestry.has_strand(CONDITIONAL_STRAND));
+                assert!(weave.get_tapestry().has_strand(CONDITIONAL_STRAND));
             } else {
                 panic!("Expected binary in initializer");
             }

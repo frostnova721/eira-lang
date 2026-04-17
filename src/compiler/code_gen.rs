@@ -27,12 +27,6 @@ pub struct GenError {
 
 type GenResult<T> = Result<T, GenError>;
 
-fn error(msg: &str) -> GenError {
-    GenError {
-        msg: msg.to_owned(),
-    }
-}
-
 struct LoopBlock {
     severs: Vec<usize>,
     flows: Vec<usize>,
@@ -72,6 +66,12 @@ impl CodeGen {
         }
     }
 
+    fn error<T>(&self, msg: &str) -> GenResult<T> {
+        Err(GenError {
+            msg: msg.to_owned(),
+        })
+    }
+
     //--------------- Interface/ Public fns ---------------
 
     // Create instructions
@@ -97,7 +97,7 @@ impl CodeGen {
     /// Returns the next free register
     fn get_next_register(&mut self) -> GenResult<u8> {
         if self.register_index == u8::MAX {
-            return Err(error("Maximum registers allocated! Register overflow?!"));
+            return self.error("Maximum registers allocated! Register overflow?!");
         }
         self.register_index += 1;
         Ok(self.register_index - 1)
@@ -153,18 +153,18 @@ impl CodeGen {
         }
 
         if offset > u16::MAX as usize {
-            return Err(error("The magic is too complex(long) to jump over!"));
+            return self.error("The magic is too complex(long) to jump over!");
         }
 
         match &mut self.instructions[jump_idx] {
             Instruction::JumpIfFalse { offset: o, .. } => *o = offset as u16,
             Instruction::Jump { offset: o } => *o = offset as u16,
             _ => {
-                return Err(error(&format!(
+                return self.error(&format!(
                     "Hmmm... this error shouldnt be thrown! If you are encountering this, congrats! I see a good future in you.Error: Jump patch failed.\
                     \nExpected a 'JUMP' instruction, got {:?}",
                     self.instructions[jump_idx]
-                )));
+                ));
             }
         }
 
@@ -181,7 +181,7 @@ impl CodeGen {
         let total_offset = body_bytes_size + 3;
 
         if total_offset > u16::MAX as usize {
-            return Err(error("Loop Jump Offset exceeds the 2byte limit."));
+            return self.error("Loop Jump Offset exceeds the 2byte limit.");
         }
 
         self.instructions.push(Instruction::Loop {
@@ -192,7 +192,7 @@ impl CodeGen {
 
     fn patch_jump_to(&mut self, jump_idx: usize, target_idx: usize) -> GenResult<()> {
         if jump_idx >= self.instructions.len() || target_idx >= self.instructions.len() {
-            return Err(error("Invalid jump patch indices!"));
+            return self.error("Invalid jump patch indices!");
         }
 
         // Compute byte distance from the instruction after the jump to the target instruction
@@ -202,17 +202,17 @@ impl CodeGen {
         }
 
         if offset > u16::MAX as usize {
-            return Err(error("Jump offset exceeds 16-bit limit!"));
+            return self.error("Jump offset exceeds 16-bit limit!");
         }
 
         match &mut self.instructions[jump_idx] {
             Instruction::Jump { offset: o } => *o = offset as u16,
             Instruction::JumpIfFalse { offset: o, .. } => *o = offset as u16,
             _ => {
-                return Err(error(&format!(
+                return self.error(&format!(
                     "Patch target at index {} is not a jump instruction: {:?}",
                     jump_idx, self.instructions[jump_idx]
-                )));
+                ));
             }
         }
 
@@ -378,13 +378,13 @@ impl CodeGen {
         Ok(dest)
     }
 
-    fn gen_deck_instruction(&mut self, elements: Vec<WovenExpr>, _weave: Weave) -> GenResult<u8> {
+    fn gen_deck_instruction(&mut self, elements: Vec<WovenExpr>, weave: Weave) -> GenResult<u8> {
         // let start_reg = self.register_index;
 
         let mut elem_regs: Vec<u8> = Vec::with_capacity(elements.len());
 
         if elements.len() > u8::MAX as usize {
-            return Err(error("Deck size exceeds the maximum of 255 elements!"));
+            return self.error("Deck size exceeds the maximum of 255 elements!");
         }
 
         for element in &elements {
@@ -421,11 +421,27 @@ impl CodeGen {
             }
         };
 
-        self.instructions.push(Instruction::NewDeck {
-            dest: deck_reg,
-            count: elements.len() as u8,
-            start_reg: start_reg,
-        });
+        match weave {
+            Weave::Deck(_, capacity) => {
+                if let Some(c) = capacity {
+                    self.instructions.push(Instruction::NewFixedDeck {
+                                        dest: deck_reg,
+                                        count: elements.len() as u8,
+                                        start_reg: start_reg,
+                                        capacity: c as u16,
+                                    });
+                } else {
+                    self.instructions.push(Instruction::NewDeck {
+                        dest: deck_reg,
+                        count: elements.len() as u8,
+                        start_reg: start_reg,
+                    });
+                }
+            },
+            _ => {
+                return self.error("This shouldnt really be thrown... but yeah! wrong weave(not a deck) at the wrong place(needs to be deck).")
+            },
+        };
         Ok(deck_reg)
     }
 
@@ -457,14 +473,14 @@ impl CodeGen {
         _weave: Weave,
         sign_info: SignInfo,
     ) -> GenResult<u8> {
-        self.gen_variable_instruction(sign_info.symbol.clone())?;
+        let reg = self.gen_variable_instruction(sign_info.symbol.clone())?;
         let mut mark_regs: Vec<u8> = Vec::with_capacity(marks.len());
 
         let new_sign_reg = self.get_next_register()?;
 
         let inst = Instruction::NewSign {
             dest: new_sign_reg,
-            const_idx: sign_info.symbol.slot_idx as u16,
+            schema_reg: reg,
         };
 
         self.instructions.push(inst);
@@ -475,18 +491,18 @@ impl CodeGen {
             let r = self.gen_from_expr(mark.expr.clone())?;
             mark_regs.push(r);
 
-            let field_name_idx = schema
-                .get_field_index(mark.name.lexeme.clone())
-                .ok_or_else(|| {
-                    error(&format!(
-                        "Field '{}' not found in sign schema '{}'",
-                        mark.name.lexeme, schema.name
-                    ))
-                })?;
+            let field_name_idx = schema.get_field_index(mark.name.lexeme.clone());
+
+            if field_name_idx.is_none() {
+                return self.error(&format!(
+                    "Field '{}' not found in sign schema '{}'",
+                    mark.name.lexeme, schema.name
+                ));
+            }
 
             let set_inst = Instruction::SetField {
                 sign_reg: new_sign_reg,
-                field_name: field_name_idx as u16,
+                field_name: field_name_idx.unwrap() as u16,
                 val_reg: r,
             };
             self.instructions.push(set_inst);
@@ -513,9 +529,9 @@ impl CodeGen {
         // self.register_index = reg_idx;
 
         if reagents.len() > u8::MAX as usize {
-            return Err(error(
+            return self.error(
                 "Too many reagents passed to cast! What are you scheming with all these reagents?!",
-            ));
+            );
         }
 
         let dest = self.get_next_register()?;
@@ -685,7 +701,7 @@ impl CodeGen {
 
     fn gen_flow_instructions(&mut self) -> GenResult<u8> {
         if self.loop_blocks.is_empty() {
-            return Err(error("flow can only be performed inside a loop block!"));
+            return self.error("flow can only be performed inside a loop block!");
         }
         let ind = self.write_jump(Instruction::Jump { offset: 0xffff });
         self.loop_blocks.last_mut().unwrap().flows.push(ind);
@@ -695,7 +711,7 @@ impl CodeGen {
 
     fn gen_sever_instructions(&mut self) -> GenResult<u8> {
         if self.loop_blocks.is_empty() {
-            return Err(error("Only the loops can be severed."));
+            return self.error("Only the loops can be severed.");
         }
         let ind = self.write_jump(Instruction::Jump { offset: 0xffff });
         self.loop_blocks.last_mut().unwrap().severs.push(ind);
@@ -876,10 +892,10 @@ impl CodeGen {
             }
             _ => {
                 // This error msg should be shown to the user, if it does, compiler is bugged
-                return Err(error(&format!(
+                return self.error(&format!(
                     "Strand for '{}' operation hasnt been entangled with Eira realms!.\nThis error shouldn't be thrown, Report it to devs!",
                     op.lexeme
-                )));
+                ));
             }
         }
     }
@@ -901,7 +917,7 @@ impl CodeGen {
             num if num == Weave::Num => self.gen_num_op(r1, r2, op),
             truth if truth == Weave::Truth => self.gen_bin_truth_op(r1, r2, op),
             text if text == Weave::Text => self.gen_bin_text_op(r1, r2, op),
-            _ => return Err(error("Unknown weave brotha, check it.")),
+            _ => return self.error("Unknown weave brotha, check it."),
         }?;
         return Ok(reg);
     }
@@ -935,10 +951,10 @@ impl CodeGen {
             }
             _ => {
                 // This error msg should be shown to the user, and... if it does, compiler is bugged
-                return Err(error(&format!(
+                return self.error(&format!(
                     "Strand for '{}' operation hasnt been entangled with Eira realms!.\nThis error shouldn't be thrown, Report it to devs!",
                     op.lexeme
-                )));
+                ));
             }
         }
         Ok(self.get_last_allocated_register())
@@ -1001,10 +1017,10 @@ impl CodeGen {
             }
             _ => {
                 // This error msg should be shown to the user, if it does, compiler is bugged
-                return Err(error(&format!(
+                return self.error(&format!(
                     "Strand for '{}' operation hasnt been entangled with Eira realms!.\nThis error shouldn't be thrown, Report it to devs!",
                     op.lexeme
-                )));
+                ));
             }
         }
         Ok(self.get_last_allocated_register())
@@ -1049,10 +1065,10 @@ impl CodeGen {
             }
             _ => {
                 // This error msg should be shown to the user, if it does, compiler is bugged
-                return Err(error(&format!(
+                return self.error(&format!(
                     "Strand for '{}' operation hasnt been entangled with Eira realms!.\nThis error shouldn't be thrown, Report it to devs!",
                     op.lexeme
-                )));
+                ));
             }
         }
         Ok(self.get_last_allocated_register())

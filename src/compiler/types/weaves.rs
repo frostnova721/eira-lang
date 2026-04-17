@@ -17,13 +17,13 @@ pub enum Weave {
         release: Box<Weave>,
     },
     Sign(String /* name */),
-    Deck(Box<Weave>),
+    Deck(Box<Weave>, Option<usize>),
     Empty,
 }
 
 impl Weave {
     pub fn can_sub_weave(&self) -> bool {
-        matches!(self, Weave::Spell { .. } | Weave::Deck(_))
+        matches!(self, Weave::Spell { .. } | Weave::Deck(_, _))
     }
 
     pub fn get_tapestry(&self) -> Tapestry {
@@ -41,7 +41,7 @@ impl Weave {
             Weave::Empty => Tapestry::new(NO_STRAND),
             Weave::Spell { .. } => Tapestry::new(CALLABLE_STRAND),
             Weave::Sign(_) => Tapestry::new(NO_STRAND),
-            Weave::Deck(_) => Tapestry::new(INDEXIVE_STRAND | ITERABLE_STRAND),
+            Weave::Deck(_, _) => Tapestry::new(INDEXIVE_STRAND | ITERABLE_STRAND),
         }
     }
 
@@ -53,11 +53,17 @@ impl Weave {
             Weave::Empty => "EmptyWeave".to_string(),
             Weave::Spell { .. } => "SpellWeave".to_string(),
             Weave::Sign(name) => format!("SignWeave<{}>", name),
-            Weave::Deck(inner) => format!("DeckWeave<{}>", inner.get_name()),
+            Weave::Deck(inner, length) => {
+                let str = if length.is_some() {
+                    &format!(", {}", length.unwrap())
+                } else {
+                    ""
+                };
+                format!("DeckWeave<{}{}>", inner.get_name(), str)
+            }
         }
     }
 }
-
 
 // #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 // pub struct Weave {
@@ -93,7 +99,7 @@ type WeaverResult<T> = Result<T, WeaverError>;
 
 pub struct Weaver();
 impl Weaver {
-    pub fn weave(base: Weave, inner: Weave) -> WeaverResult<Weave> {
+    pub fn weave_spell(base: Weave, inner: Weave) -> WeaverResult<Weave> {
         match base {
             Weave::Spell { reagents, release } => {
                 let mut new_reagents = reagents.clone();
@@ -103,7 +109,16 @@ impl Weaver {
                     release,
                 })
             }
-            Weave::Deck(_) => Ok(Weave::Deck(Box::new(inner))),
+            _ => Err(WeaverError(format!(
+                "The weave '{}' cannot contain any sub weaves!",
+                base.get_name()
+            ))),
+        }
+    }
+
+    pub fn weave_deck(base: Weave, inner: Weave, capacity: Option<usize>) -> WeaverResult<Weave> {
+        match base {
+            Weave::Deck(_, _) => Ok(Weave::Deck(Box::new(inner), capacity)),
             _ => Err(WeaverError(format!(
                 "The weave '{}' cannot contain any sub weaves!",
                 base.get_name()

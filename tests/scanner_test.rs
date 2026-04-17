@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod scanner_test {
-    use eira::{compiler::token_type::TokenType, Scanner};
+    use eira::{Scanner, compiler::token_type::TokenType};
 
     #[test]
     fn test_single_character_tokens() {
@@ -60,9 +60,9 @@ mod scanner_test {
         let scanner = Scanner::init(source);
         let tokens = scanner.tokenize();
 
-        assert_eq!(tokens.len(), 2); 
+        assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].token_type, TokenType::String);
-        assert_eq!(tokens[0].lexeme, "hello world"); 
+        assert_eq!(tokens[0].lexeme, "hello world");
     }
 
     #[test]
@@ -70,11 +70,9 @@ mod scanner_test {
         let source = r#""this is not finished"#;
         let scanner = Scanner::init(source);
         let tokens = scanner.tokenize();
-        
-        
+
         assert_eq!(tokens[0].token_type, TokenType::Error);
     }
-
 
     #[test]
     fn test_number_literals() {
@@ -82,7 +80,7 @@ mod scanner_test {
         let scanner = Scanner::init(source);
         let tokens = scanner.tokenize();
 
-        assert_eq!(tokens.len(), 3); 
+        assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[0].token_type, TokenType::Number);
         assert_eq!(tokens[0].lexeme, "123");
         assert_eq!(tokens[1].token_type, TokenType::Number);
@@ -102,7 +100,7 @@ mod scanner_test {
             TokenType::Bind,
             TokenType::Eof,
         ];
-        
+
         assert_eq!(tokens.len(), expected_types.len());
         assert_eq!(tokens[0].token_type, TokenType::Spell);
         assert_eq!(tokens[1].token_type, TokenType::Cast);
@@ -129,13 +127,13 @@ mod scanner_test {
             TokenType::SemiColon,
             TokenType::Eof,
         ];
-        
+
         assert_eq!(tokens.len(), expected_types.len());
         for (i, token_type) in expected_types.iter().enumerate() {
             assert_eq!(tokens[i].token_type, *token_type);
         }
-        
-        assert_eq!(tokens[0].line, 3); 
+
+        assert_eq!(tokens[0].line, 3);
     }
 
     #[test]

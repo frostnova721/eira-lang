@@ -141,10 +141,21 @@ impl Parser {
         self.consume(TokenType::Identifier, err_msg);
         let weave = self.previous.clone();
         let mut inner: Option<Box<ParsedWeave>> = None;
+        let mut capacity: Option<usize> = None;
+
         if self.match_token(TokenType::Less) {
             inner = Some(Box::new(self.parse_weave(
                 "Expected a weave name to bind with the weave after the '<'!",
             )?));
+
+            if self.match_token(TokenType::Comma) {
+                self.consume(
+                    TokenType::Number,
+                    "Expected a capacity for the weave after ','!",
+                );
+                capacity = Some(self.previous.lexeme.parse::<usize>().unwrap());
+            }
+
             self.consume(
                 TokenType::Greater,
                 "Expected closing '>' after inner weave.",
@@ -153,6 +164,7 @@ impl Parser {
         Ok(ParsedWeave {
             base: weave,
             inner: inner,
+            capacity: capacity,
         })
     }
 

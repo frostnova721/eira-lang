@@ -1,7 +1,3 @@
-bind candies: Deck<Num> = [1, 2+2];
+mark arr: Deck<Num, 2> = [1]; 
 
-
-
-//candies[2] = "choco-late";
-
-chant candies;
+arr[1] = 2;

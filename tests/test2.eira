@@ -1,1 +1,4 @@
-chant "Hello from file 2";
+chant "hi";
+bind a = [ "no" , "yes" ];
+
+chant a[0];

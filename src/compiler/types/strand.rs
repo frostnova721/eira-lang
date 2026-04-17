@@ -30,4 +30,4 @@ pub const EQUATABLE_STRAND: u64 = 1 << 9;
 pub const CALLABLE_STRAND: u64 = 1 << 10;
 
 // Emptiness
-pub const NO_STRAND:u64 = 0;
+pub const NO_STRAND: u64 = 0;

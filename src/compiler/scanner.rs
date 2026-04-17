@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, fmt::{Display}};
+use std::{collections::VecDeque, fmt::Display};
 
 use crate::compiler::token_type::TokenType;
 
@@ -23,7 +23,11 @@ impl Token {
 
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}('{}') at {}:{}", self.token_type, self.lexeme, self.line, self.column)
+        write!(
+            f,
+            "{:?}('{}') at {}:{}",
+            self.token_type, self.lexeme, self.line, self.column
+        )
     }
 }
 
@@ -156,9 +160,8 @@ impl<'a> Scanner<'a> {
                 self.advance();
 
                 // if !str_chunk.is_empty() {
-                    self.token_buffer.push_back(
-                        self.make_token_with_lexeme(TokenType::String, str_chunk.clone()),
-                    );
+                self.token_buffer
+                    .push_back(self.make_token_with_lexeme(TokenType::String, str_chunk.clone()));
                 // }
 
                 self.mode = ScanMode::Normal;
@@ -219,13 +222,18 @@ impl<'a> Scanner<'a> {
                         }
 
                         let ident = self.source[ident_start..self.current].to_string();
-                        
+
                         // let ident_type = identifier_type(&ident);
 
                         self.token_buffer.push_back(
-                            self.make_token_with_lexeme(TokenType::InterpolateStart, "@".to_owned()),
+                            self.make_token_with_lexeme(
+                                TokenType::InterpolateStart,
+                                "@".to_owned(),
+                            ),
                         );
-                        self.token_buffer.push_back(self.make_token_with_lexeme(TokenType::Identifier, ident.clone()));
+                        self.token_buffer.push_back(
+                            self.make_token_with_lexeme(TokenType::Identifier, ident.clone()),
+                        );
                         self.token_buffer.push_back(
                             self.make_token_with_lexeme(TokenType::InterpolateEnd, "".to_owned()),
                         );
@@ -444,7 +452,7 @@ impl<'a> Scanner<'a> {
         loop {
             let previous_current = self.current;
             let previous_mode = self.mode;
-            
+
             let token = self.scan_token();
             if token.token_type == TokenType::Eof {
                 tokens.push(token);
@@ -452,7 +460,9 @@ impl<'a> Scanner<'a> {
             }
             tokens.push(token);
 
-            if tokens.last().is_some_and(|t| t.token_type == TokenType::Error)
+            if tokens
+                .last()
+                .is_some_and(|t| t.token_type == TokenType::Error)
                 && self.current == previous_current
                 && self.mode == previous_mode
             {

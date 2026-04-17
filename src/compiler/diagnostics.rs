@@ -34,6 +34,4 @@ pub struct DiagnosticEngine {
     pub scroll_reader: ScrollReader,
 }
 
-impl DiagnosticEngine {
-    
-}
+impl DiagnosticEngine {}

@@ -19,6 +19,7 @@ pub type InfixParseFun = fn(&mut Parser, Expr, bool) -> ParseResult<Expr>;
 pub struct ParsedWeave {
     pub base: Token,
     pub inner: Option<Box<ParsedWeave>>,
+    pub capacity: Option<usize>,
 }
 
 pub enum Precedence {

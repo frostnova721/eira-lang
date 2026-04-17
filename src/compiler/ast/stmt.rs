@@ -1,6 +1,11 @@
 use crate::{
     compiler::{
-        Expr, WovenExpr, mark::{Mark, WovenMark}, parser::types::ParsedWeave, reagents::{Reagent, WovenReagent}, scanner::Token, symbol_table::Symbol
+        Expr, WovenExpr,
+        mark::{Mark, WovenMark},
+        parser::types::ParsedWeave,
+        reagents::{Reagent, WovenReagent},
+        scanner::Token,
+        symbol_table::Symbol,
     },
     values::{sign::SignInfo, spell::SpellInfo},
 };

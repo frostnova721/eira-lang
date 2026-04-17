@@ -163,18 +163,11 @@ impl EiraVM {
             let op = OpCode::try_from(frame!().read_byte()).unwrap();
             // instruction_count += 1;
             match op {
-                OpCode::Add => {
-                    binary_op!(+)
-                }
-                OpCode::Subtract => {
-                    binary_op!(-)
-                }
-                OpCode::Divide => {
-                    binary_op!(/)
-                }
-                OpCode::Multiply => {
-                    binary_op!(*)
-                }
+                OpCode::Add => binary_op!(+),
+                OpCode::Subtract => binary_op!(-),
+                OpCode::Divide => binary_op!(/),
+                OpCode::Multiply => binary_op!(*),
+                OpCode::Mod => binary_op!(%),
                 OpCode::Concat => {
                     let (dest, r1, r2) = frame!().read_three_bytes();
                     let v1 = get_register!(base, r1);
@@ -419,11 +412,10 @@ impl EiraVM {
                     };
                     self.frames.push(new_frame);
                 }
-                OpCode::Mod => binary_op!(%),
                 OpCode::NewSign => {
                     let dest = frame!().read_byte();
-                    let value = frame!().read_constant().clone();
-                    let schema = match value {
+                    let value = frame!().read_byte();
+                    let schema = match get_register!(base, value).clone() {
                         Value::SignSchema(sc) => sc,
                         _ => {
                             self.runtime_error(&format!(
@@ -472,6 +464,20 @@ impl EiraVM {
                     let count = frame!().read_byte();
 
                     let mut values: Vec<Value> = vec![];
+
+                    for i in start..start + count {
+                        let val = get_register!(base, i).clone();
+                        values.push(val);
+                    }
+
+                    set_register!(base, reg, Value::Deck(Rc::new(RefCell::new(values))));
+                }
+                OpCode::NewFixedDeck => {
+                    let reg = frame!().read_byte();
+                    let start = frame!().read_byte();
+                    let count = frame!().read_byte();
+
+                    let mut values: Vec<Value> = Vec::with_capacity(frame!().read_u16() as usize);
 
                     for i in start..start + count {
                         let val = get_register!(base, i).clone();

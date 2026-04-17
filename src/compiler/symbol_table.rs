@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{compiler::{weaves::Weave}};
+use crate::compiler::weaves::Weave;
 
 pub struct SymbolTable {
     scopes: Vec<HashMap<String, Symbol>>,
@@ -31,7 +31,14 @@ impl SymbolTable {
         self.scopes.pop();
     }
 
-    pub fn define(&mut self, name: String, weave: Weave, mutable: bool, slot_idx: usize, parent: Option<Box<Symbol>>) -> Option<Symbol> {
+    pub fn define(
+        &mut self,
+        name: String,
+        weave: Weave,
+        mutable: bool,
+        slot_idx: usize,
+        parent: Option<Box<Symbol>>,
+    ) -> Option<Symbol> {
         let depth = self.scopes.len() - 1;
 
         if let Some(scope) = self.scopes.last_mut() {
@@ -51,6 +58,27 @@ impl SymbolTable {
             None
         }
     }
+
+    // pub fn define_constant(&mut self, weave: Weave) -> Option<Symbol> {
+    //      let depth = self.scopes.len() - 1;
+
+    //     if let Some(scope) = self.scopes.last_mut() {
+    //         let symbol = Symbol {
+    //             name: format!("@const_{}", scope.len()),
+    //             mutable: false,
+    //             weave: ,
+    //             depth: depth,
+    //             slot_idx: scope.len(),
+    //             parent,
+    //         };
+    //         scope.insert(name, symbol.clone());
+    //         return Some(symbol);
+    //     } else {
+    //         // This branch is literally impossible!
+    //         println!("No scopes???!!! Impossible!");
+    //         None
+    //     }
+    // }
 
     pub fn resolve(&self, name: &String) -> Option<&Symbol> {
         for scope in self.scopes.iter().rev() {

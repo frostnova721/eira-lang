@@ -1,12 +1,13 @@
 use eira::{
-    EiraVM, compiler::compiler::{Compiler, CompilerOptions}
+    EiraVM,
+    compiler::compiler::{Compiler, CompilerOptions},
 };
 
 fn main() {
     // let start = Instant::now();
     let mut args = std::env::args().collect::<Vec<String>>();
 
-     let mut compiler_options = CompilerOptions {
+    let mut compiler_options = CompilerOptions {
         print_tokens: false,
         print_ast: None,
         print_woven_ast: None,

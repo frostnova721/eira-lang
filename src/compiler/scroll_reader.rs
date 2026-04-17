@@ -40,7 +40,8 @@ impl ScrollReader {
                     );
                 }
                 std::io::ErrorKind::IsADirectory => {
-                    msg = "The path you gave is not of a scroll, but an archive (directory).".into();
+                    msg =
+                        "The path you gave is not of a scroll, but an archive (directory).".into();
                 }
                 std::io::ErrorKind::InvalidData => {
                     msg = format!(

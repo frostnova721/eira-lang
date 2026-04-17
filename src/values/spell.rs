@@ -1,6 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{compiler::{reagents::WovenReagent, symbol_table::Symbol, weaves::Weave}, values::value::Value};
+use crate::{
+    compiler::{reagents::WovenReagent, symbol_table::Symbol, weaves::Weave},
+    values::value::Value,
+};
 
 #[derive(Debug, Clone)]
 pub struct SpellObject {
@@ -8,8 +11,7 @@ pub struct SpellObject {
     pub arity: u8, // 255 should be enough. (please seek help if its not for you)
     pub upvalue_count: i32,
     pub constants: Vec<Value>,
-    pub bytecode: Vec<u8>
-    // asynchronous: bool,
+    pub bytecode: Vec<u8>, // asynchronous: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,7 +23,7 @@ pub struct SpellInfo {
     pub reagents: Vec<WovenReagent>,
 
     /// The weave expected to be released
-    pub release_weave: Weave, 
+    pub release_weave: Weave,
 
     /// The actual weave that was released
     pub released_weave: Option<Weave>,

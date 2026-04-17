@@ -1,9 +1,19 @@
-use crate::{runtime::{Instruction, OpCode}, values::Value};
+use crate::{
+    runtime::{Instruction, OpCode},
+    values::Value,
+};
 
-
-pub fn print_instructions(spell_name: &str,instructions: &Vec<Instruction>, constants: &Vec<Value>) {
+pub fn print_instructions(
+    spell_name: &str,
+    instructions: &Vec<Instruction>,
+    constants: &Vec<Value>,
+) {
     println!("Constant table: {:?}", constants);
-    println!("Instructions - '{}': ({})\n\n==START==\n", spell_name, instructions.len());
+    println!(
+        "Instructions - '{}': ({})\n\n==START==\n",
+        spell_name,
+        instructions.len()
+    );
     for inst in instructions {
         println!("{}", inst.to_string());
     }

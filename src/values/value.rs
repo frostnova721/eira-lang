@@ -129,7 +129,7 @@ impl Hash for Value {
             Self::Emptiness => {}  //hmm
             Self::Closure(_) => {} // not a compile time const
             Self::Spell(_) => {}   // not a compile time const
-            Self::Sign(_) => {}     // not a compile time const
+            Self::Sign(_) => {}    // not a compile time const
             Self::SignSchema(s) => s.hash(state),
             Self::Deck(d) => d.borrow().hash(state),
         }
@@ -165,7 +165,7 @@ pub fn print_value(value: Value) {
         Value::Spell(spell) => println!("Spell '{}'", spell.name.clone().unwrap()),
         Value::Sign(sign) => println!("Sign '{}' {:?}", sign.schema.name.clone(), sign.marks),
         Value::SignSchema(schema) => println!("SignSchema '{}'", schema.name.clone()),
-        Value::Deck(deck) => println!("Deck '{:?}'", deck.borrow())
+        Value::Deck(deck) => println!("Deck '{:?}'", deck.borrow()),
     }
 }
 

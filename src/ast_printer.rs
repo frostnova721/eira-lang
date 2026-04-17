@@ -1,7 +1,6 @@
 use crate::compiler::{
-    Expr, WovenExpr,
-    Stmt, WovenStmt,
-    mark::{EtchedMark, WovenEtchedMark, Mark, WovenMark},
+    Expr, Stmt, WovenExpr, WovenStmt,
+    mark::{EtchedMark, Mark, WovenEtchedMark, WovenMark},
     reagents::{Reagent, WovenReagent},
 };
 
@@ -25,7 +24,8 @@ impl AstPrinter {
 
     fn write(&mut self, prefix: &str, is_last: bool, text: &str) {
         let branch = if is_last { LAST } else { BRANCH };
-        self.output.push_str(&format!("{}{}{}\n", prefix, branch, text));
+        self.output
+            .push_str(&format!("{}{}{}\n", prefix, branch, text));
     }
 
     fn next_prefix(prefix: &str, is_last: bool) -> String {
@@ -50,21 +50,42 @@ impl AstPrinter {
                 self.write(prefix, is_last, "ExprStmt");
                 self.print_expr(&Self::next_prefix(prefix, is_last), expr, true);
             }
-            Stmt::VarDeclaration { name, mutable, initializer, weave } => {
+            Stmt::VarDeclaration {
+                name,
+                mutable,
+                initializer,
+                weave,
+            } => {
                 let mut_str = if *mutable { "mut " } else { "" };
-                self.write(prefix, is_last, &format!("VarDecl: {}{}", mut_str, name.lexeme));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("VarDecl: {}{}", mut_str, name.lexeme),
+                );
                 if let Some(init) = initializer {
                     self.print_expr(&Self::next_prefix(prefix, is_last), init, true);
                 }
                 if let Some(weave) = weave {
-                    self.write(&Self::next_prefix(prefix, is_last), true, &format!("weave: {}", weave.base.lexeme));
+                    self.write(
+                        &Self::next_prefix(prefix, is_last),
+                        true,
+                        &format!("weave: {}", weave.base.lexeme),
+                    );
                 }
             }
-            Stmt::Fate { condition, then_branch, else_branch } => {
+            Stmt::Fate {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
                 self.write(prefix, is_last, "Fate");
                 let next = Self::next_prefix(prefix, is_last);
                 self.write(&next, else_branch.is_none(), "condition:");
-                self.print_expr(&Self::next_prefix(&next, else_branch.is_none()), condition, true);
+                self.print_expr(
+                    &Self::next_prefix(&next, else_branch.is_none()),
+                    condition,
+                    true,
+                );
                 if let Some(else_b) = else_branch {
                     self.write(&next, false, "then:");
                     self.print_stmt(&Self::next_prefix(&next, false), then_branch, true);
@@ -101,13 +122,22 @@ impl AstPrinter {
             Stmt::Flow { token: _ } => {
                 self.write(prefix, is_last, "Flow");
             }
-            Stmt::Spell { name, reagents, body, return_weave } => {
+            Stmt::Spell {
+                name,
+                reagents,
+                body,
+                return_weave,
+            } => {
                 let ret_str = if let Some(rw) = return_weave {
                     format!(" -> {}", rw.base.lexeme)
                 } else {
                     String::new()
                 };
-                self.write(prefix, is_last, &format!("Spell: {}{}", name.lexeme, ret_str));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Spell: {}{}", name.lexeme, ret_str),
+                );
                 let next = Self::next_prefix(prefix, is_last);
                 if !reagents.is_empty() {
                     self.write(&next, false, "reagents:");
@@ -139,7 +169,11 @@ impl AstPrinter {
 
     fn print_expr(&mut self, prefix: &str, expr: &Expr, is_last: bool) {
         match expr {
-            Expr::Binary { left, right, operator } => {
+            Expr::Binary {
+                left,
+                right,
+                operator,
+            } => {
                 self.write(prefix, is_last, &format!("Binary: {}", operator.lexeme));
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_expr(&next, left, false);
@@ -183,7 +217,7 @@ impl AstPrinter {
                 self.write(prefix, is_last, &format!("Access: .{}", property.lexeme));
                 self.print_expr(&Self::next_prefix(prefix, is_last), material, true);
             }
-            Expr::Deck { elements, token:_ } => {
+            Expr::Deck { elements, token: _ } => {
                 self.write(prefix, is_last, "Deck");
                 let next = Self::next_prefix(prefix, is_last);
                 if elements.is_empty() {
@@ -194,30 +228,46 @@ impl AstPrinter {
                         self.print_expr(&next, element, i == len - 1);
                     }
                 }
-            },
-            Expr::Extract { deck, index, token:_ } => {
+            }
+            Expr::Extract {
+                deck,
+                index,
+                token: _,
+            } => {
                 self.write(prefix, is_last, "Extract");
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_expr(&next, deck, false);
                 self.print_expr(&next, index, true);
-            },
-            Expr::DeckSet { deck, index, value, token:_ } => {
+            }
+            Expr::DeckSet {
+                deck,
+                index,
+                value,
+                token: _,
+            } => {
                 self.write(prefix, is_last, "DeckSet");
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_expr(&next, deck, false);
                 self.print_expr(&next, index, false);
                 self.print_expr(&next, value, true);
-
-            },
+            }
         }
     }
 
     fn print_reagent(&mut self, prefix: &str, reagent: &Reagent, is_last: bool) {
-        self.write(prefix, is_last, &format!("{}: {}", reagent.name.lexeme, reagent.weave_name.lexeme));
+        self.write(
+            prefix,
+            is_last,
+            &format!("{}: {}", reagent.name.lexeme, reagent.weave_name.lexeme),
+        );
     }
 
     fn print_mark(&mut self, prefix: &str, mark: &Mark, is_last: bool) {
-        self.write(prefix, is_last, &format!("{}: {}", mark.name.lexeme, mark.weave_name.lexeme));
+        self.write(
+            prefix,
+            is_last,
+            &format!("{}: {}", mark.name.lexeme, mark.weave_name.lexeme),
+        );
     }
 
     fn print_etched_mark(&mut self, prefix: &str, mark: &EtchedMark, is_last: bool) {
@@ -243,19 +293,36 @@ impl AstPrinter {
                 self.write(prefix, is_last, "ExprStmt");
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), expr, true);
             }
-            WovenStmt::VarDeclaration { name, mutable, initializer, symbol } => {
+            WovenStmt::VarDeclaration {
+                name,
+                mutable,
+                initializer,
+                symbol,
+            } => {
                 let mut_str = if *mutable { "mut " } else { "" };
                 let sym_info = self.symbol_info(symbol);
-                self.write(prefix, is_last, &format!("VarDecl: {}{}{}", mut_str, name.lexeme, sym_info));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("VarDecl: {}{}{}", mut_str, name.lexeme, sym_info),
+                );
                 if let Some(init) = initializer {
                     self.print_woven_expr(&Self::next_prefix(prefix, is_last), init, true);
                 }
             }
-            WovenStmt::Fate { condition, then_branch, else_branch } => {
+            WovenStmt::Fate {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
                 self.write(prefix, is_last, "Fate");
                 let next = Self::next_prefix(prefix, is_last);
                 self.write(&next, else_branch.is_none(), "condition:");
-                self.print_woven_expr(&Self::next_prefix(&next, else_branch.is_none()), condition, true);
+                self.print_woven_expr(
+                    &Self::next_prefix(&next, else_branch.is_none()),
+                    condition,
+                    true,
+                );
                 if let Some(else_b) = else_branch {
                     self.write(&next, false, "then:");
                     self.print_woven_stmt(&Self::next_prefix(&next, false), then_branch, true);
@@ -292,9 +359,18 @@ impl AstPrinter {
             WovenStmt::Flow { token: _ } => {
                 self.write(prefix, is_last, "Flow");
             }
-            WovenStmt::Spell { name, reagents, body, spell } => {
+            WovenStmt::Spell {
+                name,
+                reagents,
+                body,
+                spell,
+            } => {
                 let ret_str = format!(" -> {:?}", spell.release_weave);
-                self.write(prefix, is_last, &format!("Spell: {}{}", name.lexeme, ret_str));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Spell: {}{}", name.lexeme, ret_str),
+                );
                 let next = Self::next_prefix(prefix, is_last);
                 if !reagents.is_empty() {
                     self.write(&next, false, "reagents:");
@@ -315,11 +391,19 @@ impl AstPrinter {
             }
             WovenStmt::Sign { name, marks, info } => {
                 let info_str = if self.verbosity >= 1 {
-                    format!(" [slot:{}, fields:{}]", info.symbol.slot_idx, info.schema.field_count())
+                    format!(
+                        " [slot:{}, fields:{}]",
+                        info.symbol.slot_idx,
+                        info.schema.field_count()
+                    )
                 } else {
                     String::new()
                 };
-                self.write(prefix, is_last, &format!("Sign: {}{}", name.lexeme, info_str));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Sign: {}{}", name.lexeme, info_str),
+                );
                 let next = Self::next_prefix(prefix, is_last);
                 let len = marks.len();
                 for (i, m) in marks.iter().enumerate() {
@@ -331,70 +415,139 @@ impl AstPrinter {
 
     fn print_woven_expr(&mut self, prefix: &str, expr: &WovenExpr, is_last: bool) {
         match expr {
-            WovenExpr::Binary { left, right, operator, weave } => {
+            WovenExpr::Binary {
+                left,
+                right,
+                operator,
+                weave,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
-                self.write(prefix, is_last, &format!("Binary: {}{}", operator.lexeme, tap));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Binary: {}{}", operator.lexeme, tap),
+                );
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_woven_expr(&next, left, false);
                 self.print_woven_expr(&next, right, true);
             }
-            WovenExpr::Unary { operand, operator, weave } => {
+            WovenExpr::Unary {
+                operand,
+                operator,
+                weave,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
-                self.write(prefix, is_last, &format!("Unary: {}{}", operator.lexeme, tap));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Unary: {}{}", operator.lexeme, tap),
+                );
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), operand, true);
             }
-            WovenExpr::Literal { value, token: _, weave } => {
+            WovenExpr::Literal {
+                value,
+                token: _,
+                weave,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 self.write(prefix, is_last, &format!("Literal: {:?}{}", value, tap));
             }
-            WovenExpr::Variable { name, weave, symbol } => {
+            WovenExpr::Variable {
+                name,
+                weave,
+                symbol,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 let sym = self.symbol_info(symbol);
-                self.write(prefix, is_last, &format!("Variable: {}{}{}", name.lexeme, sym, tap));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Variable: {}{}{}", name.lexeme, sym, tap),
+                );
             }
             WovenExpr::Grouping { expression, weave } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 self.write(prefix, is_last, &format!("Grouping{}", tap));
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), expression, true);
             }
-            WovenExpr::Assignment { name, value, weave, symbol } => {
+            WovenExpr::Assignment {
+                name,
+                value,
+                weave,
+                symbol,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 let sym = self.symbol_info(symbol);
-                self.write(prefix, is_last, &format!("Assign: {}{}{}", name.lexeme, sym, tap));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Assign: {}{}{}", name.lexeme, sym, tap),
+                );
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), value, true);
             }
-            WovenExpr::Cast { reagents, callee, weave, spell_symbol } => {
+            WovenExpr::Cast {
+                reagents,
+                callee,
+                weave,
+                spell_symbol,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 let sym = self.symbol_info(spell_symbol);
-                self.write(prefix, is_last, &format!("Cast: {}{}{}", callee.lexeme, sym, tap));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Cast: {}{}{}", callee.lexeme, sym, tap),
+                );
                 let next = Self::next_prefix(prefix, is_last);
                 let len = reagents.len();
                 for (i, r) in reagents.iter().enumerate() {
                     self.print_woven_expr(&next, r, i == len - 1);
                 }
             }
-            WovenExpr::Draw { marks, callee, weave, sign_info } => {
+            WovenExpr::Draw {
+                marks,
+                callee,
+                weave,
+                sign_info,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 let info_str = if self.verbosity >= 1 {
-                    format!(" [slot:{}, fields:{}]", sign_info.symbol.slot_idx, sign_info.schema.field_count())
+                    format!(
+                        " [slot:{}, fields:{}]",
+                        sign_info.symbol.slot_idx,
+                        sign_info.schema.field_count()
+                    )
                 } else {
                     String::new()
                 };
-                self.write(prefix, is_last, &format!("Draw: {}{}{}", callee.lexeme, info_str, tap));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Draw: {}{}{}", callee.lexeme, info_str, tap),
+                );
                 let next = Self::next_prefix(prefix, is_last);
                 let len = marks.len();
                 for (i, m) in marks.iter().enumerate() {
                     self.print_woven_etched_mark(&next, m, i == len - 1);
                 }
             }
-            WovenExpr::Access { material, property, field_name_idx, weave } => {
+            WovenExpr::Access {
+                material,
+                property,
+                field_name_idx,
+                weave,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 let idx_str = if self.verbosity >= 1 {
                     format!(" [idx:{}]", field_name_idx)
                 } else {
                     String::new()
                 };
-                self.write(prefix, is_last, &format!("Access: .{}{}{}", property.lexeme, idx_str, tap));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Access: .{}{}{}", property.lexeme, idx_str, tap),
+                );
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), material, true);
             }
             WovenExpr::Deck { elements, weave } => {
@@ -409,31 +562,50 @@ impl AstPrinter {
                         self.print_woven_expr(&next, element, i == len - 1);
                     }
                 }
-            },
-            WovenExpr::Extract { deck, index, token: _, weave } => {
+            }
+            WovenExpr::Extract {
+                deck,
+                index,
+                token: _,
+                weave,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 self.write(prefix, is_last, &format!("Extract{}", tap));
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_woven_expr(&next, deck, false);
                 self.print_woven_expr(&next, index, true);
-            },
-            WovenExpr::DeckSet { deck, index, value, token: _, weave } => {
+            }
+            WovenExpr::DeckSet {
+                deck,
+                index,
+                value,
+                token: _,
+                weave,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 self.write(prefix, is_last, &format!("DeckSet{}", tap));
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_woven_expr(&next, deck, false);
                 self.print_woven_expr(&next, index, false);
                 self.print_woven_expr(&next, value, true);
-            },
+            }
         }
     }
 
     fn print_woven_reagent(&mut self, prefix: &str, reagent: &WovenReagent, is_last: bool) {
-        self.write(prefix, is_last, &format!("{}: {:?}", reagent.name.lexeme, reagent.weave));
+        self.write(
+            prefix,
+            is_last,
+            &format!("{}: {:?}", reagent.name.lexeme, reagent.weave),
+        );
     }
 
     fn print_woven_mark(&mut self, prefix: &str, mark: &WovenMark, is_last: bool) {
-        self.write(prefix, is_last, &format!("{}: {:?}", mark.name.lexeme, mark.weave));
+        self.write(
+            prefix,
+            is_last,
+            &format!("{}: {:?}", mark.name.lexeme, mark.weave),
+        );
     }
 
     fn print_woven_etched_mark(&mut self, prefix: &str, mark: &WovenEtchedMark, is_last: bool) {
