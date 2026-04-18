@@ -1,0 +1,52 @@
+sign Instruction {
+    op: Text,
+    value: Num,
+}
+
+bind program: Deck<Instruction> = [
+    ~Instruction with { op: "PUSH", value: 5 },
+    ~Instruction with { op: "PUSH", value: 3 },
+    ~Instruction with { op: "ADD", value: 0 },
+    ~Instruction with { op: "PUSH", value: 2 },
+    ~Instruction with { op: "MUL", value: 0 },
+];
+
+bind stack: Deck<Num> = [];
+
+mark sp = 0; // stack pointer
+mark ip = 0; // instruction pointer
+bind len = 5;
+
+while ip < len {
+    bind inst = program[ip];
+    fate inst.op == "PUSH" {
+        stack[sp] = inst.value;
+        sp = sp + 1;
+    } divert {
+        fate inst.op == "ADD" {
+        sp = sp - 1;
+        bind b = stack[sp];
+
+        sp = sp - 1;
+        bind a = stack[sp];
+
+        stack[sp] = a + b;
+        sp = sp + 1;
+        } divert {
+            fate inst.op == "MUL" {
+                sp = sp - 1;
+                bind b = stack[sp];
+
+                sp = sp - 1;
+                bind a = stack[sp];
+
+                stack[sp] = a * b;
+                sp = sp + 1;
+            }
+        }
+    }
+
+    ip = ip + 1;
+}
+
+chant stack[0];

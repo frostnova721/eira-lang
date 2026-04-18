@@ -1,0 +1,7 @@
+spell fact(n: Num):: Num {
+    fate n <= 1 {
+        release 1;
+    }
+
+    release n * fact(n-1);
+}

@@ -1,4 +1,0 @@
-chant "hi";
-bind a = [ "no" , "yes" ];
-
-chant a[0];

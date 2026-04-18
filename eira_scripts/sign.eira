@@ -1,0 +1,19 @@
+// Sign schema definition
+sign Anime {
+    id: Num,
+    name: Text,
+    nsfw: Truth,
+}
+
+// materialisation or object creation in mortal terms
+mark my_fav_anime = ~Anime with {
+    id: 1, name: "Oreshura", nsfw: false,
+};
+
+mark another_fav = ~Anime with {
+    id: 2, name: "Highschool DxD", nsfw: true,
+};
+
+// checking if fields are assigned correctly
+chant my_fav_anime.name;
+chant another_fav.name;

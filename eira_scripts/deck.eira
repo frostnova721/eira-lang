@@ -1,0 +1,31 @@
+bind nums: Deck<Num> = [1,2,3,4,5];
+
+mark i = 0;
+bind len = 5;
+
+while i < len {
+    nums[i] = nums[i] * 2;
+    i = i+1;
+}
+
+// reset i
+i = 0;
+
+// print each of em
+while i < len {
+    chant nums[i];
+    i = i+1;
+}
+
+// you can push to the array with index as len
+nums[len] = 69;
+
+// if the math is correct, 6th element (at index 5) is 69
+chant nums[5];
+
+// fixed size arrays
+bind nums_with_size: Deck<Num, 5> =[1,2,3,4,5];
+
+// this will result in an error, since 6th element exceeds the
+// declared capacity of 5
+nums_with_size[5] = 42;
