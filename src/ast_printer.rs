@@ -258,7 +258,7 @@ impl AstPrinter {
         self.write(
             prefix,
             is_last,
-            &format!("{}: {}", reagent.name.lexeme, reagent.weave_name.lexeme),
+            &format!("{}: {}", reagent.name.lexeme, reagent.weave.base.lexeme),
         );
     }
 
@@ -274,6 +274,8 @@ impl AstPrinter {
         self.write(prefix, is_last, &format!("{} =", mark.name.lexeme));
         self.print_expr(&Self::next_prefix(prefix, is_last), &mark.expr, true);
     }
+
+    
 
     // ===== Woven AST (WovenStmt/WovenExpr) =====
 

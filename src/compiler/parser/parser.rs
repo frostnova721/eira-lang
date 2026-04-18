@@ -234,15 +234,11 @@ impl Parser {
 
                 // capture the weave of the mark!
                 self.consume(TokenType::Colon, "Expected ':' for weave definition!");
-                self.consume(
-                    TokenType::Identifier,
-                    "Expected a weave name to bind with the mark!",
-                );
+                let weave = self.parse_weave("Expected a weave name after ';'")?;
 
-                let weave_name = self.previous.clone();
                 params.push(Reagent {
                     name: token,
-                    weave_name: weave_name,
+                    weave: weave,
                 });
 
                 if !self.match_token(TokenType::Comma) {

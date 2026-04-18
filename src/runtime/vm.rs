@@ -5,7 +5,9 @@ use crate::{
     compiler::compiler::CompiledCode,
     runtime::OpCode,
     values::{
-        Value, print_value,
+        Value,
+        deck::DeckObject,
+        print_value,
         sign::SignObject,
         spell::{ClosureObject, UpValue},
     },
@@ -470,21 +472,30 @@ impl EiraVM {
                         values.push(val);
                     }
 
-                    set_register!(base, reg, Value::Deck(Rc::new(RefCell::new(values))));
+                    set_register!(
+                        base,
+                        reg,
+                        Value::Deck(Rc::new(DeckObject::new(values, None)))
+                    );
                 }
                 OpCode::NewFixedDeck => {
                     let reg = frame!().read_byte();
                     let start = frame!().read_byte();
                     let count = frame!().read_byte();
+                    let capacity = frame!().read_u16() as usize;
 
-                    let mut values: Vec<Value> = Vec::with_capacity(frame!().read_u16() as usize);
+                    let mut values: Vec<Value> = Vec::with_capacity(capacity);
 
                     for i in start..start + count {
                         let val = get_register!(base, i).clone();
                         values.push(val);
                     }
 
-                    set_register!(base, reg, Value::Deck(Rc::new(RefCell::new(values))));
+                    set_register!(
+                        base,
+                        reg,
+                        Value::Deck(Rc::new(DeckObject::new(values, Some(capacity))))
+                    );
                 }
                 OpCode::AddToDeck => {
                     let deck_reg = frame!().read_byte();
@@ -496,13 +507,27 @@ impl EiraVM {
 
                     match deck_val {
                         Value::Deck(d) => {
-                            if idx >= d.borrow().len() {
+                            let len = d.items.borrow().len();
+
+                            if let Some(cap) = d.capacity {
+                                if idx >= cap {
+                                    self.runtime_error(
+                                    &format!("Index out of bounds while adding element to a deck. Tried to add at {} while deck capacity is {}.", idx, cap),
+                                );
+                                    return InterpretResult::RuntimeError;
+                                }
+                            }
+
+                            if idx > len {
                                 self.runtime_error(
-                                    &format!("Index out of bounds while adding element to a deck. Tried to access {} while deck size is {}.", idx,d.borrow().len()),
+                                    &format!("Index out of bounds while adding element to a deck. Tried to add at {} while deck size is {}.", idx, len),
                                 );
                                 return InterpretResult::RuntimeError;
+                            } else if idx == len {
+                                d.items.borrow_mut().push(val);
+                            } else {
+                                d.items.borrow_mut()[idx] = val;
                             }
-                            d.borrow_mut()[idx] = val;
                         }
                         _ => {
                             self.runtime_error(
@@ -523,12 +548,12 @@ impl EiraVM {
                     let idx = get_register!(base, index).clone().extract_number().unwrap() as usize;
                     match deck_val {
                         Value::Deck(d) => {
-                            if idx < d.borrow().len() {
-                                let val = d.borrow()[idx].clone();
+                            if idx < d.items.borrow().len() {
+                                let val = d.items.borrow()[idx].clone();
                                 set_register!(base, dest, val);
                             } else {
                                 self.runtime_error(
-                                    &format!("Index out of bounds while extracting element from a deck. Tried to access {} while deck size is {}.", idx,d.borrow().len()),
+                                    &format!("Index out of bounds while extracting element from a deck. Tried to access {} while deck size is {}.", idx,d.items.borrow().len()),
                                 );
                                 return InterpretResult::RuntimeError;
                             }

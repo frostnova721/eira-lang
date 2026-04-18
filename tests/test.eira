@@ -1,3 +1,11 @@
-mark arr: Deck<Num, 2> = [1]; 
-
+mark arr: Deck<Num> = [1]; 
+chant arr;
 arr[1] = 2;
+arr[2] = 3;
+arr[3] = 4;
+chant arr;
+
+spell aaah(d: Deck<Num>) {
+    d[3] = 5;
+}
+chant cast aaah with arr;

@@ -1,9 +1,9 @@
-use crate::compiler::{scanner::Token, weaves::Weave};
+use crate::compiler::{parser::types::ParsedWeave, scanner::Token, weaves::Weave};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Reagent {
     pub name: Token,
-    pub weave_name: Token,
+    pub weave: ParsedWeave,
 }
 
 #[derive(Debug, Clone, PartialEq)]
