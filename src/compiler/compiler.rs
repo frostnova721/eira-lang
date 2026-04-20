@@ -80,7 +80,6 @@ impl Compiler {
         compiled_code.bytecode = self.gen_bytecode(&compiled_code.instructions);
 
         if self.options.print_bytecode {
-            println!("Bytecode:");
             print_byte_code(&compiled_code.bytecode);
         }
 
@@ -137,7 +136,7 @@ impl Compiler {
     }
 
     fn gen_instructions(&self, woven_ast: Vec<WovenStmt>) -> Result<CompiledCode> {
-        let mut cg = CodeGen::new(woven_ast, self.options.print_instructions);
+        let mut cg = CodeGen::new(woven_ast, self.options.print_instructions, self.options.print_bytecode);
         match cg.summon_instructions() {
             Err(gen_error) => {
                 // println!("CodeGen Error: {}", gen_error.msg);

@@ -3,7 +3,7 @@
 
 - ### Bytecode Indexing issue when release is used in a particular way [UNPATCHED]
     ```
-    spell isPrime(a: NumWeave) {
+    spell isPrime(a: Num) {
         fate a <= 1 {
             chant "false";
             release;

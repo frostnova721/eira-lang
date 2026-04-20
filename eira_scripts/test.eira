@@ -1,10 +1,17 @@
-spell a (d: Spell<Deck<Num>>):: Deck<Num> {
-    mark list: Deck<Num> = cast d;
-    release [list[0], list[3]];
-}
+ 
+ spell isPrime(a: Num):: Text {
+    chant "baa";
+    release "";
+ }
+ {spell isPrime(a: Num):: Num {
 
-spell gen_deck():: Deck<Num> {
-    release [1,2,3,5,6];
-}
+        fate a <= 1 {
+            chant "false";
+            release 1;
+        }
+        chant "aaa";
+        release 2;    
+    }
+ }
+    cast isPrime with 10;
 
-chant cast a with gen_deck;

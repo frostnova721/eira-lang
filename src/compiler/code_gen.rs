@@ -11,7 +11,7 @@ use crate::{
         token_type::TokenType,
         weaves::Weave,
     },
-    print_instructions,
+    print_byte_code, print_instructions,
     runtime::Instruction,
     values::{
         Value,
@@ -34,6 +34,7 @@ struct LoopBlock {
 
 pub struct CodeGen {
     pub print_instructions: bool,
+    pub print_bytecode: bool,
 
     woven_ast: Vec<WovenStmt>,
     instructions: Vec<Instruction>,
@@ -51,7 +52,7 @@ pub struct CodeGen {
 }
 
 impl CodeGen {
-    pub fn new(w_ast: Vec<WovenStmt>, print_instructions: bool) -> Self {
+    pub fn new(w_ast: Vec<WovenStmt>, print_instructions: bool, print_bytecode: bool) -> Self {
         CodeGen {
             woven_ast: w_ast,
             instructions: vec![],
@@ -63,6 +64,7 @@ impl CodeGen {
             curr_upval_count: 0,
             upval_map: HashMap::new(),
             print_instructions,
+            print_bytecode,
         }
     }
 
@@ -89,6 +91,7 @@ impl CodeGen {
                 &self.constants.last().unwrap(),
             );
         }
+
         Ok(self.instructions.clone())
     }
 
@@ -651,14 +654,16 @@ impl CodeGen {
         self.gen_from_stmt(body)?;
 
         // Add implicit return if missing
-        let needs_return = !matches!(self.instructions.last(), Some(Instruction::Release { .. }));
-        if needs_return {
+        // let needs_return = !matches!(self.instructions.last(), Some(Instruction::Release { .. }));
+        // if needs_return {
+
+            // TODO: THIS IS A TEMPORARY FIX! add explicit return 
             let ret_reg = self.get_next_register()?;
             self.instructions
                 .push(Instruction::Emptiness { dest: ret_reg });
             self.instructions
                 .push(Instruction::Release { dest: ret_reg });
-        }
+        // }
 
         if self.print_instructions {
             print_instructions(
@@ -670,6 +675,12 @@ impl CodeGen {
 
         // Get the compiled results
         let spell_bytecode = Assembler::convert_to_byte_code(&self.instructions);
+
+        if self.print_bytecode {
+            println!("spell: {}", spell_info.name);
+            print_byte_code(&spell_bytecode);
+        }
+
         let spell_constants = self.constants.pop().unwrap();
         self.constants_idx_map.pop(); // Pop the spell's constant map
 
