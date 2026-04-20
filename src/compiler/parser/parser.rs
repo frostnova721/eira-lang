@@ -770,7 +770,6 @@ impl Parser {
                     <= self.get_rule(self.current.token_type).precedence.power()
                 {
                     self.advance();
-                    // println!("{:?}", self.previous);
                     let infix_rule = self.get_rule(self.previous.token_type).infix.unwrap();
                     lhs = infix_rule(self, lhs?, can_assign);
                 }

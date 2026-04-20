@@ -4,6 +4,7 @@ use crate::{
     compiler::{
         Expr, Stmt, WovenExpr, WovenStmt,
         mark::{WovenEtchedMark, WovenMark},
+        parser::types::ParsedWeave,
         reagents::WovenReagent,
         scanner::Token,
         strand::{
@@ -169,65 +170,7 @@ impl WeaveAnalyzer {
                 let mut specified_weave: Option<Weave> = None;
 
                 if weave.is_some() {
-                    let weave = weave.clone().unwrap();
-                    let base_weave_name = weave.base.lexeme.clone();
-                    specified_weave = self.get_weave_from_name(&base_weave_name);
-
-                    if specified_weave.is_none() {
-                        return self.error(
-                            &format!(
-                                "Couldn't find the weave '{}' within the Eira's library!",
-                                base_weave_name
-                            ),
-                            name.clone(),
-                        );
-                    }
-
-                    let specified_weave_unwrapped = specified_weave.clone().unwrap();
-                    let inner_weave_of_the_specified_weave = self
-                        .get_weave_from_name(&(*weave.inner.unwrap().base.lexeme))
-                        .unwrap();
-
-                    specified_weave = match specified_weave_unwrapped {
-                        Weave::Deck(..) => Some(
-                            Weaver::weave_deck(
-                                specified_weave_unwrapped.clone(),
-                                inner_weave_of_the_specified_weave,
-                                weave.capacity,
-                            )
-                            .unwrap(),
-                        ),
-                        Weave::Spell { .. } => Some(
-                            Weaver::weave_spell(
-                                specified_weave_unwrapped.clone(),
-                                inner_weave_of_the_specified_weave,
-                            )
-                            .unwrap(),
-                        ),
-                        _ => return self.error("", weave.base),
-                    };
-
-                    // let expr_weave_clone = expr_weave.clone()?;
-
-                    // if expr_weave_clone != specified_weave_unwrapped {
-                    //     // empty deck shouldnt be of any type, it should be casted to expected weave
-                    //     if expr_weave_clone != Weave::Deck(Box::new(Weave::Empty), Some(0)) {
-                    //         //TODO: check for other types of deck with different length
-                    //         match expr_weave_clone {
-                    //             Weave::Deck(inner, capacity) => {
-                    //                 if *inner != Weave::Empty && capacity > weave.capacity {
-                    //                     return self.error("The deck defined is larger than the specified capacity.", weave.base);
-                    //                 }
-                    //             }
-                    //             _ => {
-                    //                 return self.error(
-                    //         &format!("The specified weave for '{}' does not match the weave of the initializer expression!", name.lexeme),
-                    //         name,
-                    //     );
-                    //             }
-                    //         };
-                    //     }
-                    // }
+                    specified_weave = Some(self.analyze_parsed_weave(weave.clone().unwrap())?);
                 }
 
                 let w_initializer = match initializer {
@@ -249,14 +192,14 @@ impl WeaveAnalyzer {
                         // Try to get weave from symbol first (for composite weaves like SpellWeave<TextWeave>)
                         expr_weave = if let Some(symbol) = val.symbol() {
                             parent = Some(Box::new(symbol.clone()));
-                            Ok(symbol.weave.clone())
+                            Ok(val.weave())
                         } else {
                             Ok(val.weave())
                         };
                     }
                     None => {
                         if !mutable {
-                            // this shouldnt occur since parser should already have handle this
+                            // this shouldnt occur since parser should already have handled this
                             return self.error(
                                 "bind values must be initialized with an expression!",
                                 name,
@@ -264,18 +207,13 @@ impl WeaveAnalyzer {
                         }
 
                         // if no initializer, the weave must be specified. Try to get weave from the specified weave name
-                        expr_weave = if weave.is_some() {
-                            self.get_weave_from_name(&weave.as_ref().unwrap().base.lexeme)
-                                .ok_or(WeaveError::new(
-                                    "Couldn't find the weave for the variable! Perhaps you misspelled it?",
-                                    name.clone(),
-                                ))
-                        } else {
-                            Err(WeaveError::new(
-                                "Couldn't determine a weave for the variable! You shall specify a weave for uninitialized variables!",
-                                name.clone(),
-                            ))
-                        };
+                        expr_weave = match specified_weave {
+                            Some(ref s_w) => Ok(s_w.clone()),
+                            None => {
+                                return self.error("Couldn't determine a weave for the variable! You shall specify a weave for uninitialized variables!",
+                                name.clone(),)
+                            }
+                        }
                     }
                 }
 
@@ -424,7 +362,7 @@ impl WeaveAnalyzer {
                 let expected_weave = spell_entry.release_weave.clone();
 
                 if let Some(e) = expr {
-                    let w_expr = self.analyze_expression(e, None)?;
+                    let w_expr = self.analyze_expression(e, Some(&expected_weave))?;
 
                     // Try to get the weave from the symbol first (for variables with composite weaves)
                     // Otherwise fall back to tapestry lookup
@@ -508,61 +446,7 @@ impl WeaveAnalyzer {
 
                 // get the ret type (weave ofcourse)
                 let ret_weave = match return_weave {
-                    Some(rw) => {
-                        let base_weave =
-                            self.get_weave_from_name(&rw.base.lexeme)
-                                .ok_or(WeaveError::new(
-                                    &format!(
-                                        "Couldn't find the weave '{}' within the Eira's library!",
-                                        rw.base.lexeme
-                                    ),
-                                    name.clone(),
-                                ))?;
-
-                        // TODO: make the check recursive
-                        let inner: Option<Weave> = match rw.inner {
-                            Some(ref tkn) => {
-                                let w =
-                            self.get_weave_from_name(&tkn.base.lexeme)
-                                .ok_or(WeaveError::new(
-                                    &format!(
-                                        "Couldn't find the weave '{}' within the Eira's library!",
-                                        tkn.base.lexeme
-                                    ),
-                                    name.clone(),
-                                ))?;
-
-                                Some(w)
-                            }
-                            None => None,
-                        };
-
-                        if inner.is_none() {
-                            base_weave
-                        } else {
-                            let inner = inner.unwrap();
-                            if !inner.can_sub_weave() {
-                                return self.error(
-                                    &format!(
-                                        "The {} weave doesn't support sub weaves.",
-                                        inner.get_name()
-                                    ),
-                                    rw.inner.unwrap().base,
-                                );
-                            }
-
-                            let final_weave = match base_weave {
-                             Weave::Spell { .. } =>  Weaver::weave_spell(base_weave, inner),
-                             Weave::Deck(..) => Weaver::weave_deck(base_weave, inner, rw.capacity),
-                            _ => return self.error(&format!("A sub weave was found but the {} weave doesnt support sub weaves. This shouldn't be thrown.", inner.get_name()), rw.inner.unwrap().base),
-                            };
-                            if final_weave.is_err() {
-                                return self.error(&final_weave.unwrap_err().0, name.clone());
-                            }
-
-                            final_weave.unwrap()
-                        }
-                    }
+                    Some(rw) => self.analyze_parsed_weave(rw)?,
                     None => Weave::Empty,
                 };
 
@@ -570,28 +454,21 @@ impl WeaveAnalyzer {
                 // Create SpellWeave<ReturnWeave> for the spell's symbol
                 let spell_weave = if ret_weave != Weave::Empty {
                     // Spell returns something, so wrap it: SpellWeave<ReturnWeave>
-                    Weaver::weave_spell(
-                        Weave::Spell {
-                            reagents: Vec::new(),
-                            release: Box::new(Weave::Empty),
-                        },
-                        ret_weave.clone(),
-                    )
-                    .unwrap_or(Weave::Spell {
-                        reagents: Vec::new(),
-                        release: Box::new(Weave::Empty),
-                    })
+                    Weave::Spell {
+                        // reagents: Vec::new(),
+                        release: Box::new(ret_weave.clone()),
+                    }
                 } else {
                     // Spell returns nothing, just SpellWeave
                     Weave::Spell {
-                        reagents: Vec::new(),
+                        // reagents: Vec::new(),
                         release: Box::new(Weave::Empty),
                     }
                 };
 
                 let symbol = self
                     .symbol_table
-                    .define(name.lexeme.clone(), spell_weave, false, slot, None)
+                    .define(name.lexeme.clone(), spell_weave.clone(), false, slot, None)
                     .unwrap();
 
                 self.symbol_table.new_scope();
@@ -610,15 +487,7 @@ impl WeaveAnalyzer {
                 let upvals_saved = std::mem::take(&mut self.current_upvalues);
 
                 for r in reagents {
-                    let Some(weave) = self.get_weave_from_name(&r.weave.base.lexeme) else {
-                        return self.error(
-                            &format!(
-                                "Couldn't find the weave '{}' within the Eira's library!",
-                                name.lexeme.clone()
-                            ),
-                            r.weave.base.clone(),
-                        );
-                    };
+                    let weave = self.analyze_parsed_weave(r.weave)?;
                     self.symbol_table.define(
                         r.name.lexeme.clone(),
                         weave.clone(),
@@ -1037,9 +906,32 @@ impl WeaveAnalyzer {
                         (Some(info.clone()), info.release_weave)
                     } else {
                         // the return weave thingy would be unknown at comp time
-                        (None, Weave::Empty)
+                        match symbol.weave.clone() {
+                         Weave::Spell {release} => {
+                            (None, *release)
+                         },
+                         _ => {
+                            return self.error(&format!("{} is not a spell!.", symbol.name), callee);
+                         },
+                        }
                     }
                 };
+
+                match expected_weave {
+                    Some(ew) => {
+                        if *ew != return_weave {
+                            return self.error(
+                            &format!(
+                                "The release weave of '{}' doesnt match the expected '{}' weave",
+                                symbol.name,
+                                ew.get_name()
+                            ),
+                            callee,
+                        );
+                        }
+                    }
+                    None => {}
+                }
 
                 // reagent count checks
                 if let Some(ref info) = spell_info {
@@ -1274,23 +1166,21 @@ impl WeaveAnalyzer {
 
                 let mut expected_capacity: Option<usize> = None;
                 let mut prev_elem_weave: Option<Weave> = match expected_weave {
-                    Some(w) => {
-                        match w {
-                            Weave::Deck(inner, c) => {
-                                expected_capacity = *c;
-                                Some(*inner.clone())
-                            },
-                            _ => {
-                                return self.error(
-                                    &format!(
-                                        "Hows this possible? a {} weave passed on to a deck!",
-                                        w.get_name()
-                                    ),
-                                    token,
-                                );
-                            }
+                    Some(w) => match w {
+                        Weave::Deck(inner, c) => {
+                            expected_capacity = *c;
+                            Some(*inner.clone())
                         }
-                    }
+                        _ => {
+                            return self.error(
+                                &format!(
+                                    "Hows this possible? a {} weave passed on to a deck!",
+                                    w.get_name()
+                                ),
+                                token,
+                            );
+                        }
+                    },
                     None => None,
                 };
 
@@ -1300,7 +1190,14 @@ impl WeaveAnalyzer {
 
                 if let Some(c) = expected_capacity {
                     if elements.len() > c {
-                        return self.error(&format!("The deck's specified capacity is {} while the length is {}", c, elements.len()), token);
+                        return self.error(
+                            &format!(
+                                "The deck's specified capacity is {} while the length is {}",
+                                c,
+                                elements.len()
+                            ),
+                            token,
+                        );
                     }
                 }
 
@@ -1329,14 +1226,14 @@ impl WeaveAnalyzer {
             }
             Expr::Extract { deck, index, token } => {
                 let w_deck = self.analyze_expression(*deck, None)?;
-
                 let elem_weave = match w_deck.weave() {
                     Weave::Deck(weave, _) => *weave,
                     _ => {
                         return self.error(
                             &format!(
-                                "'{}' was expected to be a 'Deck' but its not!",
-                                w_deck.token().lexeme
+                                "'{}' was expected to be a 'Deck' but its a '{}'!",
+                                w_deck.token().lexeme,
+                                w_deck.weave().get_name(),
                             ),
                             token,
                         );
@@ -1391,6 +1288,77 @@ impl WeaveAnalyzer {
         }
     }
 
+    fn analyze_parsed_weave(&mut self, parsed_weave: ParsedWeave) -> WeaveResult<Weave> {
+        let Some(base_weave) = self.get_weave_from_name(&parsed_weave.base.lexeme) else {
+            return self.error(
+                &format!(
+                    "Couldn't find {} weave across the realms of eira!",
+                    parsed_weave.base.lexeme
+                ),
+                parsed_weave.base,
+            );
+        };
+
+        if !base_weave.can_sub_weave() && parsed_weave.inner.is_some() {
+            return self.error(
+                &format!(
+                    "{} weave cannot contain sub weaves!",
+                    parsed_weave.base.lexeme
+                ),
+                parsed_weave.base,
+            );
+        }
+
+        // at this point, its sure that only the sub weave-able weaves are processed
+        let Some(inner_parsed_weave) = parsed_weave.inner else {
+            return Ok(base_weave);
+        };
+
+        let inner_weave = self.analyze_parsed_weave(*inner_parsed_weave.clone())?;
+
+        let weave = match base_weave {
+            Weave::Deck(..) => {
+                let res =
+                    Weaver::weave_deck(base_weave, inner_weave.clone(), parsed_weave.capacity);
+                if res.is_err() {
+                    return self.error(
+                        &format!(
+                            "Couldnt weave {} to {}",
+                            parsed_weave.base.lexeme,
+                            inner_weave.get_name()
+                        ),
+                        inner_parsed_weave.base,
+                    );
+                }
+                res.unwrap()
+            }
+            Weave::Spell { .. } => {
+                let res = Weaver::weave_spell(base_weave, inner_weave);
+                if res.is_err() {
+                    return self.error(
+                        &format!(
+                            "Couldnt weave {} to {}",
+                            parsed_weave.base.lexeme, inner_parsed_weave.base.lexeme
+                        ),
+                        inner_parsed_weave.base,
+                    );
+                }
+                res.unwrap()
+            }
+            _ => {
+                return self.error(
+                    &format!(
+                        "{} weave cannot contain any sub weaves!",
+                        parsed_weave.base.lexeme
+                    ),
+                    parsed_weave.base,
+                );
+            }
+        };
+
+        Ok(weave)
+    }
+
     /// Get the very first ancestor (greatest parent) of a symbol
     fn find_greatest_parent(&mut self, symbol: &Symbol) -> Option<Symbol> {
         let mut current = symbol.clone();
@@ -1422,7 +1390,6 @@ impl WeaveAnalyzer {
                 .any(|it| it.index == symbol.slot_idx && it.depth == symbol.depth);
 
             if is_new {
-                // println!("Added upvalue {:?}", symbol);
                 self.current_upvalues.push(UpValue {
                     index: symbol.slot_idx,
                     closed: Value::Emptiness.into(),
@@ -1476,7 +1443,7 @@ impl WeaveAnalyzer {
             "Empty" => Some(Weave::Empty),
             "Sign" => Some(Weave::Sign(String::new())),
             "Spell" => Some(Weave::Spell {
-                reagents: vec![],
+                // reagents: vec![],
                 release: Box::new(Weave::Empty),
             }),
             "Deck" => Some(Weave::Deck(Box::new(Weave::Empty), None)),

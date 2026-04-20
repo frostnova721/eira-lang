@@ -13,7 +13,6 @@ pub enum Weave {
     Text,
     Truth,
     Spell {
-        reagents: Vec<Weave>,
         release: Box<Weave>,
     },
     Sign(String /* name */),
@@ -47,19 +46,19 @@ impl Weave {
 
     pub fn get_name(&self) -> String {
         match self {
-            Weave::Num => "NumWeave".to_string(),
-            Weave::Text => "TextWeave".to_string(),
-            Weave::Truth => "TruthWeave".to_string(),
-            Weave::Empty => "EmptyWeave".to_string(),
-            Weave::Spell { .. } => "SpellWeave".to_string(),
-            Weave::Sign(name) => format!("SignWeave<{}>", name),
+            Weave::Num => "Num".to_string(),
+            Weave::Text => "Text".to_string(),
+            Weave::Truth => "Truth".to_string(),
+            Weave::Empty => "Empty".to_string(),
+            Weave::Spell { .. } => "Spell".to_string(),
+            Weave::Sign(name) => format!("Sign<{}>", name),
             Weave::Deck(inner, length) => {
                 let str = if length.is_some() {
                     &format!(", {}", length.unwrap())
                 } else {
                     ""
                 };
-                format!("DeckWeave<{}{}>", inner.get_name(), str)
+                format!("Deck<{}{}>", inner.get_name(), str)
             }
         }
     }
@@ -101,12 +100,12 @@ pub struct Weaver();
 impl Weaver {
     pub fn weave_spell(base: Weave, inner: Weave) -> WeaverResult<Weave> {
         match base {
-            Weave::Spell { reagents, release } => {
-                let mut new_reagents = reagents.clone();
-                new_reagents.push(inner);
+            Weave::Spell { .. } => {
+                // let mut new_reagents = reagents.clone();
+                // new_reagents.push(inner);
                 Ok(Weave::Spell {
-                    reagents: new_reagents,
-                    release,
+                    // reagents: new_reagents,
+                    release: Box::new(inner),
                 })
             }
             _ => Err(WeaverError(format!(

@@ -1,11 +1,10 @@
-mark arr: Deck<Num> = [1]; 
-chant arr;
-arr[1] = 2;
-arr[2] = 3;
-arr[3] = 4;
-chant arr;
-
-spell aaah(d: Deck<Num>) {
-    d[3] = 5;
+spell a (d: Spell<Deck<Num>>):: Deck<Num> {
+    mark list: Deck<Num> = cast d;
+    release [list[0], list[3]];
 }
-chant cast aaah with arr;
+
+spell gen_deck():: Deck<Num> {
+    release [1,2,3,5,6];
+}
+
+chant cast a with gen_deck;

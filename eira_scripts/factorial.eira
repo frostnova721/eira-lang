@@ -3,5 +3,7 @@ spell fact(n: Num):: Num {
         release 1;
     }
 
-    release n * fact(n-1);
+    release n * cast fact with n-1;
 }
+
+chant cast fact with 5;

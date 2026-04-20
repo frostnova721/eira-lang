@@ -49,7 +49,7 @@ fn main() {
         }
     }
 
-    let default_debug_file = "tests/test.eira".to_string();
+    let default_debug_file = "eira_scripts/test.eira".to_string();
     let file_path = args.get(1).unwrap_or(&default_debug_file);
 
     let compiler = Compiler::new(file_path.clone(), compiler_options);
