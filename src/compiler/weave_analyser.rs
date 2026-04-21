@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     compiler::{
@@ -185,13 +185,13 @@ impl WeaveAnalyzer {
                     None => None,
                 };
 
-                let mut parent: Option<Box<Symbol>> = None;
+                let mut parent: Option<Rc<Symbol>> = None;
 
                 match &w_initializer {
                     Some(val) => {
                         // Try to get weave from symbol first (for composite weaves like SpellWeave<TextWeave>)
                         expr_weave = if let Some(symbol) = val.symbol() {
-                            parent = Some(Box::new(symbol.clone()));
+                            parent = Some(Rc::new(symbol.clone()));
                             Ok(val.weave())
                         } else {
                             Ok(val.weave())
@@ -887,6 +887,7 @@ impl WeaveAnalyzer {
                             callee,
                         );
                     };
+
                     (Some(info.clone()), info.release_weave)
                 } else {
                     // this would run if the type isnt predictable at compile time
@@ -907,12 +908,11 @@ impl WeaveAnalyzer {
                     } else {
                         // the return weave thingy would be unknown at comp time
                         match symbol.weave.clone() {
-                         Weave::Spell {release} => {
-                            (None, *release)
-                         },
-                         _ => {
-                            return self.error(&format!("{} is not a spell!.", symbol.name), callee);
-                         },
+                            Weave::Spell { release } => (None, *release),
+                            _ => {
+                                return self
+                                    .error(&format!("{} is not a spell!.", symbol.name), callee);
+                            }
                         }
                     }
                 };
@@ -1457,17 +1457,4 @@ impl WeaveAnalyzer {
             }
         }
     }
-
-    // fn get_weave(&self, tapestry: Tapestry) -> Option<Weave> {
-    //     match tapestry.0 {
-    //         x if x == Weave::Num.get_tapestry().0 => Some(Weave::Num.get_weave()),
-    //         x if x == Weave::Text.get_tapestry().0 => Some(Weave::Text.get_weave()),
-    //         x if x == Weave::Truth.get_tapestry().0 => Some(Weave::Truth.get_weave()),
-    //         x if x == Weave::Spell.get_tapestry().0 => Some(Weave::Spell.get_weave()),
-    //         x if x == Weave::Empty.get_tapestry().0 => Some(Weave::Empty.get_weave()),
-    //         x if x == Weave::Sign.get_tapestry().0 => Some(Weave::Sign.get_weave()),
-    //         x if x == Weave::Deck.get_tapestry().0 => Some(Weave::Deck.get_weave()),
-    //         _ => None,
-    //     }
-    // }
 }

@@ -1,35 +1,31 @@
-use std::rc::Rc;
-
-use crate::{
-    compiler::{
-        Expr, Stmt,
-        mark::{EtchedMark, Mark},
-        parser::types::{ParseError, ParseResult, ParseRule, ParsedWeave, Precedence},
-        reagents::Reagent,
-        scanner::Token,
-        token_type::TokenType,
-    },
-    values::Value,
+use crate::compiler::{
+    Expr, Stmt,
+    mark::Mark,
+    parser::types::{ParseError, ParseResult, ParseRule, ParsedWeave, Precedence},
+    reagents::Reagent,
+    scanner::Token,
+    token_type::TokenType,
 };
 
-const MSG_MISSED_SEMICOLON: &str = "Expected a ';' after the expression. Forgot to add it?";
 const MSG_BIND_VALUE_NOT_INITIALIZED: &str = "bind values must be initialized.";
+pub(super) const MSG_MISSED_SEMICOLON: &str =
+    "Expected a ';' after the expression. Forgot to add it?";
 
 pub struct Parser {
     // Token list
-    tokens: Vec<Token>,
-    current_file: String,
+    pub(super) tokens: Vec<Token>,
+    pub(super) current_file: String,
 
     // current token's index
-    current_pos: usize,
+    pub(super) current_pos: usize,
 
     // Current and prev tokens
-    previous: Token,
-    current: Token,
+    pub(super) previous: Token,
+    pub(super) current: Token,
 
     // error and unwinding
-    panic: bool,
-    error: bool,
+    pub(super) panic: bool,
+    pub(super) error: bool,
 }
 
 impl Parser {
@@ -71,7 +67,7 @@ impl Parser {
         Ok(stmts)
     }
 
-    fn advance(&mut self) {
+    pub(super) fn advance(&mut self) {
         self.previous = self.current.clone();
         if self.previous.token_type == TokenType::Eof {
             return;
@@ -92,11 +88,11 @@ impl Parser {
         }
     }
 
-    fn reached_end(&mut self) -> bool {
+    pub(super) fn reached_end(&mut self) -> bool {
         self.current.token_type == TokenType::Eof
     }
 
-    fn consume(&mut self, expect: TokenType, msg: &str) {
+    pub(super) fn consume(&mut self, expect: TokenType, msg: &str) {
         if self.current.token_type == expect {
             self.advance();
             return;
@@ -105,7 +101,7 @@ impl Parser {
         self.throw_error_at_current(msg);
     }
 
-    fn match_token(&mut self, token_type: TokenType) -> bool {
+    pub(super) fn match_token(&mut self, token_type: TokenType) -> bool {
         if !self.check(token_type) {
             return false;
         }
@@ -113,11 +109,11 @@ impl Parser {
         true
     }
 
-    fn check(&self, token_type: TokenType) -> bool {
+    pub(super) fn check(&self, token_type: TokenType) -> bool {
         token_type == self.current.token_type
     }
 
-    fn error_at(&mut self, msg: &str, pos: Token) {
+    pub(super) fn error_at(&mut self, msg: &str, pos: Token) {
         if self.panic {
             return;
         }
@@ -129,15 +125,15 @@ impl Parser {
         self.error = true;
     }
 
-    fn throw_error_at_current(&mut self, msg: &str) {
+    pub(super) fn throw_error_at_current(&mut self, msg: &str) {
         self.error_at(msg, self.current.clone());
     }
 
-    fn throw_error(&mut self, msg: &str) {
+    pub(super) fn throw_error(&mut self, msg: &str) {
         self.error_at(msg, self.previous.clone());
     }
 
-    fn parse_weave(&mut self, err_msg: &str) -> ParseResult<ParsedWeave> {
+    pub(super) fn parse_weave(&mut self, err_msg: &str) -> ParseResult<ParsedWeave> {
         self.consume(TokenType::Identifier, err_msg);
         let weave = self.previous.clone();
         let mut inner: Option<Box<ParsedWeave>> = None;
@@ -168,7 +164,7 @@ impl Parser {
         })
     }
 
-    fn sync(&mut self) {
+    pub(super) fn sync(&mut self) {
         self.panic = false;
 
         while !self.reached_end() {
@@ -196,7 +192,7 @@ impl Parser {
 
     // ----------------------- PARSE FUNCTIONS ----------------------//
 
-    fn declaration(&mut self) -> Option<Stmt> {
+    pub(super) fn declaration(&mut self) -> Option<Stmt> {
         let res: ParseResult<Stmt>;
         if self.match_token(TokenType::Mark) {
             res = self.variable_declaration(true);
@@ -296,106 +292,6 @@ impl Parser {
         })
     }
 
-    fn statement(&mut self) -> ParseResult<Stmt> {
-        if self.match_token(TokenType::Chant) {
-            self.chant_statment()
-        } else if self.match_token(TokenType::BraceLeft) {
-            self.block()
-        } else if self.match_token(TokenType::Fate) {
-            self.fate_statement()
-        } else if self.match_token(TokenType::While) {
-            self.while_statement()
-        } else if self.match_token(TokenType::Sever) {
-            self.sever_statement()
-        } else if self.match_token(TokenType::Flow) {
-            self.flow_statement()
-        } else if self.match_token(TokenType::Release) {
-            self.release_statement()
-        } else {
-            self.expression_statement()
-        }
-    }
-
-    fn block(&mut self) -> ParseResult<Stmt> {
-        let mut stmts: Vec<Stmt> = vec![];
-        while !self.check(TokenType::BraceRight) && !self.reached_end() {
-            if let Some(stmt) = self.declaration() {
-                stmts.push(stmt);
-            } else {
-                break;
-            }
-        }
-
-        self.consume(
-            TokenType::BraceRight,
-            "Expected '}' at the end of a block. Forgot about it?",
-        );
-
-        Ok(Stmt::Block { statements: stmts })
-    }
-
-    fn release_statement(&mut self) -> ParseResult<Stmt> {
-        if self.match_token(TokenType::SemiColon) {
-            return Ok(Stmt::Release {
-                token: self.previous.clone(),
-                expr: None,
-            });
-        }
-
-        let expr = self.expression()?;
-        let token = self.previous.clone();
-
-        self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
-
-        Ok(Stmt::Release {
-            token,
-            expr: Some(expr),
-        })
-    }
-
-    fn expression_statement(&mut self) -> ParseResult<Stmt> {
-        let e = self.expression()?;
-        self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
-        Ok(Stmt::ExprStmt { expr: e })
-    }
-
-    fn chant_statment(&mut self) -> ParseResult<Stmt> {
-        let exp = self.expression()?;
-        self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
-        Ok(Stmt::Chant { expression: exp })
-    }
-
-    fn while_statement(&mut self) -> ParseResult<Stmt> {
-        let condition = self.expression()?;
-        self.consume(TokenType::BraceLeft, "Expected '{' after loop condition.");
-        let body = self.block()?;
-        Ok(Stmt::While {
-            condition: condition,
-            body: Box::new(body),
-        })
-    }
-
-    fn fate_statement(&mut self) -> ParseResult<Stmt> {
-        let condition = self.expression()?;
-        self.consume(TokenType::BraceLeft, "Expected '{' at start of fate block.");
-        let then_branch = self.block()?;
-
-        let else_branch = if self.match_token(TokenType::Divert) {
-            self.consume(
-                TokenType::BraceLeft,
-                "Expected '{' at start of fate-else block.",
-            );
-            Some(Box::new(self.block()?))
-        } else {
-            None
-        };
-        Ok(Stmt::Fate {
-            condition: condition,
-            then_branch: Box::new(then_branch),
-            else_branch: else_branch,
-        })
-    }
-
     fn sign_declaration(&mut self) -> ParseResult<Stmt> {
         self.consume(TokenType::Identifier, "Expected a name for the sign.");
         let name = self.previous.clone();
@@ -439,321 +335,36 @@ impl Parser {
         Ok(Stmt::Sign { name, marks })
     }
 
-    fn sever_statement(&mut self) -> ParseResult<Stmt> {
-        self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
-        Ok(Stmt::Sever {
-            token: self.previous.clone(),
-        })
-    }
+    // --------------------- Statements ---------------------- //
 
-    fn flow_statement(&mut self) -> ParseResult<Stmt> {
-        self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
-        Ok(Stmt::Flow {
-            token: self.previous.clone(),
-        })
+    pub(super) fn statement(&mut self) -> ParseResult<Stmt> {
+        if self.match_token(TokenType::Chant) {
+            self.chant_statment()
+        } else if self.match_token(TokenType::BraceLeft) {
+            self.block()
+        } else if self.match_token(TokenType::Fate) {
+            self.fate_statement()
+        } else if self.match_token(TokenType::While) {
+            self.while_statement()
+        } else if self.match_token(TokenType::Sever) {
+            self.sever_statement()
+        } else if self.match_token(TokenType::Flow) {
+            self.flow_statement()
+        } else if self.match_token(TokenType::Release) {
+            self.release_statement()
+        } else {
+            self.expression_statement()
+        }
     }
 
     // ----------------------- Expression stuff -------------------------------//
-    fn expression(&mut self) -> ParseResult<Expr> {
+    pub(super) fn expression(&mut self) -> ParseResult<Expr> {
         self.parse_precedence(Precedence::Assign)
-    }
-
-    fn grouping(&mut self, _can_assign: bool) -> ParseResult<Expr> {
-        let exp = self.expression();
-        self.consume(
-            TokenType::ParenRight,
-            "Close the bracket!\nError: Expected ')' after expression.",
-        );
-        Ok(Expr::Grouping {
-            expression: Box::new(exp?),
-        })
-    }
-
-    fn number(&mut self, _can_assign: bool) -> ParseResult<Expr> {
-        let val: f64 = self.previous.lexeme.parse().unwrap();
-        Ok(Expr::Literal {
-            value: Value::Number(val),
-            token: self.previous.clone(),
-        })
-    }
-
-    fn literal(&mut self, _can_assign: bool) -> ParseResult<Expr> {
-        match self.previous.token_type {
-            TokenType::True => Ok(Expr::Literal {
-                value: Value::Bool(true),
-                token: self.previous.clone(),
-            }),
-            TokenType::False => Ok(Expr::Literal {
-                value: Value::Bool(false),
-                token: self.previous.clone(),
-            }),
-            _ => Err(ParseError("Error: UNKNOWN.... LITERAL?!".to_owned())),
-        }
-    }
-
-    fn string(&mut self, _can_assign: bool) -> ParseResult<Expr> {
-        let string = if self.previous.token_type == TokenType::String {
-            self.previous.lexeme.clone()
-        } else {
-            "".to_owned()
-        };
-
-        let mut expr = Expr::Literal {
-            value: Value::String(Rc::new(string)),
-            token: self.previous.clone(),
-        };
-
-        // Handle case where string starts with interpolation
-        if self.previous.token_type == TokenType::InterpolateStart {
-            let inner_expr = self.expression()?;
-            let plus = Token {
-                column: self.previous.column,
-                line: self.previous.line,
-                token_type: TokenType::Plus,
-                lexeme: self.previous.lexeme.clone(),
-            };
-
-            self.consume(
-                TokenType::InterpolateEnd,
-                "Expected ')' after interpolated expression.",
-            );
-
-            expr = Expr::Binary {
-                left: Box::new(expr),
-                right: Box::new(inner_expr),
-                operator: plus,
-            };
-        }
-
-        loop {
-            while self.match_token(TokenType::InterpolateStart) {
-                let inner_expr = self.expression()?;
-                let plus = Token {
-                    column: self.previous.column,
-                    line: self.previous.line,
-                    token_type: TokenType::Plus,
-                    lexeme: self.previous.lexeme.clone(),
-                };
-
-                self.consume(
-                    TokenType::InterpolateEnd,
-                    "Expected ')' after interpolated expression.",
-                );
-
-                expr = Expr::Binary {
-                    left: Box::new(expr),
-                    right: Box::new(inner_expr),
-                    operator: plus,
-                };
-            }
-
-            if self.match_token(TokenType::String) {
-                let next_str = Expr::Literal {
-                    value: Value::String(Rc::new(self.previous.lexeme.clone())),
-                    token: self.previous.clone(),
-                };
-
-                expr = Expr::Binary {
-                    left: Box::new(expr),
-                    right: Box::new(next_str),
-                    operator: Token {
-                        column: self.previous.column,
-                        line: self.previous.line,
-                        token_type: TokenType::Plus,
-                        lexeme: self.previous.lexeme.clone(),
-                    },
-                };
-            } else {
-                break;
-            }
-        }
-        Ok(expr)
-    }
-
-    fn unary(&mut self, _can_assign: bool) -> ParseResult<Expr> {
-        let op = self.previous.clone();
-        let exp = self.parse_precedence(Precedence::Unary)?;
-
-        match op.token_type {
-            TokenType::Minus | TokenType::Bang => Ok(Expr::Unary {
-                operand: Box::new(exp),
-                operator: op,
-            }),
-            _ => Err(ParseError("Unexpected! Verymuch!!".to_owned())),
-        }
-    }
-
-    fn binary(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
-        let op = self.previous.clone();
-        let rule = self.get_rule(op.token_type);
-        let rhs = self.parse_precedence(rule.precedence.next())?;
-
-        match op.token_type {
-            TokenType::Plus
-            | TokenType::Minus
-            | TokenType::Star
-            | TokenType::Slash
-            | TokenType::BangEqual
-            | TokenType::EqualEqual
-            | TokenType::Less
-            | TokenType::LessEqual
-            | TokenType::Greater
-            | TokenType::GreaterEqual
-            | TokenType::Percent => Ok(Expr::Binary {
-                left: Box::new(lhs),
-                right: Box::new(rhs),
-                operator: op,
-            }),
-            _ => Err(ParseError("idk anymore, unreachable ig".to_owned())),
-        }
-    }
-
-    fn cast(&mut self, _can_assign: bool) -> ParseResult<Expr> {
-        self.consume(TokenType::Identifier, "Expected a spell name to cast.");
-        let spell_name = self.previous.clone();
-
-        let mut reagents: Vec<Expr> = vec![];
-
-        if self.match_token(TokenType::With) {
-            // self.consume(TokenType::With, "Expected 'with' after spell name.");
-
-            // Parse the reagent expressions
-            loop {
-                reagents.push(self.expression()?);
-                if self.match_token(TokenType::Comma) {
-                    continue;
-                } else {
-                    // End of reagent list when next token isn't a comma!
-                    break;
-                }
-            }
-        }
-
-        Ok(Expr::Cast {
-            reagents,
-            callee: spell_name,
-        })
-    }
-
-    fn draw(&mut self, _can_assign: bool) -> ParseResult<Expr> {
-        self.consume(TokenType::Identifier, "Expected a Sign name to draw!");
-        let sign_name = self.previous.clone();
-
-        let mut marks: Vec<EtchedMark> = vec![];
-
-        if self.match_token(TokenType::With) {
-            self.consume(TokenType::BraceLeft, "Expected '{' after 'with'");
-
-            // Parse the marks expressions
-            loop {
-                if self.match_token(TokenType::Identifier) {
-                    // self.consume(TokenType::Identifier, "Expected a mark name!");
-                    let param = self.previous.clone();
-
-                    self.consume(TokenType::Colon, "Expected a ':' after the mark name.");
-
-                    let mrk = EtchedMark {
-                        expr: self.expression()?,
-                        name: param,
-                    };
-
-                    marks.push(mrk);
-
-                    if self.match_token(TokenType::Comma) {
-                        continue;
-                    } else {
-                        // End of mark list when next token isn't a comma!
-                        break;
-                    }
-                } else {
-                    // simply break out of the loop, any errors will be caught by following code (hopefully)
-                    break;
-                }
-            }
-
-            self.consume(
-                TokenType::BraceRight,
-                "Expected '}' after defining the marks for the sign!",
-            );
-        }
-
-        Ok(Expr::Draw {
-            marks,
-            callee: sign_name,
-        })
-    }
-
-    fn access(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
-        // nothing much to do here than just getting the property name.
-        self.consume(TokenType::Identifier, "Expected a property name after '.'!");
-        Ok(Expr::Access {
-            material: Box::new(lhs),
-            property: self.previous.clone(),
-        })
-    }
-
-    fn variable(&mut self, _can_assign: bool) -> ParseResult<Expr> {
-        let var_name = self.previous.clone();
-
-        // if a '=' is found after the variable name, it should be a assignment
-        if self.match_token(TokenType::Equal) {
-            return Ok(Expr::Assignment {
-                name: var_name,
-                value: Box::new(self.expression()?),
-            });
-        }
-
-        // else, it should be a variable access
-        Ok(Expr::Variable { name: var_name })
-    }
-
-    fn deck(&mut self, _can_assign: bool) -> ParseResult<Expr> {
-        let mut elements: Vec<Expr> = vec![];
-
-        // Handle empty deck case []
-        if self.check(TokenType::SquareRight) {
-            self.advance();
-            return Ok(Expr::Deck {
-                elements,
-                token: self.previous.clone(),
-            });
-        }
-
-        // Parse elements
-        loop {
-            elements.push(self.expression()?);
-
-            if self.match_token(TokenType::Comma) && !self.check(TokenType::SquareRight) {
-                continue;
-            } else {
-                break;
-            }
-        }
-
-        self.consume(TokenType::SquareRight, "Expected ']' after deck elements.");
-        Ok(Expr::Deck {
-            elements,
-            token: self.previous.clone(),
-        })
-    }
-
-    fn extract(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
-        let index_expr = self.expression()?;
-        self.consume(
-            TokenType::SquareRight,
-            "Expected ']' after deck access expression.",
-        );
-
-        Ok(Expr::Extract {
-            deck: Box::new(lhs),
-            index: Box::new(index_expr),
-            token: self.previous.clone(),
-        })
     }
 
     // ----------------------- Core -------------------------------//
 
-    fn parse_precedence(&mut self, precedence: Precedence) -> ParseResult<Expr> {
+    pub(super) fn parse_precedence(&mut self, precedence: Precedence) -> ParseResult<Expr> {
         self.advance();
         let rule = self.get_rule(self.previous.token_type).prefix;
 
@@ -797,14 +408,6 @@ impl Parser {
                                 token: equals,
                             });
                         }
-                        // Expr::Access { material, property } => {
-                        //     return Ok(Expr::Set {
-                        //         material,
-                        //         property,
-                        //         value: Box::new(value),
-                        //         token: equals,
-                        //     });
-                        // }
                         _ => {}
                     }
 
@@ -818,13 +421,8 @@ impl Parser {
         }
     }
 
-    fn get_rule(&self, token_type: TokenType) -> ParseRule {
+    pub(super) fn get_rule(&self, token_type: TokenType) -> ParseRule {
         match token_type {
-            TokenType::Alias => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
             TokenType::Bang => ParseRule {
                 prefix: Some(Self::unary),
                 infix: None,
@@ -835,17 +433,7 @@ impl Parser {
                 infix: Some(Self::binary),
                 precedence: Precedence::Equality,
             },
-            TokenType::Bind => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
             TokenType::BraceLeft => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::BraceRight => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
@@ -855,45 +443,10 @@ impl Parser {
                 infix: None,
                 precedence: Precedence::Call,
             },
-            TokenType::Chant => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::Colon => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::ColonColon => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::Comma => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::Divert => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
             TokenType::Dot => ParseRule {
                 prefix: None,
                 infix: Some(Self::access),
                 precedence: Precedence::Call,
-            },
-            TokenType::Eof => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::Equal => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
             },
             TokenType::EqualEqual => ParseRule {
                 prefix: None,
@@ -902,16 +455,6 @@ impl Parser {
             },
             TokenType::False => ParseRule {
                 prefix: Some(Self::literal),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::Fate => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::Flow => ParseRule {
-                prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -935,11 +478,6 @@ impl Parser {
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenType::InterpolateEnd => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
             TokenType::Less => ParseRule {
                 prefix: None,
                 infix: Some(Self::binary),
@@ -949,11 +487,6 @@ impl Parser {
                 prefix: None,
                 infix: Some(Self::binary),
                 precedence: Precedence::Compare,
-            },
-            TokenType::Mark => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
             },
             TokenType::Minus => ParseRule {
                 prefix: Some(Self::unary),
@@ -970,11 +503,6 @@ impl Parser {
                 infix: None,
                 precedence: Precedence::Call,
             },
-            TokenType::ParenRight => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
             TokenType::Percent => ParseRule {
                 prefix: None,
                 infix: Some(Self::binary),
@@ -985,22 +513,7 @@ impl Parser {
                 infix: Some(Self::binary),
                 precedence: Precedence::Term,
             },
-            TokenType::Release => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
             TokenType::Seal => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::SemiColon => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenType::Sever => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
@@ -1010,20 +523,10 @@ impl Parser {
                 infix: Some(Self::binary),
                 precedence: Precedence::Factor,
             },
-            TokenType::Spell => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
             TokenType::SquareLeft => ParseRule {
                 prefix: Some(Self::deck),
                 infix: Some(Self::extract),
                 precedence: Precedence::Call,
-            },
-            TokenType::SquareRight => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
             },
             TokenType::Star => ParseRule {
                 prefix: None,
@@ -1040,27 +543,17 @@ impl Parser {
                 infix: None,
                 precedence: Precedence::Call,
             },
-            TokenType::Tome => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
             TokenType::True => ParseRule {
                 prefix: Some(Self::literal),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenType::While => ParseRule {
+            // default rule
+            _ => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenType::Error => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            _ => panic!("Some rule went haywire!"),
         }
     }
 }

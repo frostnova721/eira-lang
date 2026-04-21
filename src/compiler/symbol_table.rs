@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::compiler::weaves::Weave;
 
@@ -13,7 +13,7 @@ pub struct Symbol {
     pub depth: usize,
     pub mutable: bool,
     pub slot_idx: usize,
-    pub parent: Option<Box<Symbol>>,
+    pub parent: Option<Rc<Symbol>>,
 }
 
 impl SymbolTable {
@@ -37,7 +37,7 @@ impl SymbolTable {
         weave: Weave,
         mutable: bool,
         slot_idx: usize,
-        parent: Option<Box<Symbol>>,
+        parent: Option<Rc<Symbol>>,
     ) -> Option<Symbol> {
         let depth = self.scopes.len() - 1;
 
@@ -48,7 +48,7 @@ impl SymbolTable {
                 weave: weave,
                 depth: depth,
                 slot_idx: slot_idx,
-                parent,
+                parent: parent,
             };
             scope.insert(name, symbol.clone());
             return Some(symbol);
@@ -58,27 +58,6 @@ impl SymbolTable {
             None
         }
     }
-
-    // pub fn define_constant(&mut self, weave: Weave) -> Option<Symbol> {
-    //      let depth = self.scopes.len() - 1;
-
-    //     if let Some(scope) = self.scopes.last_mut() {
-    //         let symbol = Symbol {
-    //             name: format!("@const_{}", scope.len()),
-    //             mutable: false,
-    //             weave: ,
-    //             depth: depth,
-    //             slot_idx: scope.len(),
-    //             parent,
-    //         };
-    //         scope.insert(name, symbol.clone());
-    //         return Some(symbol);
-    //     } else {
-    //         // This branch is literally impossible!
-    //         println!("No scopes???!!! Impossible!");
-    //         None
-    //     }
-    // }
 
     pub fn resolve(&self, name: &String) -> Option<&Symbol> {
         for scope in self.scopes.iter().rev() {
