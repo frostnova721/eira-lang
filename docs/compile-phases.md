@@ -21,5 +21,3 @@ This is where the Eira's Weave system is checked. The behavioural capabilities o
 ## Code Gen Phase
 
 The Code Gen generates the Eira bytecode from the resulting AST
-
-> **currently whipping up the outer world's mana for the spells! Stay tuned for more!**
