@@ -1,18 +1,27 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::compiler::weaves::Weave;
+use crate::{
+    compiler::weaves::Weave,
+    values::{sign::SignInfo, spell::SpellInfo},
+};
 
 pub struct SymbolTable {
     scopes: Vec<HashMap<String, Symbol>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum SymbolKind {
+    Variable { mutable: bool, slot_idx: usize },
+    Spell(SpellInfo, usize),
+    Sign(SignInfo),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Symbol {
     pub name: String,
     pub weave: Weave,
     pub depth: usize,
-    pub mutable: bool,
-    pub slot_idx: usize,
+    pub kind: SymbolKind,
     pub parent: Option<Rc<Symbol>>,
 }
 
@@ -31,7 +40,7 @@ impl SymbolTable {
         self.scopes.pop();
     }
 
-    pub fn define(
+    pub fn define_variable(
         &mut self,
         name: String,
         weave: Weave,
@@ -39,16 +48,63 @@ impl SymbolTable {
         slot_idx: usize,
         parent: Option<Rc<Symbol>>,
     ) -> Option<Symbol> {
+        self.add_symbol(
+            name,
+            weave,
+            SymbolKind::Variable { mutable, slot_idx },
+            parent,
+        )
+    }
+
+    pub fn define_spell(
+        &mut self,
+        name: String,
+        weave: Weave,
+        info: SpellInfo,
+        slot_idx: usize,
+        parent: Option<Rc<Symbol>>,
+    ) -> Option<Symbol> {
+        let kind = SymbolKind::Spell(info, slot_idx);
+        self.add_symbol(
+            name,
+            weave,
+            kind, 
+            parent,
+        )
+    }
+
+    pub fn define_sign(
+        &mut self,
+        name: String,
+        weave: Weave,
+        info: SignInfo,
+        parent: Option<Rc<Symbol>>,
+    ) -> Option<Symbol> {
+        let kind = SymbolKind::Sign(info);
+        self.add_symbol(
+            name,
+            weave,
+            kind, 
+            parent,
+        )
+    }
+
+    pub fn add_symbol(
+        &mut self,
+        name: String,
+        weave: Weave,
+        kind: SymbolKind,
+        parent: Option<Rc<Symbol>>,
+    ) -> Option<Symbol> {
         let depth = self.scopes.len() - 1;
 
         if let Some(scope) = self.scopes.last_mut() {
             let symbol = Symbol {
                 name: name.clone(),
-                mutable: mutable,
                 weave: weave,
                 depth: depth,
-                slot_idx: slot_idx,
                 parent: parent,
+                kind: kind,
             };
             scope.insert(name, symbol.clone());
             return Some(symbol);

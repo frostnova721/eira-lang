@@ -90,5 +90,5 @@ pub struct SignInfo {
     pub schema: SignSchema,
     pub marks: HashMap<String, Weave>,
     pub attunements: HashMap<String, SpellInfo>,
-    pub symbol: Symbol,
+    // pub symbol: Symbol,
 }

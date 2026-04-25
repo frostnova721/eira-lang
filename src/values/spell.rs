@@ -26,13 +26,13 @@ pub struct SpellInfo {
     pub release_weave: Weave,
 
     /// The actual weave that was released
-    pub released_weave: Option<Weave>,
+    // pub released_weave: Option<Weave>,
 
     /// The representation for symbol table
-    pub symbol: Symbol,
+    // pub symbol: Symbol,
 
     /// The symbol representing the released weave (How about a gamble?)
-    pub released_symbol: Option<Symbol>,
+    // pub released_symbol: Option<Symbol>,
 
     /// The upvalues captured by the spell
     pub upvalues: Vec<UpValue>,
