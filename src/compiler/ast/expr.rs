@@ -5,7 +5,7 @@ use crate::{
         symbol_table::Symbol,
         weaves::Weave,
     },
-    values::{Value, sign::SignInfo},
+    values::{Value},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -105,7 +105,7 @@ pub enum WovenExpr {
         marks: Vec<WovenEtchedMark>,
         callee: Token,
         weave: Weave,
-        sign_info: SignInfo,
+        sign_symbol: Symbol,
     },
     Access {
         material: Box<WovenExpr>,
@@ -176,7 +176,7 @@ impl WovenExpr {
                 marks: _,
                 callee: _,
                 weave,
-                sign_info: _,
+                sign_symbol: _,
             } => weave.clone(),
             WovenExpr::Access {
                 material: _,
@@ -225,8 +225,8 @@ impl WovenExpr {
                 marks: _,
                 callee: _,
                 weave: _,
-                sign_info,
-            } => Some(&sign_info.symbol),
+                sign_symbol,
+            } => Some(&sign_symbol),
             _ => None,
         }
     }
@@ -274,7 +274,7 @@ impl WovenExpr {
                 marks: _,
                 callee,
                 weave: _,
-                sign_info: _,
+                sign_symbol: _,
             } => callee.clone(),
             WovenExpr::Access {
                 material: _,

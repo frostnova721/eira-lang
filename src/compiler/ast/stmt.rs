@@ -7,7 +7,6 @@ use crate::{
         scanner::Token,
         symbol_table::Symbol,
     },
-    values::{sign::SignInfo, spell::SpellInfo},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -94,7 +93,7 @@ pub enum WovenStmt {
         name: Token,
         reagents: Vec<WovenReagent>,
         body: Box<WovenStmt>,
-        spell: SpellInfo,
+        spell_symbol: Symbol,
     },
     Release {
         token: Token,
@@ -103,7 +102,7 @@ pub enum WovenStmt {
     Sign {
         name: Token,
         marks: Vec<WovenMark>,
-        info: SignInfo,
+        sign_symbol: Symbol,
     },
 }
 

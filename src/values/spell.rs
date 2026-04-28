@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    compiler::{reagents::WovenReagent, symbol_table::Symbol, weaves::Weave},
+    compiler::{reagents::WovenReagent, weaves::Weave},
     values::value::Value,
 };
 

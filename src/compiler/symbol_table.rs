@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     compiler::weaves::Weave,
@@ -11,9 +11,25 @@ pub struct SymbolTable {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SymbolKind {
-    Variable { mutable: bool, slot_idx: usize },
-    Spell(SpellInfo, usize),
+    Variable { mutable: bool },
+    Spell(SpellInfo),
     Sign(SignInfo),
+}
+
+impl SymbolKind {
+    pub fn get_spell_info(&self) -> Option<SpellInfo> {
+        match self {
+            Self::Spell(i) => Some(i.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn get_sign_info(&self) -> Option<SignInfo> {
+        match self {
+            Self::Sign(i) => Some(i.clone()),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,7 +37,8 @@ pub struct Symbol {
     pub name: String,
     pub weave: Weave,
     pub depth: usize,
-    pub kind: SymbolKind,
+    pub kind: RefCell<SymbolKind>,
+    pub slot_idx: usize,
     pub parent: Option<Rc<Symbol>>,
 }
 
@@ -40,6 +57,10 @@ impl SymbolTable {
         self.scopes.pop();
     }
 
+    pub fn modify_symbol(&mut self, symbol: Symbol) {
+        self.scopes[symbol.depth].insert(symbol.name.clone(), symbol);
+    }
+
     pub fn define_variable(
         &mut self,
         name: String,
@@ -51,8 +72,9 @@ impl SymbolTable {
         self.add_symbol(
             name,
             weave,
-            SymbolKind::Variable { mutable, slot_idx },
+            SymbolKind::Variable { mutable },
             parent,
+            slot_idx,
         )
     }
 
@@ -64,13 +86,8 @@ impl SymbolTable {
         slot_idx: usize,
         parent: Option<Rc<Symbol>>,
     ) -> Option<Symbol> {
-        let kind = SymbolKind::Spell(info, slot_idx);
-        self.add_symbol(
-            name,
-            weave,
-            kind, 
-            parent,
-        )
+        let kind = SymbolKind::Spell(info);
+        self.add_symbol(name, weave, kind, parent, slot_idx)
     }
 
     pub fn define_sign(
@@ -79,14 +96,10 @@ impl SymbolTable {
         weave: Weave,
         info: SignInfo,
         parent: Option<Rc<Symbol>>,
+        slot_idx: usize,
     ) -> Option<Symbol> {
         let kind = SymbolKind::Sign(info);
-        self.add_symbol(
-            name,
-            weave,
-            kind, 
-            parent,
-        )
+        self.add_symbol(name, weave, kind, parent, slot_idx)
     }
 
     pub fn add_symbol(
@@ -95,6 +108,7 @@ impl SymbolTable {
         weave: Weave,
         kind: SymbolKind,
         parent: Option<Rc<Symbol>>,
+        slot_idx: usize,
     ) -> Option<Symbol> {
         let depth = self.scopes.len() - 1;
 
@@ -104,7 +118,8 @@ impl SymbolTable {
                 weave: weave,
                 depth: depth,
                 parent: parent,
-                kind: kind,
+                kind: RefCell::new(kind),
+                slot_idx: slot_idx,
             };
             scope.insert(name, symbol.clone());
             return Some(symbol);

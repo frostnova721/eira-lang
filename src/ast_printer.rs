@@ -365,9 +365,9 @@ impl AstPrinter {
                 name,
                 reagents,
                 body,
-                spell,
+                spell_symbol,
             } => {
-                let ret_str = format!(" -> {:?}", spell.release_weave);
+                let ret_str = format!(" -> {:?}", spell_symbol.kind.borrow().get_spell_info().unwrap().release_weave);
                 self.write(
                     prefix,
                     is_last,
@@ -391,11 +391,12 @@ impl AstPrinter {
                     self.print_woven_expr(&Self::next_prefix(prefix, is_last), e, true);
                 }
             }
-            WovenStmt::Sign { name, marks, info } => {
+            WovenStmt::Sign { name, marks, sign_symbol } => {
                 let info_str = if self.verbosity >= 1 {
+                    let info = sign_symbol.kind.borrow().get_sign_info().unwrap();
                     format!(
                         " [slot:{}, fields:{}]",
-                        info.symbol.slot_idx,
+                        sign_symbol.slot_idx,
                         info.schema.field_count()
                     )
                 } else {
@@ -510,14 +511,14 @@ impl AstPrinter {
                 marks,
                 callee,
                 weave,
-                sign_info,
+                sign_symbol,
             } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 let info_str = if self.verbosity >= 1 {
                     format!(
                         " [slot:{}, fields:{}]",
-                        sign_info.symbol.slot_idx,
-                        sign_info.schema.field_count()
+                        sign_symbol.slot_idx,
+                        sign_symbol.kind.borrow().get_sign_info().unwrap().schema.field_count()
                     )
                 } else {
                     String::new()

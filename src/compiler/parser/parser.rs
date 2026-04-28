@@ -375,21 +375,21 @@ impl Parser {
             }
             Some(prefix_rule) => {
                 let can_assign = precedence.power() <= Precedence::Assign.power();
-                let mut lhs = prefix_rule(self, can_assign);
+                let mut lhs = prefix_rule(self, can_assign)?;
 
                 while precedence.power()
                     <= self.get_rule(self.current.token_type).precedence.power()
                 {
                     self.advance();
                     let infix_rule = self.get_rule(self.previous.token_type).infix.unwrap();
-                    lhs = infix_rule(self, lhs?, can_assign);
+                    lhs = infix_rule(self, lhs, can_assign)?;
                 }
 
                 if can_assign && self.match_token(TokenType::Equal) {
                     let equals = self.previous.clone();
                     let value = self.expression()?;
 
-                    match lhs? {
+                    match lhs {
                         Expr::Variable { name } => {
                             return Ok(Expr::Assignment {
                                 name,
@@ -416,7 +416,7 @@ impl Parser {
                     return Err(ParseError("".to_owned()));
                 }
 
-                return lhs;
+                return Ok(lhs);
             }
         }
     }

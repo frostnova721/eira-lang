@@ -15,8 +15,7 @@ use crate::{
     runtime::Instruction,
     values::{
         Value,
-        sign::SignInfo,
-        spell::{ClosureObject, SpellInfo, SpellObject},
+        spell::{ClosureObject, SpellObject},
     },
 };
 
@@ -260,10 +259,10 @@ impl CodeGen {
                 name,
                 reagents,
                 body,
-                spell,
-            } => self.gen_spell_instructions(name, reagents, *body, spell),
+                spell_symbol,
+            } => self.gen_spell_instructions(name, reagents, *body, spell_symbol),
             WovenStmt::Release { token: _, expr } => self.gen_release_instructions(expr),
-            WovenStmt::Sign { name, marks, info } => self.gen_sign_instructions(name, marks, info),
+            WovenStmt::Sign { name, marks, sign_symbol } => self.gen_sign_instructions(name, marks, sign_symbol),
         }
     }
 
@@ -314,8 +313,8 @@ impl CodeGen {
                 marks,
                 callee,
                 weave,
-                sign_info,
-            } => self.gen_draw_instruction(marks, callee, weave, sign_info),
+                sign_symbol,
+            } => self.gen_draw_instruction(marks, callee, weave, sign_symbol),
             WovenExpr::Access {
                 material,
                 property,
@@ -474,9 +473,9 @@ impl CodeGen {
         marks: Vec<WovenEtchedMark>,
         _callee: Token,
         _weave: Weave,
-        sign_info: SignInfo,
+        sign_symbol: Symbol,
     ) -> GenResult<u8> {
-        let reg = self.gen_variable_instruction(sign_info.symbol.clone())?;
+        let reg = self.gen_variable_instruction(sign_symbol.clone())?;
         let mut mark_regs: Vec<u8> = Vec::with_capacity(marks.len());
 
         let new_sign_reg = self.get_next_register()?;
@@ -487,6 +486,8 @@ impl CodeGen {
         };
 
         self.instructions.push(inst);
+
+        let sign_info = sign_symbol.kind.borrow().get_sign_info().unwrap();
 
         let schema = sign_info.schema;
 
@@ -596,7 +597,7 @@ impl CodeGen {
         &mut self,
         _name: Token,
         _marks: Vec<WovenMark>,
-        info: SignInfo,
+        sign_symbol: Symbol,
     ) -> GenResult<u8> {
         // println!("{:?}", marks);
         // let mut field_names: Vec<String> = vec![];
@@ -612,8 +613,11 @@ impl CodeGen {
         // for field_name in field_names {
         // }
 
-        let reg = self.write_constant(Value::SignSchema(Rc::new(info.schema)))?;
-        self.set_value_instruction(info.symbol, reg)?;
+        // unwrap cus its almost sure that sign info is contained it the symbol
+        let sign_info = sign_symbol.kind.borrow().get_sign_info().unwrap();
+
+        let reg = self.write_constant(Value::SignSchema(Rc::new(sign_info.schema)))?;
+        self.set_value_instruction(sign_symbol, reg)?;
 
         Ok(reg)
     }
@@ -623,7 +627,7 @@ impl CodeGen {
         name: Token,
         reagents: Vec<WovenReagent>,
         body: WovenStmt,
-        spell_info: SpellInfo,
+        spell_symbol: Symbol,
     ) -> GenResult<u8> {
         // Save current state before entering spell compilation context
         let saved_reg_idx = self.register_index;
@@ -631,6 +635,8 @@ impl CodeGen {
         let saved_curr_upval_count = self.curr_upval_count;
         let saved_inspell = self.in_spell;
         let saved_upval_map = self.upval_map.clone();
+
+        let spell_info = spell_symbol.kind.borrow().get_spell_info().unwrap();
 
         // Temporarily swap instructions to compile spell body
         std::mem::swap(&mut self.instructions, &mut spell_instructions);
@@ -705,7 +711,7 @@ impl CodeGen {
 
         // Write the constant and set the value
         let const_idx = self.write_constant(Value::Closure(Rc::new(closure)))?;
-        self.set_value_instruction(spell_info.symbol, const_idx)?;
+        self.set_value_instruction(spell_symbol, const_idx)?;
 
         Ok(const_idx)
     }
