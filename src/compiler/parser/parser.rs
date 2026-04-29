@@ -307,15 +307,17 @@ impl Parser {
                         TokenType::Colon,
                         "Expected a weave definition for the field.",
                     );
-                    self.consume(
-                        TokenType::Identifier,
-                        "Expected a weave name to bind with the sign's mark!",
-                    );
-                    let weave_name = self.previous.clone();
+                    
+                    let parsed_weave = self.parse_weave("Expected a weave name to bind with the sign's mark!")?;
+                    // self.consume(
+                    //     TokenType::Identifier,
+                    //     "Expected a weave name to bind with the sign's mark!",
+                    // );
+                    // let weave_name = self.previous.clone();
 
                     marks.push(Mark {
                         name: mark_name,
-                        weave_name,
+                        parsed_weave: parsed_weave,
                     });
 
                     if self.match_token(TokenType::Comma) {

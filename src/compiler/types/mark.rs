@@ -1,12 +1,12 @@
 use crate::{
     Token,
-    compiler::{Expr, WovenExpr, weaves::Weave},
+    compiler::{Expr, WovenExpr, parser::types::ParsedWeave, weaves::Weave},
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mark {
     pub name: Token,
-    pub weave_name: Token,
+    pub parsed_weave: ParsedWeave,
 }
 
 #[derive(Debug, Clone, PartialEq)]

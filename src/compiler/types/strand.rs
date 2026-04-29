@@ -29,5 +29,8 @@ pub const EQUATABLE_STRAND: u64 = 1 << 9;
 /// Callable items (spells, methods)
 pub const CALLABLE_STRAND: u64 = 1 << 10;
 
+/// Presence of this strand can cause the value to be empty
+pub const MAYBE_STRAND: u64 = 1 << 11;
+
 // Emptiness
 pub const NO_STRAND: u64 = 0;

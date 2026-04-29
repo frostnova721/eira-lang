@@ -1,8 +1,6 @@
 use crate::compiler::{
     strand::{
-        ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND,
-        EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND,
-        ORDINAL_STRAND, SUBTRACTIVE_STRAND,
+        ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND, MAYBE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND
     },
     tapestry::Tapestry,
 };
@@ -17,6 +15,7 @@ pub enum Weave {
     },
     Sign(String /* name */),
     Deck(Box<Weave>, Option<usize>),
+    Maybe(Box<Weave>),
     Empty,
 }
 
@@ -41,6 +40,7 @@ impl Weave {
             Weave::Spell { .. } => Tapestry::new(CALLABLE_STRAND),
             Weave::Sign(_) => Tapestry::new(NO_STRAND),
             Weave::Deck(_, _) => Tapestry::new(INDEXIVE_STRAND | ITERABLE_STRAND),
+            Weave::Maybe(_) => Tapestry::new(MAYBE_STRAND)
         }
     }
 
@@ -59,7 +59,8 @@ impl Weave {
                     ""
                 };
                 format!("Deck<{}{}>", inner.get_name(), str)
-            }
+            },
+            Weave::Maybe(base) => format!("Maybe<{}>", base.get_name()),
         }
     }
 }
@@ -118,6 +119,16 @@ impl Weaver {
     pub fn weave_deck(base: Weave, inner: Weave, capacity: Option<usize>) -> WeaverResult<Weave> {
         match base {
             Weave::Deck(_, _) => Ok(Weave::Deck(Box::new(inner), capacity)),
+            _ => Err(WeaverError(format!(
+                "The weave '{}' cannot contain any sub weaves!",
+                base.get_name()
+            ))),
+        }
+    }
+
+    pub fn weave_maybe(base: Weave, inner: Weave) -> WeaverResult<Weave> {
+        match base {
+            Weave::Maybe(_) => Ok(Weave::Maybe(Box::new(inner))),
             _ => Err(WeaverError(format!(
                 "The weave '{}' cannot contain any sub weaves!",
                 base.get_name()

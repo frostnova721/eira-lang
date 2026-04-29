@@ -266,7 +266,7 @@ impl AstPrinter {
         self.write(
             prefix,
             is_last,
-            &format!("{}: {}", mark.name.lexeme, mark.weave_name.lexeme),
+            &format!("{}: {}", mark.name.lexeme, mark.parsed_weave.base.lexeme),
         );
     }
 

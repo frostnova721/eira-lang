@@ -8,9 +8,7 @@ use crate::{
         reagents::WovenReagent,
         scanner::Token,
         strand::{
-            ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND,
-            DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND,
-            MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND,
+            ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND, MAYBE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND
         },
         symbol_table::{Symbol, SymbolKind, SymbolTable},
         token_type::TokenType,
@@ -646,7 +644,7 @@ impl WeaveAnalyzer {
                         );
                     }
                     names.push(m.name.lexeme.clone());
-                    if let Some(mark_weave) = self.get_weave_from_name(&m.weave_name.lexeme) {
+                    let mark_weave = self.analyze_parsed_weave(m.parsed_weave)?;
                         w_marks.push(WovenMark {
                             name: m.name.clone(),
                             weave: mark_weave.clone(),
@@ -654,15 +652,15 @@ impl WeaveAnalyzer {
 
                         sign_info.marks.insert(m.name.lexeme.clone(), mark_weave);
                         sign_info.schema.add_field(m.name.lexeme);
-                    } else {
-                        return self.error(
-                            &format!(
-                                "Couldn't find the weave '{}' within the Eira's library!",
-                                m.weave_name.lexeme
-                            ),
-                            m.weave_name,
-                        );
-                    }
+                    // } else {
+                    //     return self.error(
+                    //         &format!(
+                    //             "Couldn't find the weave '{}' within the Eira's library!",
+                    //             m.weave_name.lexeme
+                    //         ),
+                    //         m.weave_name,
+                    //     );
+                    // }
                 }
 
                 let new_symbol = Symbol { name: symbol.name, weave: symbol.weave, depth: symbol.depth, kind: 
@@ -1479,6 +1477,7 @@ impl WeaveAnalyzer {
             ITERABLE_STRAND => "ITERABLE",
             EQUATABLE_STRAND => "EQUATABLE",
             CALLABLE_STRAND => "CALLABLE",
+            MAYBE_STRAND => "MAYBE",
             NO_STRAND => "NONE",
             _ => "UNKNOWN",
         }
@@ -1496,6 +1495,7 @@ impl WeaveAnalyzer {
                 release: Box::new(Weave::Empty),
             }),
             "Deck" => Some(Weave::Deck(Box::new(Weave::Empty), None)),
+            "Maybe" => Some(Weave::Empty),
             _ => {
                 // match user defined types!
                 let Some(symbol) = self.symbol_table.resolve(&name.to_string()) else {

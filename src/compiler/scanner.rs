@@ -323,6 +323,7 @@ impl<'a> Scanner<'a> {
             '<' => self.make_token(TokenType::Less),
 
             '~' => self.make_token(TokenType::Tilde),
+            '?' => self.make_token(TokenType::QuestionMark),
             '"' => {
                 self.error_token("Direct strings on interpolation is'nt supported.")
                 // self.mode = ScanMode::InString { quote: '"' };
