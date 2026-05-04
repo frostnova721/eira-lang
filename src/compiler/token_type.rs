@@ -30,6 +30,7 @@ pub enum TokenType {
     Flow,   // continue
     Weave,  // types (more like set of behaviours)d
     Deck,   // array type
+    Vanish, // sets a Maybe<T> to empty
 
     // Connector words
     With, // used in casting
@@ -65,6 +66,7 @@ pub enum TokenType {
     Or,
     OrOr,  // |
     Tilde, // ~
+    Underscore, // _
 
     Identifier,
     Number,

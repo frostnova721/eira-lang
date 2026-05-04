@@ -487,6 +487,7 @@ fn is_number(c: char) -> bool {
 
 fn identifier_type(ident: &str) -> TokenType {
     match ident {
+        "_" => TokenType::Underscore,
         "attune" => TokenType::Attune,
         "bind" => TokenType::Bind,
         "cast" => TokenType::Cast,
@@ -511,6 +512,7 @@ fn identifier_type(ident: &str) -> TokenType {
         "true" => TokenType::True,
         "while" => TokenType::While,
         "with" => TokenType::With,
+        "vanish" => TokenType::Vanish,
         _ => TokenType::Identifier,
     }
 }

@@ -98,4 +98,16 @@ impl Parser {
             token: self.previous.clone(),
         })
     }
+
+    pub(super) fn vanish_statement(&mut self) -> ParseResult<Stmt> {
+        let tkn = self.previous.clone();
+        let expr = self.expression()?;
+        
+        self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
+        
+        Ok(Stmt::Vanish {
+            token: tkn,
+            target: expr,
+        })
+    }
 }

@@ -1,9 +1,9 @@
 sign A {
-  val: Num
+  val: Maybe<Num>
 }
 
 mark a = ~A with {
-  val: 2,
+  val: _,
 };
 
 chant a.val;
@@ -11,3 +11,5 @@ chant a.val;
 a.val = 3;
 
 chant a.val;
+
+vanish a.val;

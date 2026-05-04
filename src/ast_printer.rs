@@ -164,6 +164,10 @@ impl AstPrinter {
                     self.print_mark(&next, m, i == len - 1);
                 }
             }
+            Stmt::Vanish { target, token } => {
+                self.write(prefix, is_last, &format!("Vanish: {}", token.lexeme));
+                self.print_expr(&Self::next_prefix(prefix, is_last), target, true);
+            }
         }
     }
 
@@ -256,6 +260,9 @@ impl AstPrinter {
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_expr(&next, material, false);
                 self.print_expr(&next, value, true);
+            },
+            Expr::Blank { token } => {
+              self.write(prefix, is_last, &format!("Blank: {}", token.lexeme));  
             },
         }
     }

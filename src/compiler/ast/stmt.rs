@@ -55,6 +55,10 @@ pub enum Stmt {
         name: Token,
         marks: Vec<Mark>,
     },
+    Vanish {
+        target: Expr,
+        token: Token,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

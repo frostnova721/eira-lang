@@ -296,7 +296,7 @@ impl CodeGen {
                 name: _,
                 weave: _,
                 symbol,
-            } => self.gen_variable_instruction(symbol),
+            } => self.gen_variable_instruction(&symbol),
             WovenExpr::Grouping {
                 expression,
                 weave: _,
@@ -355,7 +355,7 @@ impl CodeGen {
         _property: Token,
         value: WovenExpr,
         field_name_idx: u16,
-        weave: Weave,
+        _weave: Weave,
     ) -> GenResult<u8> {
         let material_reg = self.gen_from_expr(material)?;
         let value_reg = self.gen_from_expr(value)?;
@@ -506,7 +506,7 @@ impl CodeGen {
         _weave: Weave,
         sign_symbol: Symbol,
     ) -> GenResult<u8> {
-        let reg = self.gen_variable_instruction(sign_symbol.clone())?;
+        let reg = self.gen_variable_instruction(&sign_symbol)?;
         let mut mark_regs: Vec<u8> = Vec::with_capacity(marks.len());
 
         let new_sign_reg = self.get_next_register()?;
@@ -553,7 +553,7 @@ impl CodeGen {
         _weave: Weave,
         spell_symbol: Symbol,
     ) -> GenResult<u8> {
-        let spell_reg = self.gen_variable_instruction(spell_symbol)?;
+        let spell_reg = self.gen_variable_instruction(&spell_symbol)?;
         // Evaluate reagents and capture their result registers in order
         let mut reagent_regs: Vec<u8> = Vec::with_capacity(reagents.len());
         for reagent in reagents.iter() {
@@ -893,7 +893,7 @@ impl CodeGen {
         Ok(())
     }
 
-    fn gen_variable_instruction(&mut self, symbol: Symbol) -> GenResult<u8> {
+    fn gen_variable_instruction(&mut self, symbol: &Symbol) -> GenResult<u8> {
         if symbol.depth > 0 {
             if self.in_spell {
                 // Check if this variable is an upvalue using (depth, slot_idx) as key
@@ -910,7 +910,7 @@ impl CodeGen {
             Ok(symbol.slot_idx as u8)
         } else {
             let dest = self.get_next_register()?;
-            let const_idx = self.add_constant(Value::String(symbol.name.into()))?;
+            let const_idx = self.add_constant(Value::String(symbol.name.clone().into()))?;
             self.instructions.push(Instruction::GetGlobal {
                 dest: dest,
                 const_index: const_idx,

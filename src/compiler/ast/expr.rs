@@ -65,6 +65,9 @@ pub enum Expr {
         property: Token,
         value: Box<Expr>,
     },
+    Blank {
+        token: Token,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -141,7 +144,7 @@ pub enum WovenExpr {
         value: Box<WovenExpr>,
         field_name_idx: u16,
         weave: Weave,
-    },
+    }
 }
 
 impl WovenExpr {

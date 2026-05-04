@@ -78,13 +78,14 @@ impl Hash for SignSchema {
         self.name.hash(state);
         self.field_names.hash(state);
         // self.field_indices.len().hash(state);
+        self.field_indices.keys().for_each(|k| k.hash(state));
     }
 }
 
+/// Represents the compile time information of a Sign, which is used for type checking and other compile time analyses
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignInfo {
     pub schema: SignSchema,
     pub marks: HashMap<String, Weave>,
     pub attunements: HashMap<String, SpellInfo>,
-    // pub symbol: Symbol,
 }

@@ -295,4 +295,10 @@ impl Parser {
             token: self.previous.clone(),
         })
     }
+
+    pub(super) fn blank(&mut self, _can_assign: bool) -> ParseResult<Expr> {
+        Ok(Expr::Blank {
+            token: self.previous.clone(),
+        })
+    }
 }

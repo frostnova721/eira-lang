@@ -311,12 +311,6 @@ impl Parser {
 
                     let parsed_weave =
                         self.parse_weave("Expected a weave name to bind with the sign's mark!")?;
-                    // self.consume(
-                    //     TokenType::Identifier,
-                    //     "Expected a weave name to bind with the sign's mark!",
-                    // );
-                    // let weave_name = self.previous.clone();
-
                     marks.push(Mark {
                         name: mark_name,
                         parsed_weave: parsed_weave,
@@ -356,6 +350,8 @@ impl Parser {
             self.flow_statement()
         } else if self.match_token(TokenType::Release) {
             self.release_statement()
+        } else if self.match_token(TokenType::Vanish) {
+            self.vanish_statement()
         } else {
             self.expression_statement()
         }
@@ -567,6 +563,11 @@ impl Parser {
             },
             TokenType::True => ParseRule {
                 prefix: Some(Self::literal),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenType::Underscore => ParseRule {
+                prefix: Some(Self::blank),
                 infix: None,
                 precedence: Precedence::None,
             },
