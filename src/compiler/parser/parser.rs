@@ -115,11 +115,12 @@ impl Parser {
 
     pub(super) fn error_at(&mut self, msg: &str, pos: Token) {
         if self.panic {
-            return;
+            // return;
+        } else {
+            self.panic = true;
         }
-        self.panic = true;
         println!(
-            "Woah! Caught an incorrect magic at {}:{}:{}\nError: {}",
+            "Woah! Caught an incorrect magic at: {}:{}:{}\nError: {}\n",
             self.current_file, pos.line, pos.column, msg
         );
         self.error = true;
@@ -307,8 +308,9 @@ impl Parser {
                         TokenType::Colon,
                         "Expected a weave definition for the field.",
                     );
-                    
-                    let parsed_weave = self.parse_weave("Expected a weave name to bind with the sign's mark!")?;
+
+                    let parsed_weave =
+                        self.parse_weave("Expected a weave name to bind with the sign's mark!")?;
                     // self.consume(
                     //     TokenType::Identifier,
                     //     "Expected a weave name to bind with the sign's mark!",
@@ -382,8 +384,19 @@ impl Parser {
                 while precedence.power()
                     <= self.get_rule(self.current.token_type).precedence.power()
                 {
+                    let prev_prev = self.previous.clone();
                     self.advance();
-                    let infix_rule = self.get_rule(self.previous.token_type).infix.unwrap();
+                    let Some(infix_rule) = self.get_rule(self.previous.token_type).infix else {
+                        self.error_at(
+                            &format!(
+                                "'{}' is not an infix operator. But was used as one!",
+                                self.previous.lexeme
+                            ),
+                            prev_prev,
+                        );
+                        break;
+                    };
+
                     lhs = infix_rule(self, lhs, can_assign)?;
                 }
 
@@ -408,6 +421,13 @@ impl Parser {
                                 index,
                                 value: Box::new(value),
                                 token: equals,
+                            });
+                        }
+                        Expr::Access { material, property } => {
+                            return Ok(Expr::FieldSet {
+                                material,
+                                property,
+                                value: Box::new(value),
                             });
                         }
                         _ => {}

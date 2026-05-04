@@ -251,6 +251,12 @@ impl AstPrinter {
                 self.print_expr(&next, index, false);
                 self.print_expr(&next, value, true);
             }
+            Expr::FieldSet { material, property, value } => {
+                self.write(prefix, is_last, &format!("FieldSet: .{}", property.lexeme));
+                let next = Self::next_prefix(prefix, is_last);
+                self.print_expr(&next, material, false);
+                self.print_expr(&next, value, true);
+            },
         }
     }
 
@@ -590,6 +596,22 @@ impl AstPrinter {
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_woven_expr(&next, deck, false);
                 self.print_woven_expr(&next, index, false);
+                self.print_woven_expr(&next, value, true);
+            },
+            WovenExpr::FieldSet { material, property, value, field_name_idx, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
+                let idx_str = if self.verbosity >= 1 {
+                    format!(" [idx:{}]", field_name_idx)
+                } else {
+                    String::new()
+                };
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("FieldSet: .{}{}{}", property.lexeme, idx_str, tap),
+                );
+                let next = Self::next_prefix(prefix, is_last);
+                self.print_woven_expr(&next, material, false);
                 self.print_woven_expr(&next, value, true);
             }
         }

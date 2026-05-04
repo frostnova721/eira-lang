@@ -5,7 +5,7 @@ use crate::{
         symbol_table::Symbol,
         weaves::Weave,
     },
-    values::{Value},
+    values::Value,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -59,6 +59,11 @@ pub enum Expr {
         index: Box<Expr>,
         value: Box<Expr>,
         token: Token,
+    },
+    FieldSet {
+        material: Box<Expr>,
+        property: Token,
+        value: Box<Expr>,
     },
 }
 
@@ -130,6 +135,13 @@ pub enum WovenExpr {
         token: Token,
         weave: Weave,
     },
+    FieldSet {
+        material: Box<WovenExpr>,
+        property: Token,
+        value: Box<WovenExpr>,
+        field_name_idx: u16,
+        weave: Weave,
+    },
 }
 
 impl WovenExpr {
@@ -196,6 +208,13 @@ impl WovenExpr {
                 index: _,
                 value: _,
                 token: _,
+                weave,
+            } => weave.clone(),
+            WovenExpr::FieldSet {
+                material: _,
+                property: _,
+                value: _,
+                field_name_idx: _,
                 weave,
             } => weave.clone(),
         }
@@ -299,6 +318,13 @@ impl WovenExpr {
                 token,
                 weave: _,
             } => token.clone(),
+            WovenExpr::FieldSet {
+                material: _,
+                property,
+                value: _,
+                field_name_idx: _,
+                weave: _,
+            } => property.clone(),
         }
     }
 }

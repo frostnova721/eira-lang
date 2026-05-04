@@ -21,7 +21,7 @@ pub enum Weave {
 
 impl Weave {
     pub fn can_sub_weave(&self) -> bool {
-        matches!(self, Weave::Spell { .. } | Weave::Deck(_, _))
+        matches!(self, Weave::Spell { .. } | Weave::Deck(_, _) | Weave::Maybe(_))
     }
 
     pub fn get_tapestry(&self) -> Tapestry {
@@ -40,7 +40,7 @@ impl Weave {
             Weave::Spell { .. } => Tapestry::new(CALLABLE_STRAND),
             Weave::Sign(_) => Tapestry::new(NO_STRAND),
             Weave::Deck(_, _) => Tapestry::new(INDEXIVE_STRAND | ITERABLE_STRAND),
-            Weave::Maybe(_) => Tapestry::new(MAYBE_STRAND)
+            Weave::Maybe(_) => Tapestry::new(MAYBE_STRAND | EQUATABLE_STRAND)
         }
     }
 

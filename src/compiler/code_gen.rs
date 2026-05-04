@@ -262,7 +262,11 @@ impl CodeGen {
                 spell_symbol,
             } => self.gen_spell_instructions(name, reagents, *body, spell_symbol),
             WovenStmt::Release { token: _, expr } => self.gen_release_instructions(expr),
-            WovenStmt::Sign { name, marks, sign_symbol } => self.gen_sign_instructions(name, marks, sign_symbol),
+            WovenStmt::Sign {
+                name,
+                marks,
+                sign_symbol,
+            } => self.gen_sign_instructions(name, marks, sign_symbol),
         }
     }
 
@@ -335,7 +339,34 @@ impl CodeGen {
                 token,
                 weave,
             } => self.gen_deck_set_instruction(*deck, *index, *value, token, weave),
+            WovenExpr::FieldSet {
+                material,
+                property,
+                value,
+                field_name_idx,
+                weave,
+            } => self.gen_field_set_instruction(*material, property, *value, field_name_idx, weave),
         }
+    }
+
+    fn gen_field_set_instruction(
+        &mut self,
+        material: WovenExpr,
+        _property: Token,
+        value: WovenExpr,
+        field_name_idx: u16,
+        weave: Weave,
+    ) -> GenResult<u8> {
+        let material_reg = self.gen_from_expr(material)?;
+        let value_reg = self.gen_from_expr(value)?;
+
+        self.instructions.push(Instruction::SetField {
+            sign_reg: material_reg,
+            field_name: field_name_idx,
+            val_reg: value_reg,
+        });
+
+        Ok(self.register_index)
     }
 
     fn gen_deck_set_instruction(
@@ -663,12 +694,12 @@ impl CodeGen {
         // let needs_return = !matches!(self.instructions.last(), Some(Instruction::Release { .. }));
         // if needs_return {
 
-            // TODO: THIS IS A TEMPORARY FIX! add explicit return 
-            let ret_reg = self.get_next_register()?;
-            self.instructions
-                .push(Instruction::Emptiness { dest: ret_reg });
-            self.instructions
-                .push(Instruction::Release { dest: ret_reg });
+        // TODO: THIS IS A TEMPORARY FIX! add explicit return
+        let ret_reg = self.get_next_register()?;
+        self.instructions
+            .push(Instruction::Emptiness { dest: ret_reg });
+        self.instructions
+            .push(Instruction::Release { dest: ret_reg });
         // }
 
         if self.print_instructions {

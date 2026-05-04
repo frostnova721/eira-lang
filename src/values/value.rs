@@ -1,5 +1,4 @@
-use std::hash::{Hash, Hasher};
-use std::rc::Rc;
+use std::{cell::RefCell, hash::{Hash, Hasher}, rc::Rc};
 
 use crate::values::deck::DeckObject;
 use crate::values::sign::{SignObject, SignSchema};
@@ -13,7 +12,7 @@ pub enum Value {
     Bool(bool),
     Closure(Rc<ClosureObject>),
     Spell(Rc<SpellObject>),
-    Sign(Rc<SignObject>),
+    Sign(Rc<RefCell<SignObject>>),
     SignSchema(Rc<SignSchema>),
     Deck(Rc<DeckObject>),
     Emptiness,
@@ -163,7 +162,10 @@ pub fn print_value(value: Value) {
         Value::String(value) => println!("{}", value),
         Value::Closure(closure) => println!("Spell '{}'", closure.spell.name.clone().unwrap()),
         Value::Spell(spell) => println!("Spell '{}'", spell.name.clone().unwrap()),
-        Value::Sign(sign) => println!("Sign '{}' {:?}", sign.schema.name.clone(), sign.marks),
+        Value::Sign(sign) => {
+            let sign = sign.borrow();
+            println!("Sign '{}' {:?}", sign.schema.name.clone(), sign.marks)
+        }
         Value::SignSchema(schema) => println!("SignSchema '{}'", schema.name.clone()),
         Value::Deck(deck) => println!("Deck '{:?}'", deck.items.borrow()),
     }

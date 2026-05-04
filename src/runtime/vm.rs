@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     SpellObject,
@@ -429,7 +429,7 @@ impl EiraVM {
                     };
 
                     let sign = SignObject::new(schema);
-                    set_register!(base, dest, Value::Sign(Rc::new(sign)));
+                    set_register!(base, dest, Value::Sign(Rc::new(RefCell::new(sign))));
                 }
                 OpCode::SetField => {
                     let sign_reg = frame!().read_byte();
@@ -439,8 +439,8 @@ impl EiraVM {
                     let val = get_register!(base, val_reg).clone();
 
                     let sign_idx = base + sign_reg as usize;
-                    if let Value::Sign(s) = &mut self.stack[sign_idx] {
-                        let _ = Rc::make_mut(s).set_field(field_name_idx as usize, val);
+                    if let Value::Sign(s) = &self.stack[sign_idx] {
+                        let _ = s.borrow_mut().set_field(field_name_idx as usize, val);
                     } else {
                         return InterpretResult::RuntimeError;
                     }
@@ -453,7 +453,7 @@ impl EiraVM {
                     let sign = get_register!(base, sign_reg);
                     match sign {
                         Value::Sign(s) => {
-                            let val = s.get_field(field_name as usize);
+                            let val = s.borrow().get_field(field_name as usize);
                             set_register!(base, dest, val);
                         }
                         _ => self

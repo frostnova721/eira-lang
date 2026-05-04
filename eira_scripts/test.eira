@@ -1,19 +1,13 @@
-sign Car {
-   brand: Text,
-   max_speed: Num,
+sign A {
+  val: Num
 }
 
-mark gtr = ~Car with {
-  brand: "Nissan",
-  max_speed: 269,
+mark a = ~A with {
+  val: 2,
 };
 
-mark rx7 = ~Car with {
-  brand: "Mazda",
-  max_speed: 180,
-};
+chant a.val;
 
-mark rx8 = rx7;
+a.val = 3;
 
-chant gtr.max_speed;
-chant rx7.max_speed;
+chant a.val;
