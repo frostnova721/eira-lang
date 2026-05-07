@@ -264,6 +264,11 @@ impl AstPrinter {
             Expr::Blank { token } => {
               self.write(prefix, is_last, &format!("Blank: {}", token.lexeme));  
             },
+            Expr::Manifests { value, token } => {
+                self.write(prefix, is_last, &format!("Manifests: {}", token.lexeme));
+                let next = Self::next_prefix(prefix, is_last);
+                self.print_expr(&next, value, true);
+            }
         }
     }
 
@@ -621,6 +626,12 @@ impl AstPrinter {
                 self.print_woven_expr(&next, material, false);
                 self.print_woven_expr(&next, value, true);
             }
+            WovenExpr::Manifests { value, token, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
+                self.write(prefix, is_last, &format!("Manifests: {}{}", token.lexeme, tap));
+                let next = Self::next_prefix(prefix, is_last);
+                self.print_woven_expr(&next, value, true);
+            },
         }
     }
 

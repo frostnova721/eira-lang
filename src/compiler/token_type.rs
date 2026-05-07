@@ -31,6 +31,7 @@ pub enum TokenType {
     Weave,  // types (more like set of behaviours)d
     Deck,   // array type
     Vanish, // sets a Maybe<T> to empty
+    Manifests, // returns bool value on the presence of a value in Maybe<T>
 
     // Connector words
     With, // used in casting

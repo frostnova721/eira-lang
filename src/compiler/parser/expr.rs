@@ -301,4 +301,11 @@ impl Parser {
             token: self.previous.clone(),
         })
     }
+
+    pub(super) fn manifests(&mut self, lhs: Expr,_can_assign: bool) -> ParseResult<Expr> {
+        Ok(Expr::Manifests {
+            value: Box::new(lhs),
+            token: self.previous.clone(),
+        })
+    }
 }

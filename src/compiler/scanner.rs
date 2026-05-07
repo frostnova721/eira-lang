@@ -498,6 +498,7 @@ fn identifier_type(ident: &str) -> TokenType {
         "fate" => TokenType::Fate,
         "flow" => TokenType::Flow,
         "forge" => TokenType::Forge,
+        "manifests" => TokenType::Manifests,
         "mark" => TokenType::Mark,
         "origin" => TokenType::Origin,
         "refers" => TokenType::Refers,

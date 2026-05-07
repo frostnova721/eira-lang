@@ -68,6 +68,10 @@ pub enum Expr {
     Blank {
         token: Token,
     },
+    Manifests {
+        value: Box<Expr>,
+        token: Token,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -144,7 +148,12 @@ pub enum WovenExpr {
         value: Box<WovenExpr>,
         field_name_idx: u16,
         weave: Weave,
-    }
+    },
+    Manifests {
+        value: Box<WovenExpr>,
+        token: Token,
+        weave: Weave,
+    },
 }
 
 impl WovenExpr {
@@ -218,6 +227,11 @@ impl WovenExpr {
                 property: _,
                 value: _,
                 field_name_idx: _,
+                weave,
+            } => weave.clone(),
+            WovenExpr::Manifests {
+                value: _,
+                token: _,
                 weave,
             } => weave.clone(),
         }
@@ -328,6 +342,11 @@ impl WovenExpr {
                 field_name_idx: _,
                 weave: _,
             } => property.clone(),
+            WovenExpr::Manifests {
+                value: _,
+                token,
+                weave: _,
+            } => token.clone(),
         }
     }
 }

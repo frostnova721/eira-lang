@@ -346,6 +346,26 @@ impl CodeGen {
                 field_name_idx,
                 weave,
             } => self.gen_field_set_instruction(*material, property, *value, field_name_idx, weave),
+            WovenExpr::Manifests {
+                value,
+                token: _,
+                weave: _,
+            } => {
+                let val_reg = self.gen_from_expr(*value)?;
+                let dest = self.get_next_register()?;
+
+                self.instructions.push(Instruction::IsEmptiness {
+                    dest: dest,
+                    r1: val_reg,
+                });
+
+                self.instructions.push(Instruction::Not {
+                    dest,
+                    r1: dest,
+                });
+                
+                Ok(dest)
+            }
         }
     }
 
