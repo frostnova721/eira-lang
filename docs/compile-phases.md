@@ -20,4 +20,4 @@ This is where the Eira's Weave system is checked. The behavioural capabilities o
 
 ## Code Gen Phase
 
-The Code Gen generates the Eira bytecode from the resulting AST
+The Code Gen generates the Eira bytecode from the resulting Woven AST

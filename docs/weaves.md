@@ -9,10 +9,11 @@ Currently, Eira provides
 - Sign _(structs)_
 - Spell _(functions)_
 - Deck _(lists)_
+- Maybe<W> _(t might exist)_
 
 
 > A small insider info: These weaves used to have Weave at the end of their name, but was removed for convinience! It was like NumWeave, TextWeave...
 
 You could say these are the foundation of world's best the type-system! /s
 
-Weave is defined as a Enum and only the Deck, Sign and Spell contain values within it. Defined in [weave.rs](/src/compiler/types/weaves.rs)
+Weave is defined as a Enum and only the Deck, Sign, Spell and Maybe<W> contain values within it. Defined in [weave.rs](/src/compiler/types/weaves.rs)

@@ -2,7 +2,6 @@ pub mod assembler;
 pub mod ast_printer;
 pub mod compiler;
 pub mod debug;
-pub mod logger;
 pub mod runtime;
 pub mod values;
 

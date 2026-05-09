@@ -42,7 +42,7 @@ pub fn print_byte_code(code: &Vec<u8>) {
         for j in i..i + len {
             print!("{:02X} ", code[j]); // hex format looks cooler
         }
-        println!("-> {:?}", op); // optional: human-readable op name
+        println!("-> {:?}", op); // human-readable op name
 
         i += len;
     }
