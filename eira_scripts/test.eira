@@ -1,15 +1,32 @@
+
 sign A {
   val: Maybe<Num>
+}
+
+sign AA {
+  a: A 
 }
 
 mark a = ~A with {
   val: _,
 };
 
-chant a.val;
+mark aa = ~AA with {
+  a: a,
+};
+
+mark d = [aa ];
+
+chant d[0].a.val;
 
 a.val = 3;
 
-chant a.val;
+fate a.val manifests {
+  chant "full af";
 
-vanish a.val;
+ // mark x = a.val + 1;
+ // chant x;
+} divert {
+  chant "empty af!";
+  chant a.val;
+}

@@ -565,6 +565,14 @@ impl EiraVM {
                             return InterpretResult::RuntimeError;
                         }
                     }
+                },
+                OpCode::IsEmptiness => {
+                    let dest = frame!().read_byte();
+                    let r1 = frame!().read_byte();
+
+                    let val = get_register!(base, r1).clone();
+                    let is_emptiness = matches!(val, Value::Emptiness);
+                    set_register!(base, dest, Value::Bool(is_emptiness));
                 }
             }
         }

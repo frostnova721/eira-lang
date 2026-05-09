@@ -16,6 +16,7 @@ use crate::{
         token_type::TokenType,
         weaves::{Weave, Weaver},
     },
+    print_ast,
     values::{
         Value,
         sign::{SignInfo, SignSchema},
@@ -1077,50 +1078,45 @@ impl WeaveAnalyzer {
                 })
             }
             Expr::Access { material, property } => {
+                let w_material = self.analyze_expression(*material, None)?;
                 // it should be a variable expression
-                let token = match self.analyze_expression(*material, None)? {
-                    WovenExpr::Variable {
-                        name,
-                        symbol: _,
-                        weave: _,
-                    } => name,
+                let sign_name = match w_material.weave() {
+                    Weave::Sign(s) => s,
                     _ => {
-                        return self.error(
-                            "Only variables can be accessed with '.' operator!",
-                            property,
-                        );
+                        return self
+                            .error("Only signs can be accessed with '.' operator!", property);
                     }
                 };
 
-                let Some(symbol) = self.symbol_table.resolve(&token.lexeme).cloned() else {
-                    return self.error(
-                        &format!(
-                            "The mark '{}' was not found across the eira realms!",
-                            token.lexeme
-                        ),
-                        token,
-                    );
-                };
+                // let Some(symbol) = self.symbol_table.resolve(&token.lexeme).cloned() else {
+                //     return self.error(
+                //         &format!(
+                //             "The mark '{}' was not found across the eira realms!",
+                //             token.lexeme
+                //         ),
+                //         token,
+                //     );
+                // };
 
-                let sign_name = match symbol.weave {
-                    Weave::Sign(ref name) => name,
-                    _ => {
-                        return self.error("The mark 'n' is not a material of a sign!", token);
-                    }
-                };
+                // let sign_name = match symbol.weave {
+                //     Weave::Sign(ref name) => name,
+                //     _ => {
+                //         return self.error("The mark 'n' is not a material of a sign!", token);
+                //     }
+                // };
 
-                let Some(sign_symbol) = self.symbol_table.resolve(sign_name) else {
+                let Some(sign_symbol) = self.symbol_table.resolve(&sign_name) else {
                     return self.error(
                         &format!(
                             "The sign '{}' was not found across the eira realms!",
                             sign_name
                         ),
-                        token,
+                        property,
                     );
                 };
 
                 let Some(sign_info) = sign_symbol.kind.borrow().get_sign_info() else {
-                    return self.error(&format!("'{}' is not a sign!", sign_symbol.name), token);
+                    return self.error(&format!("'{}' is not a sign!", sign_symbol.name), property);
                 };
 
                 let Some(mark) = sign_info.schema.get_field_index(property.lexeme.clone()) else {
@@ -1141,18 +1137,12 @@ impl WeaveAnalyzer {
                             "Eira couldn't find the weave for property '{}'",
                             property.lexeme
                         ),
-                        token,
+                        property,
                     );
                 }
 
-                let w_expr = WovenExpr::Variable {
-                    name: token.clone(),
-                    weave: symbol.weave.clone(),
-                    symbol: symbol.clone(),
-                };
-
                 Ok(WovenExpr::Access {
-                    material: Box::new(w_expr),
+                    material: Box::new(w_material),
                     property,
                     field_name_idx: mark as u16,
                     weave: property_weave.unwrap().clone(),
@@ -1375,6 +1365,15 @@ impl WeaveAnalyzer {
                     "Invalid '_' usage. '_' is used to assign a Empty value to Maybe<T> weaves!",
                     token,
                 );
+            }
+            Expr::Manifests { value, token } => {
+                let w_value = self.analyze_expression(*value, None)?;
+
+                Ok(WovenExpr::Manifests {
+                    value: Box::new(w_value),
+                    token,
+                    weave: Weave::Truth,
+                })
             }
         }
     }

@@ -506,6 +506,11 @@ impl Parser {
                 infix: Some(Self::binary),
                 precedence: Precedence::Compare,
             },
+            TokenType::Manifests => ParseRule {
+                prefix: None,
+                infix: Some(Self::manifests),
+                precedence: Precedence::Call,
+            },
             TokenType::Minus => ParseRule {
                 prefix: Some(Self::unary),
                 infix: Some(Self::binary),

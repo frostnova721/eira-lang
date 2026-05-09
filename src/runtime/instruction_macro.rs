@@ -191,4 +191,7 @@ define_instructions! {
     AddToDeck(31, 4) { deck: u8, position: u8, value: u8 },
     ExtractFromDeck(32, 4) { dest: u8, deck: u8, index: u8 },
 
+    // Saves bool value to [dest] on wether r1 is an Emptiness
+    IsEmptiness(33, 3) { dest: u8, r1: u8 }, // for manifest
+
 }
