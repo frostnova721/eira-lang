@@ -150,7 +150,7 @@ impl EiraVM {
                         set_register!(frame!().reg_base, dest, Value::from(r));
                     }
                     _ => {
-                        self.runtime_error("Operands should be 2 numbers!");
+                        self.runtime_error(&format!("Operands should be 2 numbers! Got {:?} and {:?}", v1, v2));
                         return InterpretResult::RuntimeError;
                     }
                 }
@@ -460,6 +460,24 @@ impl EiraVM {
                             .runtime_error("GET_FIELD Operation was used with a non 'Sign' value"),
                     }
                 }
+                OpCode::SafeGetField => {
+                    let dest = frame!().read_byte();
+                    let sign_reg = frame!().read_byte();
+                    let field_name = frame!().read_u16();
+
+                    let sign = get_register!(base, sign_reg);
+                    match sign {
+                        Value::Emptiness => {
+                            set_register!(base, dest, Value::Emptiness);
+                        }
+                        Value::Sign(s) => {
+                            let val = s.borrow().get_field(field_name as usize);
+                            set_register!(base, dest, val);
+                        }
+                        _ => self
+                            .runtime_error("SAFE_GET_FIELD Operation was used with a non 'Sign' value"),
+                    }
+                }
                 OpCode::NewDeck => {
                     let reg = frame!().read_byte();
                     let start = frame!().read_byte();
@@ -565,15 +583,22 @@ impl EiraVM {
                             return InterpretResult::RuntimeError;
                         }
                     }
-                },
+                }
                 OpCode::IsEmptiness => {
                     let dest = frame!().read_byte();
                     let r1 = frame!().read_byte();
 
                     let val = get_register!(base, r1).clone();
-                    let is_emptiness = matches!(val, Value::Emptiness);
-                    set_register!(base, dest, Value::Bool(is_emptiness));
+                    set_register!(base, dest, Value::Bool(val.is_emptiness()));
                 }
+                OpCode::AssertSafe => {
+                    let r1 = frame!().read_byte();
+                    let val = get_register!(base, r1).clone();
+                    if val.is_emptiness() {
+                        self.runtime_error("Safe Assertion failed: value is empty.");
+                        return InterpretResult::RuntimeError;
+                    }
+                },
             }
         }
         // println!("Program completed after {} instructions.", instruction_count);

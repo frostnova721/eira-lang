@@ -16,7 +16,6 @@ use crate::{
         token_type::TokenType,
         weaves::{Weave, Weaver},
     },
-    print_ast,
     values::{
         Value,
         sign::{SignInfo, SignSchema},
@@ -130,8 +129,42 @@ impl WeaveAnalyzer {
                     );
                 }
 
+                // self.symbol_table.new_scope();
+                // self.current_scope_depth += 1;
+
+                // match &w_condition {
+                //     WovenExpr::Manifests { value, .. } => {
+                //         if let WovenExpr::Variable { name, symbol, .. } = &**value {
+                //             if let Weave::Maybe(solid) = &symbol.weave {
+                //                 let is_mut = match *symbol.kind.borrow() {
+                //                     SymbolKind::Variable { mutable } => mutable,
+                //                     _ => false,
+                //                 };
+
+                //                 self.symbol_table.define_variable(
+                //                     name.lexeme.clone(),
+                //                     *solid.clone(),
+                //                     is_mut,
+                //                     self.symbol_table.get_current_scope_size(),
+                //                     None,
+                //                 );
+                //             } else {
+                //                 return self.error(
+                //                     "The weave of the manifest condition variable must be a Maybe weave.",
+                //                     name.clone(),
+                //                 );
+                //             }
+                //         }
+                //     }
+                //     _ => {}
+                // }
+
                 // scoping n stuff will be added by the block!
                 let w_then = self.analyze_statement(*then_branch)?;
+
+                // self.symbol_table.end_scope();
+                // self.current_scope_depth -= 1;
+
                 let w_else: Option<Box<WovenStmt>> = match else_branch {
                     Some(e_b) => Some(Box::new(self.analyze_statement(*e_b)?)),
                     None => None,
@@ -1088,23 +1121,6 @@ impl WeaveAnalyzer {
                     }
                 };
 
-                // let Some(symbol) = self.symbol_table.resolve(&token.lexeme).cloned() else {
-                //     return self.error(
-                //         &format!(
-                //             "The mark '{}' was not found across the eira realms!",
-                //             token.lexeme
-                //         ),
-                //         token,
-                //     );
-                // };
-
-                // let sign_name = match symbol.weave {
-                //     Weave::Sign(ref name) => name,
-                //     _ => {
-                //         return self.error("The mark 'n' is not a material of a sign!", token);
-                //     }
-                // };
-
                 let Some(sign_symbol) = self.symbol_table.resolve(&sign_name) else {
                     return self.error(
                         &format!(
@@ -1129,9 +1145,7 @@ impl WeaveAnalyzer {
                     );
                 };
 
-                let property_weave = sign_info.marks.get(&property.lexeme);
-
-                if property_weave.is_none() {
+                let Some(property_weave) = sign_info.marks.get(&property.lexeme) else {
                     return self.error(
                         &format!(
                             "Eira couldn't find the weave for property '{}'",
@@ -1139,13 +1153,13 @@ impl WeaveAnalyzer {
                         ),
                         property,
                     );
-                }
+                };
 
                 Ok(WovenExpr::Access {
                     material: Box::new(w_material),
                     property,
                     field_name_idx: mark as u16,
-                    weave: property_weave.unwrap().clone(),
+                    weave: property_weave.clone(),
                 })
             }
             Expr::Deck { elements, token } => {
@@ -1369,12 +1383,101 @@ impl WeaveAnalyzer {
             Expr::Manifests { value, token } => {
                 let w_value = self.analyze_expression(*value, None)?;
 
+                // if !matches!(w_value.weave(), Weave::Maybe(_)) {
+                //     return self.error(
+                //         "The weave of the manifest expression must be a Maybe weave.",
+                //         token,
+                //     );
+                // }
+
                 Ok(WovenExpr::Manifests {
                     value: Box::new(w_value),
                     token,
                     weave: Weave::Truth,
                 })
             }
+            Expr::SafeAccess { material, property } => {
+                let w_material = self.analyze_expression(*material, None)?;
+
+                if !matches!(w_material.weave(), Weave::Maybe(_)) {
+                    return self.error(
+                        "Safe access operator '?.' can only be used on Maybe weaves.",
+                        property,
+                    );
+                }
+
+                // same code as of Access Expr
+                let sign_name = match w_material.weave() {
+                    Weave::Maybe(w) => match *w {
+                        Weave::Sign(ref s) => s.clone(),
+                        _ => {
+                            return self.error(
+                                "The weave wrapped by Maybe must be a Sign weave for '?.' operator!",
+                                property,
+                            );
+                        }
+                    },
+                    _ => {
+                        return self.error(
+                            "Only Maybe weaves can be accessed with '?.' operator!",
+                            property,
+                        );
+                    }
+                };
+
+                let Some(sign_symbol) = self.symbol_table.resolve(&sign_name) else {
+                    return self.error(
+                        &format!(
+                            "The sign '{}' was not found across the eira realms!",
+                            sign_name
+                        ),
+                        property,
+                    );
+                };
+
+                let Some(sign_info) = sign_symbol.kind.borrow().get_sign_info() else {
+                    return self.error(&format!("'{}' is not a sign!", sign_symbol.name), property);
+                };
+
+                let Some(mark) = sign_info.schema.get_field_index(property.lexeme.clone()) else {
+                    return self.error(
+                        &format!(
+                            "The mark '{}' is not defined for '{}'",
+                            property.lexeme, sign_name
+                        ),
+                        property,
+                    );
+                };
+
+                let Some(property_weave) = sign_info.marks.get(&property.lexeme) else {
+                    return self.error(
+                        &format!(
+                            "Eira couldn't find the weave for property '{}'",
+                            property.lexeme
+                        ),
+                        property,
+                    );
+                };
+
+                Ok(WovenExpr::SafeAccess {
+                    material: Box::new(w_material),
+                    property,
+                    field_name_idx: mark as u16,
+                    weave: Weave::Maybe(Box::new(property_weave.clone())),
+                })
+            }
+            Expr::AssertSafe { operand, operator } => {
+                let w_operand = self.analyze_expression(*operand, None)?;
+
+                let weave = match w_operand.weave() {
+                    Weave::Maybe(inner) => *inner,
+                    _ => {
+                        return self.error("Safe Assertion can only be performed on Maybe<W> weaves!", operator);
+                    }
+                };
+
+                Ok(WovenExpr::AssertSafe { operand: Box::new(w_operand), operator, weave: weave })
+            },
         }
     }
 

@@ -1,32 +1,11 @@
-
-sign A {
-  val: Maybe<Num>
+sign Node {
+  left: Maybe<Node>,
+  right: Maybe<Node>
 }
 
-sign AA {
-  a: A 
-}
-
-mark a = ~A with {
-  val: _,
+bind tree = ~Node with {
+  left: _,
+  right: _,
 };
 
-mark aa = ~AA with {
-  a: a,
-};
-
-mark d = [aa ];
-
-chant d[0].a.val;
-
-a.val = 3;
-
-fate a.val manifests {
-  chant "full af";
-
- // mark x = a.val + 1;
- // chant x;
-} divert {
-  chant "empty af!";
-  chant a.val;
-}
+chant tree;

@@ -184,14 +184,15 @@ define_instructions! {
     SetField(27,5) { sign_reg: u8, field_name: u16, val_reg: u8 },
 
     GetField(28, 5) { dest: u8, sign_reg: u8, field_name: u16 },
+    SafeGetField(29, 5) { dest: u8, sign_reg: u8, field_name: u16 },
 
     // Deck operations.
-    NewDeck(29, 6) { dest: u8, start_reg: u8, count: u8 },
-    NewFixedDeck(30, 6) { dest: u8, start_reg: u8, count: u8, capacity: u16 },
-    AddToDeck(31, 4) { deck: u8, position: u8, value: u8 },
-    ExtractFromDeck(32, 4) { dest: u8, deck: u8, index: u8 },
+    NewDeck(30, 6) { dest: u8, start_reg: u8, count: u8 },
+    NewFixedDeck(31, 6) { dest: u8, start_reg: u8, count: u8, capacity: u16 },
+    AddToDeck(32, 4) { deck: u8, position: u8, value: u8 },
+    ExtractFromDeck(33, 4) { dest: u8, deck: u8, index: u8 },
 
     // Saves bool value to [dest] on wether r1 is an Emptiness
-    IsEmptiness(33, 3) { dest: u8, r1: u8 }, // for manifest
-
+    IsEmptiness(34, 3) { dest: u8, r1: u8 }, // for manifest
+    AssertSafe(35, 2) { r1: u8 }, // panics if r1 is empty
 }

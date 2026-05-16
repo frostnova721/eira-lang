@@ -443,8 +443,8 @@ impl Parser {
         match token_type {
             TokenType::Bang => ParseRule {
                 prefix: Some(Self::unary),
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Self::assert_safe),
+                precedence: Precedence::Call,
             },
             TokenType::BangEqual => ParseRule {
                 prefix: None,
@@ -535,6 +535,11 @@ impl Parser {
                 prefix: None,
                 infix: Some(Self::binary),
                 precedence: Precedence::Term,
+            },
+            TokenType::QuestionDot => ParseRule {
+                prefix: None,
+                infix: Some(Self::safe_access),
+                precedence: Precedence::Call,
             },
             TokenType::Seal => ParseRule {
                 prefix: None,

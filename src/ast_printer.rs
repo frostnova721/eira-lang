@@ -269,6 +269,14 @@ impl AstPrinter {
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_expr(&next, value, true);
             }
+            Expr::SafeAccess { material, property } => {
+                self.write(prefix, is_last, &format!("SafeAccess: .{}", property.lexeme));
+                self.print_expr(&Self::next_prefix(prefix, is_last), material, true);
+            }
+            Expr::AssertSafe { operand, operator } => {
+                self.write(prefix, is_last, &format!("AssertSafe: {}", operator.lexeme));
+                self.print_expr(&Self::next_prefix(prefix, is_last), operand, true);
+            }
         }
     }
 
@@ -632,6 +640,25 @@ impl AstPrinter {
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_woven_expr(&next, value, true);
             },
+            WovenExpr::SafeAccess { material, property, field_name_idx, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
+                let idx_str = if self.verbosity >= 1 {
+                    format!(" [idx:{}]", field_name_idx)
+                } else {
+                    String::new()
+                };
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("SafeAccess: .{}{}{}", property.lexeme, idx_str, tap),
+                );
+                self.print_woven_expr(&Self::next_prefix(prefix, is_last), material, true);
+            },
+            WovenExpr::AssertSafe { operand, operator, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
+                self.write(prefix, is_last, &format!("AssertSafe: {}{}", operator.lexeme, tap));
+                self.print_woven_expr(&Self::next_prefix(prefix, is_last), operand, true);
+            }
         }
     }
 

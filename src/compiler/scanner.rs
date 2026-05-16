@@ -422,6 +422,10 @@ impl<'a> Scanner<'a> {
             '<' => self.make_token(TokenType::Less),
 
             '~' => self.make_token(TokenType::Tilde),
+
+            '?' if self.match_char('.') => self.make_token(TokenType::QuestionDot),
+            '?' => self.make_token(TokenType::QuestionMark),
+
             '"' => {
                 self.mode = ScanMode::InString { quote: '"' };
                 self.scan_string_mode('"')

@@ -72,6 +72,14 @@ pub enum Expr {
         value: Box<Expr>,
         token: Token,
     },
+    SafeAccess {
+        material: Box<Expr>,
+        property: Token,
+    },
+    AssertSafe {
+        operand: Box<Expr>,
+        operator: Token,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -154,6 +162,17 @@ pub enum WovenExpr {
         token: Token,
         weave: Weave,
     },
+    SafeAccess {
+        material: Box<WovenExpr>,
+        property: Token,
+        field_name_idx: u16,
+        weave: Weave,
+    },
+    AssertSafe {
+        operand: Box<WovenExpr>,
+        operator: Token,
+        weave: Weave,
+    },
 }
 
 impl WovenExpr {
@@ -232,6 +251,17 @@ impl WovenExpr {
             WovenExpr::Manifests {
                 value: _,
                 token: _,
+                weave,
+            } => weave.clone(),
+            WovenExpr::SafeAccess {
+                material: _,
+                property: _,
+                weave,
+                field_name_idx: _,
+            } => weave.clone(),
+            WovenExpr::AssertSafe {
+                operand: _,
+                operator: _,
                 weave,
             } => weave.clone(),
         }
@@ -347,6 +377,17 @@ impl WovenExpr {
                 token,
                 weave: _,
             } => token.clone(),
+            WovenExpr::SafeAccess {
+                material: _,
+                property,
+                weave: _,
+                field_name_idx: _,
+            } => property.clone(),
+            WovenExpr::AssertSafe {
+                operand: _,
+                operator,
+                weave: _,
+            } => operator.clone(),
         }
     }
 }

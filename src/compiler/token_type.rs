@@ -41,6 +41,7 @@ pub enum TokenType {
     Colon,
     ColonColon,
     QuestionMark, // colon for typing and their pair for the thing(?:)!
+    QuestionDot, // ?. for safe navigation
     Equal,
     EqualEqual, // =
     Greater,

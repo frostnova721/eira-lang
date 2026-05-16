@@ -1,9 +1,17 @@
 use std::rc::Rc;
 
-use crate::{Parser, Token, Value, compiler::{Expr, mark::EtchedMark, parser::types::{ParseError, ParseResult, Precedence}, token_type::TokenType}};
+use crate::{
+    Parser, Token, Value,
+    compiler::{
+        Expr,
+        mark::EtchedMark,
+        parser::types::{ParseError, ParseResult, Precedence},
+        token_type::TokenType,
+    },
+};
 
 impl Parser {
-      pub(super) fn grouping(&mut self, _can_assign: bool) -> ParseResult<Expr> {
+    pub(super) fn grouping(&mut self, _can_assign: bool) -> ParseResult<Expr> {
         let exp = self.expression();
         self.consume(
             TokenType::ParenRight,
@@ -302,10 +310,28 @@ impl Parser {
         })
     }
 
-    pub(super) fn manifests(&mut self, lhs: Expr,_can_assign: bool) -> ParseResult<Expr> {
+    pub(super) fn manifests(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
         Ok(Expr::Manifests {
             value: Box::new(lhs),
             token: self.previous.clone(),
         })
+    }
+
+    pub(super) fn safe_access(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
+        self.consume(
+            TokenType::Identifier,
+            "Expected a property name after '?.'!",
+        );
+        Ok(Expr::SafeAccess {
+            material: Box::new(lhs),
+            property: self.previous.clone(),
+        })
+    }
+
+    pub(super) fn assert_safe(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
+        Ok(Expr::AssertSafe {
+             operand: Box::new(lhs),
+             operator: self.previous.clone(),
+         })
     }
 }

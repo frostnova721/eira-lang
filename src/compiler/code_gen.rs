@@ -350,23 +350,59 @@ impl CodeGen {
                 value,
                 token: _,
                 weave: _,
-            } => {
-                let val_reg = self.gen_from_expr(*value)?;
-                let dest = self.get_next_register()?;
-
-                self.instructions.push(Instruction::IsEmptiness {
-                    dest: dest,
-                    r1: val_reg,
-                });
-
-                self.instructions.push(Instruction::Not {
-                    dest,
-                    r1: dest,
-                });
-                
-                Ok(dest)
-            }
+            } => self.gen_manifest_instruction(*value),
+            WovenExpr::SafeAccess {
+                material,
+                property,
+                field_name_idx,
+                weave,
+            } => self.gen_safe_access_instruction(*material, property, field_name_idx, weave),
+            WovenExpr::AssertSafe { operand, operator, weave } => self.gen_assert_safe_instruction(*operand, weave),
         }
+    }
+
+    fn gen_assert_safe_instruction(&mut self, operand: WovenExpr, weave: Weave) -> GenResult<u8> {
+        let operand_reg = self.gen_from_expr(operand)?;
+
+        self.instructions.push(Instruction::AssertSafe {
+            r1: operand_reg,
+        });
+
+        Ok(self.get_last_allocated_register())
+    }
+
+    fn gen_safe_access_instruction(
+        &mut self,
+        material: WovenExpr,
+        property: Token,
+        field_name_idx: u16,
+        weave: Weave,
+    ) -> GenResult<u8> {
+        let mat_reg = self.gen_from_expr(material)?;
+
+        let dest = self.get_next_register()?;
+
+        self.instructions.push(Instruction::SafeGetField {
+            dest,
+            sign_reg: mat_reg,
+            field_name: field_name_idx,
+        });
+
+        Ok(dest)
+    }
+
+    fn gen_manifest_instruction(&mut self, value: WovenExpr) -> GenResult<u8> {
+        let val_reg = self.gen_from_expr(value)?;
+        let dest = self.get_next_register()?;
+
+        self.instructions.push(Instruction::IsEmptiness {
+            dest: dest,
+            r1: val_reg,
+        });
+
+        self.instructions.push(Instruction::Not { dest, r1: dest });
+
+        Ok(dest)
     }
 
     fn gen_field_set_instruction(
