@@ -195,4 +195,7 @@ define_instructions! {
     // Saves bool value to [dest] on wether r1 is an Emptiness
     IsEmptiness(34, 3) { dest: u8, r1: u8 }, // for manifest
     AssertSafe(35, 2) { r1: u8 }, // panics if r1 is empty
+
+    // nat_spell_reg is the const_index which stores the name of the native spell
+    NativeCast(36, 5) { dest: u8, nat_spell_name: u16, reg_start: u8 }
 }

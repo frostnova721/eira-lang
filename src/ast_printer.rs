@@ -659,6 +659,20 @@ impl AstPrinter {
                 self.write(prefix, is_last, &format!("AssertSafe: {}{}", operator.lexeme, tap));
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), operand, true);
             }
+            WovenExpr::NativeCast { reagents, callee, weave, native_spell } => {
+                 let tap = self.tapestry_info(&weave.get_tapestry());
+                let sym = native_spell;
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Cast: {}{:?}{}", callee.lexeme, sym, tap),
+                );
+                let next = Self::next_prefix(prefix, is_last);
+                let len = reagents.len();
+                for (i, r) in reagents.iter().enumerate() {
+                    self.print_woven_expr(&next, r, i == len - 1);
+                }
+            },
         }
     }
 

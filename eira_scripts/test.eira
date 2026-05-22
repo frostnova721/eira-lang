@@ -1,11 +1,1 @@
-sign Node {
-  left: Maybe<Node>,
-  right: Maybe<Node>
-}
-
-bind tree = ~Node with {
-  left: _,
-  right: _,
-};
-
-chant tree;
+mark a: Text = cast read_line;chant "you typed @a";

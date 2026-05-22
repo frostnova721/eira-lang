@@ -7,6 +7,7 @@ use crate::{
     values::{
         Value,
         deck::DeckObject,
+        native_spell::dispatch,
         print_value,
         sign::SignObject,
         spell::{ClosureObject, UpValue},
@@ -474,8 +475,9 @@ impl EiraVM {
                             let val = s.borrow().get_field(field_name as usize);
                             set_register!(base, dest, val);
                         }
-                        _ => self
-                            .runtime_error("SAFE_GET_FIELD Operation was used with a non 'Sign' value"),
+                        _ => self.runtime_error(
+                            "SAFE_GET_FIELD Operation was used with a non 'Sign' value",
+                        ),
                     }
                 }
                 OpCode::NewDeck => {
@@ -598,7 +600,32 @@ impl EiraVM {
                         self.runtime_error("Safe Assertion failed: value is empty.");
                         return InterpretResult::RuntimeError;
                     }
-                },
+                }
+
+                OpCode::NativeCast => {
+                    let dest = frame!().read_byte();
+                    let spell = frame!().read_constant().clone();
+                    let arg_start = frame!().read_byte();
+
+                    let res = match spell {
+                        Value::NativeSpell(ns) => {
+                            let args: &Vec<Value> = &vec![];
+                            dispatch(self, ns, args)
+                        }
+                        _ => {
+                            self.runtime_error("Expected a NativeSpell value to be casted!");
+                            return InterpretResult::RuntimeError;
+                        }
+                    };
+
+                    match res {
+                        Ok(v) => set_register!(base, dest, v),
+                        Err(e) => {
+                            self.runtime_error(&format!("Error running a native spell.\n{}", e));
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
             }
         }
         // println!("Program completed after {} instructions.", instruction_count);

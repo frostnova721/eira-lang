@@ -1,6 +1,6 @@
 use std::{cell::RefCell, hash::{Hash, Hasher}, rc::Rc};
 
-use crate::values::deck::DeckObject;
+use crate::values::{deck::DeckObject, native_spell::NativeSpell};
 use crate::values::sign::{SignObject, SignSchema};
 use crate::values::spell::{ClosureObject, SpellObject};
 
@@ -15,6 +15,7 @@ pub enum Value {
     Sign(Rc<RefCell<SignObject>>),
     SignSchema(Rc<SignSchema>),
     Deck(Rc<DeckObject>),
+    NativeSpell(NativeSpell),
     Emptiness,
 }
 
@@ -30,6 +31,7 @@ impl Value {
             Self::Sign(_) => ValueType::Sign,
             Self::SignSchema(_) => ValueType::Sign,
             Self::Deck(_) => ValueType::Deck,
+            Self::NativeSpell(_) => ValueType::NativeSpell,
         }
     }
 
@@ -131,6 +133,7 @@ impl Hash for Value {
             Self::Sign(_) => {}    // not a compile time const
             Self::SignSchema(s) => s.hash(state),
             Self::Deck(d) => d.items.borrow().hash(state),
+            Self::NativeSpell(_) => {}
         }
     }
 }
@@ -168,6 +171,7 @@ pub fn print_value(value: Value) {
         }
         Value::SignSchema(schema) => println!("SignSchema '{}'", schema.name.clone()),
         Value::Deck(deck) => println!("Deck '{:?}'", deck.items.borrow()),
+        Value::NativeSpell(ns) => println!("NativeSpell '{:?}'", ns)
     }
 }
 
@@ -186,5 +190,6 @@ pub enum ValueType {
     Sign,
     SignSchema,
     Deck,
+    NativeSpell,
     Emptiness,
 }

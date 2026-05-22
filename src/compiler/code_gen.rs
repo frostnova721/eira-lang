@@ -14,8 +14,7 @@ use crate::{
     print_byte_code, print_instructions,
     runtime::Instruction,
     values::{
-        Value,
-        spell::{ClosureObject, SpellObject},
+        Value, native_spell::NativeSpell, spell::{ClosureObject, SpellObject}
     },
 };
 
@@ -358,7 +357,55 @@ impl CodeGen {
                 weave,
             } => self.gen_safe_access_instruction(*material, property, field_name_idx, weave),
             WovenExpr::AssertSafe { operand, operator, weave } => self.gen_assert_safe_instruction(*operand, weave),
+            WovenExpr::NativeCast { reagents, callee, weave, native_spell } => self.gen_native_cast_instruction(reagents, callee, native_spell),
         }
+    }
+
+    fn gen_native_cast_instruction(&mut self, reagents: Vec<WovenExpr>, _callee: Token, native_spell: NativeSpell) -> GenResult<u8> {
+        let dest = self.get_next_register()?;
+        let spell_idx = self.add_constant(Value::NativeSpell(native_spell))?;
+        let reg_start = self.get_next_register()?;
+
+        let mut reagent_regs: Vec<u8> = vec![];
+
+        for reagent in reagents.iter() {
+            let r = self.gen_from_expr(reagent.clone())?;
+            reagent_regs.push(r);
+        }
+
+       
+        let reg_start = if reagent_regs.is_empty() {
+            self.register_index
+        } else if reagent_regs.len() == 1 {
+            reagent_regs[0]
+        } else {
+            let mut contiguous = true;
+            for w in reagent_regs.windows(2) {
+                if w[1] != w[0].saturating_add(1) {
+                    contiguous = false;
+                    break;
+                }
+            }
+
+            if contiguous {
+                reagent_regs[0]
+            } else {
+                // Pack reagents into a fresh contiguous block
+                let start = self.register_index; // first one goes here
+                for (_, &src) in reagent_regs.iter().enumerate() {
+                    let dest = self.get_next_register()?;
+                    // dest should be start + i
+                    self.instructions.push(Instruction::Move {
+                        dest: dest,
+                        source: src as u16,
+                    });
+                }
+                start
+            }
+        };
+
+        self.instructions.push(Instruction::NativeCast { dest, nat_spell_name: spell_idx, reg_start: reg_start });
+        Ok(dest)
     }
 
     fn gen_assert_safe_instruction(&mut self, operand: WovenExpr, weave: Weave) -> GenResult<u8> {

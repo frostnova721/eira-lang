@@ -5,7 +5,7 @@ use crate::{
         symbol_table::Symbol,
         weaves::Weave,
     },
-    values::Value,
+    values::{Value, native_spell::NativeSpell},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -173,6 +173,12 @@ pub enum WovenExpr {
         operator: Token,
         weave: Weave,
     },
+    NativeCast {
+        reagents: Vec<WovenExpr>,
+        callee: Token,
+        weave: Weave,
+        native_spell: NativeSpell,
+    },
 }
 
 impl WovenExpr {
@@ -263,6 +269,12 @@ impl WovenExpr {
                 operand: _,
                 operator: _,
                 weave,
+            } => weave.clone(),
+            WovenExpr::NativeCast {
+                reagents: _,
+                callee: _,
+                weave,
+                native_spell: _,
             } => weave.clone(),
         }
     }
@@ -388,6 +400,12 @@ impl WovenExpr {
                 operator,
                 weave: _,
             } => operator.clone(),
+            WovenExpr::NativeCast {
+                reagents: _,
+                callee,
+                weave: _,
+                native_spell: _,
+            } => callee.clone(),
         }
     }
 }

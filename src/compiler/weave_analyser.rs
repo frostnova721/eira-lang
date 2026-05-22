@@ -18,6 +18,7 @@ use crate::{
     },
     values::{
         Value,
+        native_spell::NativeSpell,
         sign::{SignInfo, SignSchema},
         spell::{SpellInfo, UpValue},
     },
@@ -901,6 +902,61 @@ impl WeaveAnalyzer {
             Expr::Cast { reagents, callee } => {
                 let var_name = &callee.lexeme;
 
+                if let Ok(native_spell) = NativeSpell::resolve(var_name) {
+                    let native_info = NativeSpell::get_spell_info(native_spell.clone()).unwrap();
+
+                    if let Some(expected_weave) = expected_weave {
+                        if *expected_weave != native_info.release_weave {
+                            return self.error(
+                                &format!(
+                                    "The release weave of '{}' doesnt match the expected '{}' weave",
+                                    var_name,
+                                    expected_weave.get_name()
+                                ),
+                                callee,
+                            );
+                        }
+                    }
+
+                    if native_info.reagents.len() != reagents.len() {
+                        return self.error(
+                            &format!(
+                                "The spell '{}' expected {} reagents, but you provided {} of them!",
+                                native_info.name,
+                                native_info.reagents.len(),
+                                reagents.len()
+                            ),
+                            callee,
+                        );
+                    }
+
+                    let mut w_reagents: Vec<WovenExpr> = vec![];
+                    for (i, reagent) in reagents.iter().enumerate() {
+                        let expected = native_info.reagents.get(i).unwrap();
+                        let w_expr =
+                            self.analyze_expression(reagent.clone(), Some(&expected.weave))?;
+                        if w_expr.weave() != expected.weave {
+                            return self.error(
+                                &format!(
+                                    "The reagent #{} was expected to be {}, but got {}",
+                                    i + 1,
+                                    expected.weave.get_name(),
+                                    w_expr.weave().get_name()
+                                ),
+                                callee,
+                            );
+                        }
+                        w_reagents.push(w_expr.clone());
+                    }
+
+                    return Ok(WovenExpr::NativeCast {
+                        reagents: w_reagents,
+                        callee: callee,
+                        weave: native_info.release_weave,
+                        native_spell,
+                    });
+                }
+
                 let Some(symbol) = self.symbol_table.resolve(var_name).cloned() else {
                     return self.error(
                         &format!(
@@ -926,23 +982,11 @@ impl WeaveAnalyzer {
                         );
                     }
 
-                    if let Some(sym) = self.symbol_table.resolve(&symbol.name).cloned() {
-                        let Some(info) = sym.kind.borrow().get_spell_info() else {
-                            return self
-                                .error(&format!("'{}' is not a spell!", symbol.name), callee);
-                        };
+                    let Some(info) = symbol.kind.borrow().get_spell_info() else {
+                        return self.error(&format!("'{}' is not a spell!", symbol.name), callee);
+                    };
 
-                        (Some(info.clone()), info.release_weave)
-                    } else {
-                        // the return weave thingy would be unknown at comp time
-                        match symbol.weave.clone() {
-                            Weave::Spell { release } => (None, *release),
-                            _ => {
-                                return self
-                                    .error(&format!("{} is not a spell!.", symbol.name), callee);
-                            }
-                        }
-                    }
+                    (Some(info.clone()), info.release_weave)
                 };
 
                 match expected_weave {
@@ -1472,12 +1516,19 @@ impl WeaveAnalyzer {
                 let weave = match w_operand.weave() {
                     Weave::Maybe(inner) => *inner,
                     _ => {
-                        return self.error("Safe Assertion can only be performed on Maybe<W> weaves!", operator);
+                        return self.error(
+                            "Safe Assertion can only be performed on Maybe<W> weaves!",
+                            operator,
+                        );
                     }
                 };
 
-                Ok(WovenExpr::AssertSafe { operand: Box::new(w_operand), operator, weave: weave })
-            },
+                Ok(WovenExpr::AssertSafe {
+                    operand: Box::new(w_operand),
+                    operator,
+                    weave: weave,
+                })
+            }
         }
     }
 
