@@ -14,7 +14,9 @@ use crate::{
     print_byte_code, print_instructions,
     runtime::Instruction,
     values::{
-        Value, native_spell::NativeSpell, spell::{ClosureObject, SpellObject}
+        Value,
+        native_spell::NativeSpell,
+        spell::{ClosureObject, SpellObject},
     },
 };
 
@@ -356,15 +358,28 @@ impl CodeGen {
                 field_name_idx,
                 weave,
             } => self.gen_safe_access_instruction(*material, property, field_name_idx, weave),
-            WovenExpr::AssertSafe { operand, operator, weave } => self.gen_assert_safe_instruction(*operand, weave),
-            WovenExpr::NativeCast { reagents, callee, weave, native_spell } => self.gen_native_cast_instruction(reagents, callee, native_spell),
+            WovenExpr::AssertSafe {
+                operand,
+                operator: _,
+                weave,
+            } => self.gen_assert_safe_instruction(*operand, weave),
+            WovenExpr::NativeCast {
+                reagents,
+                callee,
+                weave: _,
+                native_spell,
+            } => self.gen_native_cast_instruction(reagents, callee, native_spell),
         }
     }
 
-    fn gen_native_cast_instruction(&mut self, reagents: Vec<WovenExpr>, _callee: Token, native_spell: NativeSpell) -> GenResult<u8> {
+    fn gen_native_cast_instruction(
+        &mut self,
+        reagents: Vec<WovenExpr>,
+        _callee: Token,
+        native_spell: NativeSpell,
+    ) -> GenResult<u8> {
         let dest = self.get_next_register()?;
         let spell_idx = self.add_constant(Value::NativeSpell(native_spell))?;
-        let reg_start = self.get_next_register()?;
 
         let mut reagent_regs: Vec<u8> = vec![];
 
@@ -373,7 +388,6 @@ impl CodeGen {
             reagent_regs.push(r);
         }
 
-       
         let reg_start = if reagent_regs.is_empty() {
             self.register_index
         } else if reagent_regs.len() == 1 {
@@ -404,16 +418,20 @@ impl CodeGen {
             }
         };
 
-        self.instructions.push(Instruction::NativeCast { dest, nat_spell_name: spell_idx, reg_start: reg_start });
+        self.instructions.push(Instruction::NativeCast {
+            dest,
+            nat_spell: spell_idx,
+            reg_start: reg_start,
+            args_count: reagent_regs.len() as u8,
+        });
         Ok(dest)
     }
 
-    fn gen_assert_safe_instruction(&mut self, operand: WovenExpr, weave: Weave) -> GenResult<u8> {
+    fn gen_assert_safe_instruction(&mut self, operand: WovenExpr, _weave: Weave) -> GenResult<u8> {
         let operand_reg = self.gen_from_expr(operand)?;
 
-        self.instructions.push(Instruction::AssertSafe {
-            r1: operand_reg,
-        });
+        self.instructions
+            .push(Instruction::AssertSafe { r1: operand_reg });
 
         Ok(self.get_last_allocated_register())
     }
@@ -421,9 +439,9 @@ impl CodeGen {
     fn gen_safe_access_instruction(
         &mut self,
         material: WovenExpr,
-        property: Token,
+        _property: Token,
         field_name_idx: u16,
-        weave: Weave,
+        _weave: Weave,
     ) -> GenResult<u8> {
         let mat_reg = self.gen_from_expr(material)?;
 

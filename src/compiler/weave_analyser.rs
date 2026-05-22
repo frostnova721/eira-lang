@@ -480,7 +480,7 @@ impl WeaveAnalyzer {
                     );
                     self.spell_slot_counter += 1; // Increment for next parameter
                     w_reagents.push(WovenReagent {
-                        name: r.name.clone(),
+                        // name: r.name.clone(),
                         weave: weave,
                     });
                 }

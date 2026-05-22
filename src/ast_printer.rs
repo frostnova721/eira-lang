@@ -680,7 +680,7 @@ impl AstPrinter {
         self.write(
             prefix,
             is_last,
-            &format!("{}: {:?}", reagent.name.lexeme, reagent.weave),
+            &format!("{:?}", reagent.weave),
         );
     }
 

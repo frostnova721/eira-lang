@@ -8,6 +8,12 @@ pub struct Reagent {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WovenReagent {
-    pub name: Token,
+    // pub name: Token,
     pub weave: Weave,
+}
+
+impl WovenReagent {
+    pub fn new(weave: Weave) -> Self {
+        Self { weave }
+    }
 }

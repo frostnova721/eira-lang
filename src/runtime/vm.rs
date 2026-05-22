@@ -70,7 +70,7 @@ pub struct EiraVM {
     frames: Vec<CallFrame>,
 
     globals: HashMap<String, Value>,
-    stack: Vec<Value>,
+    pub stack: Vec<Value>,
 }
 
 impl EiraVM {
@@ -606,11 +606,12 @@ impl EiraVM {
                     let dest = frame!().read_byte();
                     let spell = frame!().read_constant().clone();
                     let arg_start = frame!().read_byte();
+                    let argc = frame!().read_byte();
 
                     let res = match spell {
                         Value::NativeSpell(ns) => {
-                            let args: &Vec<Value> = &vec![];
-                            dispatch(self, ns, args)
+                            let start_idx = base + arg_start as usize;
+                            dispatch(self, ns, start_idx, argc as usize)
                         }
                         _ => {
                             self.runtime_error("Expected a NativeSpell value to be casted!");

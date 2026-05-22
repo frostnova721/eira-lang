@@ -197,5 +197,5 @@ define_instructions! {
     AssertSafe(35, 2) { r1: u8 }, // panics if r1 is empty
 
     // nat_spell_reg is the const_index which stores the name of the native spell
-    NativeCast(36, 5) { dest: u8, nat_spell_name: u16, reg_start: u8 }
+    NativeCast(36, 6) { dest: u8, nat_spell: u16, reg_start: u8, args_count: u8 },
 }
