@@ -112,7 +112,7 @@ mod weave_analyser_test {
     #[test]
     fn spell_cast_known_return_weave_ok() {
         let src = r#"
-            spell f():: NumWeave { release 2; }
+            spell f():: Num { release 2; }
             chant cast f;
         "#;
         let stmts = analyze_helper(src).expect("analyze ok");
@@ -128,7 +128,7 @@ mod weave_analyser_test {
     #[test]
     fn spell_cast_arg_count_mismatch_error() {
         let src = r#"
-            spell g(n: NumWeave):: NumWeave { release n; }
+            spell g(n: Num):: Num { release n; }
             chant cast g; // missing arg
         "#;
         let err = analyze_helper(src).err().expect("should error");
@@ -145,7 +145,7 @@ mod weave_analyser_test {
     #[test]
     fn spell_with_reagents_validates_types() {
         let src = r#"
-            spell add(a: NumWeave, b: NumWeave):: NumWeave {
+            spell add(a: Num, b: Num):: Num {
                 release a + b;
             }
             chant cast add with 1, 2;
@@ -156,7 +156,7 @@ mod weave_analyser_test {
     #[test]
     fn spell_reagent_type_mismatch_error() {
         let src = r#"
-            spell add(a: NumWeave, b: NumWeave):: NumWeave {
+            spell add(a: Num, b: Num):: Num {
                 release a + b;
             }
             chant cast add with 1, "string";
@@ -168,7 +168,7 @@ mod weave_analyser_test {
     #[test]
     fn runtime_spell_via_variable_ok() {
         let src = r#"
-            spell f():: NumWeave { release 42; }
+            spell f():: Num { release 42; }
             mark a = f;
             chant cast a;
         "#;
@@ -178,8 +178,8 @@ mod weave_analyser_test {
     #[test]
     fn runtime_spell_from_cast_result_ok() {
         let src = r#"
-            spell outer():: SpellWeave<NumWeave> {
-                spell inner():: NumWeave {
+            spell outer():: Spell<Num> {
+                spell inner():: Num {
                     release 99;
                 }
                 release inner;
@@ -201,7 +201,7 @@ mod weave_analyser_test {
     #[test]
     fn release_type_mismatch_error() {
         let src = r#"
-            spell f():: NumWeave {
+            spell f():: Num {
                 release "string";
             }
         "#;

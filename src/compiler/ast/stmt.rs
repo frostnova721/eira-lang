@@ -46,6 +46,8 @@ pub enum Stmt {
         reagents: Vec<Reagent>,
         body: Box<Stmt>,
         return_weave: Option<ParsedWeave>,
+
+        attuned_to: Option<Token>
     },
     Release {
         token: Token,
@@ -58,7 +60,11 @@ pub enum Stmt {
     Vanish {
         target: Expr,
         token: Token,
-    }
+    },
+    Attune {
+        sign: Token,
+        spells: Vec<Box<Stmt>>
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -108,18 +114,8 @@ pub enum WovenStmt {
         marks: Vec<WovenMark>,
         sign_symbol: Symbol,
     },
+    Attune {
+        sign: Token,
+        spells: Vec<Box<WovenStmt>>,
+    },
 }
-
-// impl WovenStmt {
-//     pub fn tapestry(&self) -> Tapestry {
-//         match self {
-//             WovenStmt::ExprStmt { expr:_, tapestry } => *tapestry,
-//             WovenStmt::VarDeclaration { name:_, mutable:_, initializer:_, tapestry } => *tapestry,
-//             WovenStmt::Fate { condition:_, then_branch:_, else_branch:_, tapestry } => *tapestry,
-//             WovenStmt::While { condition:_, body:_ } => Tapestry::new(NO_STRAND),
-//             WovenStmt::Chant { expression:_, tapestry } => *tapestry,
-//             WovenStmt::Block { statements:_, tapestry } => *tapestry,
-//             WovenStmt::Sever => Tapestry::new(NO_STRAND),
-//         }
-//     }
-// }

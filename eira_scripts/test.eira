@@ -1,2 +1,16 @@
-mark a: Text = cast ask with "What is your name? ";
-chant "you typed @a";
+sign Cat {
+    name: Text,
+}
+
+attune Cat {
+    spell meow() {
+        ego;
+        chant "maaaw :3";
+    }
+}
+
+mark c = ~Cat with {
+    name: "nikki",
+};
+
+cast c.meow;

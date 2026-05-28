@@ -22,7 +22,7 @@ pub enum TokenType {
     // Maybe, // yeah maybe
     Refers, // inheritance
     Origin, // super
-    _Self,  // this/self
+    Ego,  // this/self (ego as in sense of self)
     Chant,  // print
     Alias,  // type aliasing
     Glyph,  // enum

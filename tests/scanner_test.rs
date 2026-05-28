@@ -147,6 +147,7 @@ mod scanner_test {
             TokenType::InterpolateStart,
             TokenType::Identifier,
             TokenType::InterpolateEnd,
+            TokenType::String,
             TokenType::Eof,
         ];
 
@@ -172,6 +173,7 @@ mod scanner_test {
             TokenType::Plus,
             TokenType::Number,
             TokenType::InterpolateEnd,
+            TokenType::String,
             TokenType::Eof,
         ];
 
@@ -205,6 +207,7 @@ mod scanner_test {
             TokenType::Identifier,
             TokenType::ParenRight,
             TokenType::InterpolateEnd,
+            TokenType::String,
             TokenType::Eof,
         ];
 

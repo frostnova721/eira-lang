@@ -41,7 +41,7 @@ impl WeaveError {
 
 pub type WeaveResult<T> = Result<T, WeaveError>;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 enum Realm {
     Genesis, // script level scope
     Spell,   // spell level scope
@@ -54,7 +54,6 @@ pub struct WeaveAnalyzer {
     spell_stack: Vec<String>, // track the current spell name
 
     current_upvalues: Vec<UpValue>, // upvalue for currently resolving spell
-    current_scope_depth: usize,     // count current the scope depth
     spell_base_depth: usize,        // depth where current spell body starts (parameters live here)
     spell_slot_counter: usize,      // continuous slot counter within current spell
 }
@@ -68,7 +67,6 @@ impl WeaveAnalyzer {
             current_realm: Realm::Genesis,
             spell_stack: vec![],
             current_upvalues: vec![],
-            current_scope_depth: 0,
             spell_base_depth: 0,
             spell_slot_counter: 0,
         }
@@ -96,9 +94,7 @@ impl WeaveAnalyzer {
         match stmt {
             Stmt::Block { statements } => {
                 self.symbol_table.new_scope();
-                self.current_scope_depth += 1;
                 let w_block = self.analyze_statements(statements)?;
-                self.current_scope_depth -= 1;
                 self.symbol_table.end_scope();
                 return Ok(WovenStmt::Block {
                     statements: w_block,
@@ -129,42 +125,10 @@ impl WeaveAnalyzer {
                         w_condition.token(),
                     );
                 }
-
-                // self.symbol_table.new_scope();
-                // self.current_scope_depth += 1;
-
-                // match &w_condition {
-                //     WovenExpr::Manifests { value, .. } => {
-                //         if let WovenExpr::Variable { name, symbol, .. } = &**value {
-                //             if let Weave::Maybe(solid) = &symbol.weave {
-                //                 let is_mut = match *symbol.kind.borrow() {
-                //                     SymbolKind::Variable { mutable } => mutable,
-                //                     _ => false,
-                //                 };
-
-                //                 self.symbol_table.define_variable(
-                //                     name.lexeme.clone(),
-                //                     *solid.clone(),
-                //                     is_mut,
-                //                     self.symbol_table.get_current_scope_size(),
-                //                     None,
-                //                 );
-                //             } else {
-                //                 return self.error(
-                //                     "The weave of the manifest condition variable must be a Maybe weave.",
-                //                     name.clone(),
-                //                 );
-                //             }
-                //         }
-                //     }
-                //     _ => {}
-                // }
-
                 // scoping n stuff will be added by the block!
                 let w_then = self.analyze_statement(*then_branch)?;
 
                 // self.symbol_table.end_scope();
-                // self.current_scope_depth -= 1;
 
                 let w_else: Option<Box<WovenStmt>> = match else_branch {
                     Some(e_b) => Some(Box::new(self.analyze_statement(*e_b)?)),
@@ -408,6 +372,7 @@ impl WeaveAnalyzer {
                 reagents,
                 body,
                 return_weave,
+                attuned_to,
             } => {
                 // allow spell shadowing from outer scopes
                 let existing = self.symbol_table.resolve_in_current_scope(&name.lexeme);
@@ -460,14 +425,55 @@ impl WeaveAnalyzer {
                 // so the base_depth should be incremented after savin it
                 // Variables from this depth or shallower can be upvalues
                 let saved_spell_base_depth = self.spell_base_depth;
-                self.spell_base_depth = self.current_scope_depth;
-
-                self.current_scope_depth += 1;
+                self.spell_base_depth = self.symbol_table.get_depth() - 1;
 
                 // Reset spell slot counter for parameters
                 self.spell_slot_counter = 0;
 
                 let upvals_saved = std::mem::take(&mut self.current_upvalues);
+
+                if let Some(sign) = attuned_to {
+                    if let Some(s) = self.symbol_table.resolve(&sign.lexeme).cloned() {
+                        match &*s.kind.borrow() {
+                            SymbolKind::Sign(s) => {
+                                if s.attunements.contains_key(&name.lexeme) {
+                                    return self.error(
+                                        &format!(
+                                            "The sign '{}' is already attuned to a spell with the name '{}'",
+                                            sign.lexeme, name.lexeme
+                                        ),
+                                        sign,
+                                    );
+                                }
+
+                                self.symbol_table.define_variable(
+                                    "ego".to_string(),
+                                    Weave::Sign(sign.lexeme),
+                                    false,
+                                    self.spell_slot_counter,
+                                    None,
+                                );
+                            }
+                            _ => {
+                                return self.error(
+                                    &format!(
+                                        "The symbol '{}' is not a sign, and thus cannot be attuned to.",
+                                        sign.lexeme
+                                    ),
+                                    sign,
+                                );
+                            }
+                        };
+                    } else {
+                        return self.error(
+                                &format!(
+                                    "No symbol found across the eira realms with the name '{}', thus the spell cannot be attuned to it.",
+                                    sign.lexeme
+                                ),
+                                sign,
+                            );
+                    };
+                }
 
                 for r in reagents {
                     let weave = self.analyze_parsed_weave(r.weave)?;
@@ -494,22 +500,25 @@ impl WeaveAnalyzer {
 
                 self.symbol_table.modify_symbol(stub_symbol);
 
+                let prev_realm = self.current_realm.clone();
+                let prev_slot_counter = self.spell_slot_counter;
+
+                self.spell_slot_counter = 0;
+
                 self.current_realm = Realm::Spell;
                 self.spell_stack.push(name.lexeme.clone());
 
+                // analyze the body of the spell
                 let woven_body = self.analyze_statement(*body)?;
 
                 self.spell_stack.pop();
 
                 // Reset spell slot counter when exiting spell
-                self.spell_slot_counter = 0;
+                // self.spell_slot_counter = 0;
 
-                // this is inaccurate and buggy. should be replaced. TODO!
-                self.current_realm = if self.spell_stack.len() == 0 {
-                    Realm::Genesis
-                } else {
-                    Realm::Spell
-                };
+                self.spell_slot_counter = prev_slot_counter;
+
+                self.current_realm = prev_realm;
 
                 let captured_vals = std::mem::replace(&mut self.current_upvalues, upvals_saved);
                 let Some(s) = self.symbol_table.resolve(&name.lexeme) else {
@@ -536,7 +545,6 @@ impl WeaveAnalyzer {
                     spell_info.clone()
                 };
 
-                self.current_scope_depth -= 1;
                 self.symbol_table.end_scope();
 
                 // Restore base_depth
@@ -698,6 +706,45 @@ impl WeaveAnalyzer {
                 };
 
                 return Ok(WovenStmt::ExprStmt { expr: sugar_less });
+            }
+            Stmt::Attune { sign, spells } => {
+                // verify that the symbol exists and it is a sign
+                let Some(sign_symbol) = self.symbol_table.resolve(&sign.lexeme) else {
+                    return self.error(
+                        &format!(
+                            "No sign found across the eira realms with the name '{}'",
+                            sign.lexeme
+                        ),
+                        sign,
+                    );
+                };
+
+                match *sign_symbol.kind.borrow() {
+                    SymbolKind::Sign(_) => {}
+                    _ => {
+                        return self.error(
+                            &format!("The symbol '{}' is not a sign.", sign.lexeme),
+                            sign,
+                        );
+                    }
+                };
+
+                // new scope, we dont want stuff colliding
+                self.symbol_table.new_scope();
+
+                let mut w_spells: Vec<Box<WovenStmt>> = vec![];
+
+                for spell in spells {
+                    let w_spell = self.analyze_statement(*spell)?;
+                    w_spells.push(Box::new(w_spell));
+                }
+
+                self.symbol_table.end_scope();
+
+                Ok(WovenStmt::Attune {
+                    sign: sign,
+                    spells: w_spells,
+                })
             }
         }
     }
@@ -982,7 +1029,12 @@ impl WeaveAnalyzer {
                         );
                     }
 
-                    let Some(info) = symbol.kind.borrow().get_spell_info() else {
+                    let mut par = symbol.clone();
+                    while let Some(ref p) = par.parent {
+                        par = p.as_ref().clone();
+                    }
+
+                    let Some(info) = par.kind.borrow().get_spell_info() else {
                         return self.error(&format!("'{}' is not a spell!", symbol.name), callee);
                     };
 

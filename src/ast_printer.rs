@@ -127,6 +127,7 @@ impl AstPrinter {
                 reagents,
                 body,
                 return_weave,
+                attuned_to,
             } => {
                 let ret_str = if let Some(rw) = return_weave {
                     format!(" -> {}", rw.base.lexeme)
@@ -146,6 +147,9 @@ impl AstPrinter {
                     for (i, r) in reagents.iter().enumerate() {
                         self.print_reagent(&reagent_prefix, r, i == len - 1);
                     }
+                }
+                if let Some(attuned_to) = attuned_to {
+                    self.write(&next, false, &format!("attuned to: {}", attuned_to.lexeme));
                 }
                 self.write(&next, true, "body:");
                 self.print_stmt(&Self::next_prefix(&next, true), body, true);
@@ -168,6 +172,14 @@ impl AstPrinter {
                 self.write(prefix, is_last, &format!("Vanish: {}", token.lexeme));
                 self.print_expr(&Self::next_prefix(prefix, is_last), target, true);
             }
+            Stmt::Attune { sign, spells } => {
+                self.write(prefix, is_last, &format!("Attune: {}", sign.lexeme));
+                let next = Self::next_prefix(prefix, is_last);
+                let len = spells.len();
+                for (i, s) in spells.iter().enumerate() {
+                    self.print_stmt(&next, s, i == len - 1);
+                }
+            },
         }
     }
 
@@ -439,6 +451,14 @@ impl AstPrinter {
                     self.print_woven_mark(&next, m, i == len - 1);
                 }
             }
+            WovenStmt::Attune { sign, spells } => {
+                self.write(prefix, is_last, &format!("Attune: {}", sign.lexeme));
+                let next = Self::next_prefix(prefix, is_last);
+                let len = spells.len();
+                for (i, s) in spells.iter().enumerate() {
+                    self.print_woven_stmt(&next, s, i == len - 1);
+                }
+            },
         }
     }
 

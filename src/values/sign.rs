@@ -9,7 +9,6 @@ use crate::{SpellObject, Value, compiler::weaves::Weave, values::spell::SpellInf
 pub struct SignObject {
     pub schema: Rc<SignSchema>,
     pub marks: Vec<Value>,
-    pub attunements: HashMap<String, SpellObject>,
 }
 
 impl SignObject {
@@ -19,7 +18,6 @@ impl SignObject {
         Self {
             schema: schema,
             marks: vec![Value::Emptiness; field_count],
-            attunements: HashMap::new(),
         }
     }
 

@@ -268,6 +268,7 @@ impl CodeGen {
                 marks,
                 sign_symbol,
             } => self.gen_sign_instructions(name, marks, sign_symbol),
+            WovenStmt::Attune { sign, spells } => todo!(),
         }
     }
 

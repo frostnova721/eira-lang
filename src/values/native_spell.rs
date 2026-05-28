@@ -1,7 +1,7 @@
 use crate::{
     EiraVM, Value,
-    compiler::{weaves::Weave, reagents::WovenReagent},
-    values::{native_spells::io::read_line, spell::SpellInfo},
+    compiler::{reagents::WovenReagent, weaves::Weave},
+    values::{native_spells::{io::read_line, math::{self}}, spell::SpellInfo},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,10 +22,20 @@ impl NativeSpell {
             }))),
             "ask" => Ok(NativeSpell::Io(IoSpells::Ask(SpellInfo {
                 name: "ask".to_string(),
-                reagents: vec![WovenReagent {
-                    weave: Weave::Text,
-                }],
+                reagents: vec![WovenReagent { weave: Weave::Text }],
                 release_weave: Weave::Text,
+                upvalues: vec![],
+            }))),
+            "floor" => Ok(NativeSpell::Math(MathSpells::Floor(SpellInfo {
+                name: "floor".to_string(),
+                reagents: vec![WovenReagent { weave: Weave::Num }],
+                release_weave: Weave::Num,
+                upvalues: vec![],
+            }))),
+            "ceil" => Ok(NativeSpell::Math(MathSpells::Ceil(SpellInfo {
+                name: "ceil".to_string(),
+                reagents: vec![WovenReagent { weave: Weave::Num }],
+                release_weave: Weave::Num,
                 upvalues: vec![],
             }))),
             _ => Err(format!("Could'nt find a native spell for '{}'", name).to_string()),
@@ -66,11 +76,17 @@ impl TimeSpells {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum MathSpells {}
+pub enum MathSpells {
+    Floor(SpellInfo),
+    Ceil(SpellInfo),
+}
 
 impl MathSpells {
-    pub fn get_spell_info(_spell: MathSpells) -> Result<SpellInfo, String> {
-        todo!("yet to be implemented")
+    pub fn get_spell_info(spell: MathSpells) -> Result<SpellInfo, String> {
+        match spell {
+            MathSpells::Floor(si) => Ok(si),
+            MathSpells::Ceil(si) => Ok(si),
+        }
     }
 }
 
@@ -91,6 +107,17 @@ pub fn dispatch(
                 read_line(Some(&prompt_str))
             }
         },
-        NativeSpell::Math(_spells) => todo!("yet to be implemented"),
+        NativeSpell::Math(spells) => match spells {
+            MathSpells::Floor(_) => {
+                let arg_val = _vm.stack[arg_start_idx].clone();
+                let arg_num = arg_val.extract_number().unwrap();
+                Ok(Value::Number(math::floor(arg_num)))
+            }
+            MathSpells::Ceil(_) => {
+                let arg_val = _vm.stack[arg_start_idx].clone();
+                let arg_num = arg_val.extract_number().unwrap();
+                Ok(Value::Number(math::ceil(arg_num)))
+            }
+        },
     }
 }
