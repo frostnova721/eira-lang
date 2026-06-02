@@ -268,7 +268,7 @@ impl CodeGen {
                 marks,
                 sign_symbol,
             } => self.gen_sign_instructions(name, marks, sign_symbol),
-            WovenStmt::Attune { sign, spells } => todo!(),
+            WovenStmt::Attune { sign, spells } => self.gen_attune_instructions(sign, spells),
         }
     }
 
@@ -371,6 +371,18 @@ impl CodeGen {
                 native_spell,
             } => self.gen_native_cast_instruction(reagents, callee, native_spell),
         }
+    }
+
+    fn gen_attune_instructions(&mut self, sign: Token, spells: Vec<Box<WovenStmt>>) -> GenResult<u8> {
+        // let sign_reg = self.gen_from_expr(sign)?;
+
+        for spell in spells {
+            self.gen_from_stmt(*spell)?;
+        }
+
+
+
+        Ok(self.get_last_allocated_register())
     }
 
     fn gen_native_cast_instruction(

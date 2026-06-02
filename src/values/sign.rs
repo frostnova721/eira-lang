@@ -85,5 +85,5 @@ impl Hash for SignSchema {
 pub struct SignInfo {
     pub schema: SignSchema,
     pub marks: HashMap<String, Weave>,
-    pub attunements: HashMap<String, SpellInfo>,
+    pub attunements: HashMap<String, String>, // maps to method name -> global name
 }

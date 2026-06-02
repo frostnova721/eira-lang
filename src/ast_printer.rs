@@ -213,8 +213,9 @@ impl AstPrinter {
                 self.write(prefix, is_last, &format!("Assign: {}", name.lexeme));
                 self.print_expr(&Self::next_prefix(prefix, is_last), value, true);
             }
-            Expr::Cast { reagents, callee } => {
-                self.write(prefix, is_last, &format!("Cast: {}", callee.lexeme));
+            Expr::Cast { reagents, callee, token } => {
+                self.write(prefix, is_last, &format!("Cast", ));
+                self.print_expr(&Self::next_prefix(prefix, is_last), callee, true);
                 let next = Self::next_prefix(prefix, is_last);
                 let len = reagents.len();
                 for (i, r) in reagents.iter().enumerate() {

@@ -162,8 +162,10 @@ impl Parser {
     }
 
     pub(super) fn cast(&mut self, _can_assign: bool) -> ParseResult<Expr> {
-        self.consume(TokenType::Identifier, "Expected a spell name to cast.");
-        let spell_name = self.previous.clone();
+        //self.consume(TokenType::Identifier, "Expected a spell name to cast.");
+        let spell = self.expression()?;
+
+        let token = self.previous.clone();
 
         let mut reagents: Vec<Expr> = vec![];
 
@@ -184,7 +186,8 @@ impl Parser {
 
         Ok(Expr::Cast {
             reagents,
-            callee: spell_name,
+            callee: Box::new(spell),
+            token: token,
         })
     }
 
@@ -330,8 +333,8 @@ impl Parser {
 
     pub(super) fn assert_safe(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
         Ok(Expr::AssertSafe {
-             operand: Box::new(lhs),
-             operator: self.previous.clone(),
-         })
+            operand: Box::new(lhs),
+            operator: self.previous.clone(),
+        })
     }
 }

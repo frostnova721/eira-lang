@@ -3,8 +3,8 @@ sign Cat {
 }
 
 attune Cat {
-    spell meow() {
-        ego;
+    spell meow(a: Text) {
+        chant ego.name + " @a";
         chant "maaaw :3";
     }
 }
@@ -13,4 +13,21 @@ mark c = ~Cat with {
     name: "nikki",
 };
 
-cast c.meow;
+cast c.meow with "meowed";
+
+spell bark (howmanytimes: Num) {
+    
+    chant "woof woof";
+}
+
+mark _bark = bark;
+
+cast _bark with 1;
+
+mark b=  cast ceil with 2.5;
+
+spell floor(val: Num) {
+    chant "this is a floor";
+}
+
+cast floor with 2.5;

@@ -10,7 +10,7 @@ ADDITIVE: Ability to undergo addition
 SUBTRACTIVE: Ability to undergo subtraction
 MULTIPLICATIVE: Ability to undergo multiplication
 DIVISIVE: Ability to undergo division
-CONCATINABLE: Ability to undergo concatination (usually for strings)
+CONCATENABLE: Ability to undergo concatination (usually for strings)
 ...
 
 strands are defined and documented at [strand.rs](/src/compiler/types/strand.rs)

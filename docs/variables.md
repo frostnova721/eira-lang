@@ -2,25 +2,22 @@
 
 Variable, think of it as a container holding a value!
 
-In Eira, we have mutable and immutable variables. They are first class items in Eira!
+To maintain strict type safety across the realms, Eira splits variables into two distinct types: Marks (mutable) and Binds (immutable).
 
 ## Marks: Mutable Variables
 
 The mutable variables in Eira are called marks and they are declared with **mark** keyword.
 
-These are the variable which can have their value changed after assignment. Although in Eira, for having a good type safety the mutable variable can only be assigned with values which are of same weave as the declared one.
+These are the variable which can have their value changed after assignment. Although in Eira, for having a good type safety the mutable variable can only be reassigned with values of same Weave.
 
 consider the code for declaration example.
 
 ```eira
-// here type is auto inferred to be Num
-mark a = 10;
+// The weave is auto-inferred as Num
+mark stamina = 10;
 
-// This will compile & run. 5 is a Num
-a = 5;
-
-// this will cause an error, since a is a Num
-a = "Hello Eira!"; 
+stamina = 5; // ✅ Valid: 5 is a Num
+stamina = "Exhausted"; // ❌ Compile Error: Cannot assign Text to a Num Weave
 ```
 
 ## Binds: Immutable variables
@@ -35,7 +32,7 @@ As these are immutables, it cannot be reassigned with a different value, even if
 // Declaration of a bind 
 bind coffee_monster = "I love coffee!";
 
-// Will result in an error since bind values can't be changed
+// Will result in a compile error since bind values can't be reassigned
 coffee_monster = "I hate coffee"; 
 ```
 

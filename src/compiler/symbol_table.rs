@@ -1,10 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::{
     compiler::weaves::Weave,
     values::{sign::SignInfo, spell::SpellInfo},
 };
 
+#[derive(Debug)]
 pub struct SymbolTable {
     scopes: Vec<HashMap<String, Symbol>>,
 }
@@ -149,5 +150,18 @@ impl SymbolTable {
 
     pub fn get_depth(&self) -> usize {
         self.scopes.len() - 1
+    }
+}
+
+impl Display for SymbolTable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut result = String::new();
+        for (i, scope) in self.scopes.iter().enumerate() {
+            result.push_str(&format!("Scope {}:\n", i));
+            for (name, symbol) in scope {
+                result.push_str(&format!("  {}: {:?}\n", name, symbol));
+            }
+        }
+        write!(f, "{}", result)
     }
 }

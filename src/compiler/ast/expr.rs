@@ -35,7 +35,8 @@ pub enum Expr {
     },
     Cast {
         reagents: Vec<Expr>,
-        callee: Token,
+        callee: Box<Expr>,
+        token: Token,
     },
     Draw {
         marks: Vec<EtchedMark>,

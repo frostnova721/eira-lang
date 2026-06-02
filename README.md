@@ -14,10 +14,16 @@ Eira is aimed to be:
 
 - [x] Mutable and Immutable Variables (access, modification)
 - [x] Scopes (Realms in Eira)
-- [x] Control flow (using fate (if), divert (else), while)
+- [x] Control flow (using fate (if), divert (else))
+- [x] Iteration (using while)
 - [x] Function and Closures (spells!)
 - [x] Structs (signs! declaration, object creation done)
-- [ ] Arrays (deck!. almost done)
+- [x] Arrays (deck!. almost done)
+- [x] Native Functions
+- [x] Struct methods (attunements)
+- [ ] Imports
+- [ ] Classes (tome)
+- [ ] Error Handling
 
 ## Current State
 
@@ -29,7 +35,9 @@ Eira is aimed to be:
 
 - trying to design a mid type-like system!
 
-## Eira's Own Weave System!!
+- Created a Maybe\<W> system, similar to the Option\<T> in rust.
+
+## Eira's Own Weave System
 
 Alright! Thought quite a while and came up with a weave system, as an alternative to the type system! (its 99% similar, but who cares!)
 
@@ -39,7 +47,7 @@ for example....
 
 presence of Additive strand on a Weave would mean that the weave can be undergone '+' or '-' operation with the same weave!
 
-For starters, Eira will be providing 3 Weaves and 4 strands (as of now, will be increased once language evolves from the early stages), namely: NumWeave, TextWeave and TruthWeave. Representing the Numbers, String and Boolean!
+For starters, Eira will be providing 3 Weaves (as of now, will be increased once language evolves from the early stages), namely: NumWeave, TextWeave and TruthWeave. Representing the Numbers, String and Boolean!
 
 and for strands, check the code (too lazy to type em all)!
 
