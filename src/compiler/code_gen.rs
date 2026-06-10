@@ -269,6 +269,7 @@ impl CodeGen {
                 sign_symbol,
             } => self.gen_sign_instructions(name, marks, sign_symbol),
             WovenStmt::Attune { sign, spells } => self.gen_attune_instructions(sign, spells),
+            WovenStmt::Tether { token, path, bind_to, is_path } => todo!(),
         }
     }
 

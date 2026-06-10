@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc, str::FromStr};
 
 use crate::{
     Value::{self},
@@ -17,6 +17,7 @@ use crate::{
         token_type::TokenType,
         weaves::{Weave, Weaver},
     },
+    project::config::Project,
     values::{
         native_spell::NativeSpell,
         sign::{SignInfo, SignSchema},
@@ -48,6 +49,8 @@ enum Realm {
 }
 
 pub struct WeaveAnalyzer {
+    project: Option<Project>,
+
     symbol_table: SymbolTable,
     loop_depth: usize,
     current_realm: Realm,     // track the realm (scope type) the analyzer is in!
@@ -59,9 +62,10 @@ pub struct WeaveAnalyzer {
 }
 
 impl WeaveAnalyzer {
-    pub fn new() -> Self {
+    pub fn new(project: Option<Project>) -> Self {
         let st = SymbolTable::new();
         WeaveAnalyzer {
+            project,
             symbol_table: st,
             loop_depth: 0,
             current_realm: Realm::Genesis,
@@ -758,6 +762,62 @@ impl WeaveAnalyzer {
                     sign: sign,
                     spells: w_spells,
                 })
+            }
+            Stmt::Tether {
+                token,
+                path,
+                bind_to,
+                is_path,
+            } => {
+                // impossible, but just in case
+                if path.len() == 0 {
+                    return self.error("Tether path cannot be empty!", token);
+                }
+
+                if is_path {
+                } else {
+                    if path.len() == 1 {
+                        return self.error(
+                            "Tethering directly to a project directory is not how it works. Try changing your tether path to include the scroll you want to import from the project.",
+                            token,
+                        );
+                    }
+
+                    if path[0].lexeme == "eira" {
+                        // core library/archive/project, whatever you wanna call it
+                    } else if let Some(proj) = self.project.as_ref() {
+                        // case of local tethering (imports)
+                        if proj.name == path[0].lexeme {
+                            let mut file_path: PathBuf = PathBuf::from_str("./").unwrap();
+                            for p in path[1..].iter() {
+                                file_path.push(p.lexeme.clone());
+                                if !file_path.exists() {
+                                    return self.error(
+                                        &format!(
+                                            "The archive/scroll '{}'  does not exist.",
+                                            file_path.display()
+                                        ),
+                                        token,
+                                    );
+                                }
+                            }
+                        }
+
+                        // TODO: Handle external dependencies
+                        todo!(
+                            "Couldn't find project '{}'. External dependencies are not yet supported!",
+                            path[0].lexeme
+                        );
+                    }
+                }
+
+                todo!();
+                // if is_path {
+                //     Ok()
+                // } else {
+                //     let project = path[0];
+                //    // Ok()
+                // }
             }
         }
     }

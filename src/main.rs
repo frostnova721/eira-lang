@@ -1,6 +1,9 @@
+use std::path::Path;
+
 use eira::{
     EiraVM,
     compiler::compiler::{Compiler, CompilerOptions},
+    project::config::Project,
 };
 
 fn main() {
@@ -49,16 +52,32 @@ fn main() {
         }
     }
 
-    let default_debug_file = "eira_scripts/test.eira".to_string();
-    let file_path = args.get(1).unwrap_or(&default_debug_file);
+    let project_root = Project::find_root(Path::new(
+        &args.get(1).cloned().unwrap_or_else(|| ".".to_string()),
+    ));
 
-    let compiler = Compiler::new(file_path.clone(), compiler_options);
+    let project = if let Some(root) = project_root {
+        Project::load_from_toml(root.as_path().to_str().unwrap_or("essence.toml")).ok()
+    } else {
+        None
+    };
+
+    let target_file_path = if let Some(path) = args.get(1) {
+        path.clone()
+    } else if let Some(proj) = &project {
+        proj.entry_point.clone()
+    } else {
+        eprintln!("No source file provided and no project configuration found.");
+        return;
+    };
+
+    let compiler = Compiler::new(target_file_path.clone(), compiler_options, project);
 
     let compiled = compiler.compile_to_bytecode();
 
     if compiled.is_err() {
-        println!("The eira was cursed during the compilation of the scroll.");
-        println!("{}", compiled.err().unwrap().msg);
+        eprintln!("The eira was cursed during the compilation of the scroll.");
+        eprintln!("{}", compiled.err().unwrap().msg);
         return;
     }
 

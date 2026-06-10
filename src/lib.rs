@@ -4,6 +4,7 @@ pub mod compiler;
 pub mod debug;
 pub mod runtime;
 pub mod values;
+pub mod project;
 
 pub use compiler::code_gen::CodeGen;
 pub use compiler::parser::Parser;

@@ -65,6 +65,12 @@ pub enum Stmt {
         sign: Token,
         spells: Vec<Box<Stmt>>
     },
+    Tether {
+        token: Token,
+        path: Vec<Token>,
+        bind_to: Option<Token>,
+        is_path: bool,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -117,5 +123,11 @@ pub enum WovenStmt {
     Attune {
         sign: Token,
         spells: Vec<Box<WovenStmt>>,
+    },
+    Tether {
+        token: Token,
+        path: Vec<Token>,
+        bind_to: Option<Token>,
+        is_path: bool,
     },
 }

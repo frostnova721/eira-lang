@@ -179,7 +179,32 @@ impl AstPrinter {
                 for (i, s) in spells.iter().enumerate() {
                     self.print_stmt(&next, s, i == len - 1);
                 }
-            },
+            }
+            Stmt::Tether {
+                token,
+                path,
+                bind_to,
+                is_path,
+            } => {
+                let bind_str = if let Some(bt) = bind_to {
+                    format!(" bind to {}", bt.lexeme)
+                } else {
+                    String::new()
+                };
+                let path_str = if *is_path {
+                    path[0].lexeme.clone()
+                } else {
+                    path.iter()
+                        .map(|t| t.lexeme.clone())
+                        .collect::<Vec<_>>()
+                        .join(".")
+                };
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Tether: {}{} -> {}", token.lexeme, bind_str, path_str),
+                );
+            }
         }
     }
 
@@ -213,8 +238,12 @@ impl AstPrinter {
                 self.write(prefix, is_last, &format!("Assign: {}", name.lexeme));
                 self.print_expr(&Self::next_prefix(prefix, is_last), value, true);
             }
-            Expr::Cast { reagents, callee, token } => {
-                self.write(prefix, is_last, &format!("Cast", ));
+            Expr::Cast {
+                reagents,
+                callee,
+                token: _,
+            } => {
+                self.write(prefix, is_last, &format!("Cast",));
                 self.print_expr(&Self::next_prefix(prefix, is_last), callee, true);
                 let next = Self::next_prefix(prefix, is_last);
                 let len = reagents.len();
@@ -268,22 +297,30 @@ impl AstPrinter {
                 self.print_expr(&next, index, false);
                 self.print_expr(&next, value, true);
             }
-            Expr::FieldSet { material, property, value } => {
+            Expr::FieldSet {
+                material,
+                property,
+                value,
+            } => {
                 self.write(prefix, is_last, &format!("FieldSet: .{}", property.lexeme));
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_expr(&next, material, false);
                 self.print_expr(&next, value, true);
-            },
+            }
             Expr::Blank { token } => {
-              self.write(prefix, is_last, &format!("Blank: {}", token.lexeme));  
-            },
+                self.write(prefix, is_last, &format!("Blank: {}", token.lexeme));
+            }
             Expr::Manifests { value, token } => {
                 self.write(prefix, is_last, &format!("Manifests: {}", token.lexeme));
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_expr(&next, value, true);
             }
             Expr::SafeAccess { material, property } => {
-                self.write(prefix, is_last, &format!("SafeAccess: .{}", property.lexeme));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("SafeAccess: .{}", property.lexeme),
+                );
                 self.print_expr(&Self::next_prefix(prefix, is_last), material, true);
             }
             Expr::AssertSafe { operand, operator } => {
@@ -313,8 +350,6 @@ impl AstPrinter {
         self.write(prefix, is_last, &format!("{} =", mark.name.lexeme));
         self.print_expr(&Self::next_prefix(prefix, is_last), &mark.expr, true);
     }
-
-    
 
     // ===== Woven AST (WovenStmt/WovenExpr) =====
 
@@ -406,7 +441,15 @@ impl AstPrinter {
                 body,
                 spell_symbol,
             } => {
-                let ret_str = format!(" -> {:?}", spell_symbol.kind.borrow().get_spell_info().unwrap().release_weave);
+                let ret_str = format!(
+                    " -> {:?}",
+                    spell_symbol
+                        .kind
+                        .borrow()
+                        .get_spell_info()
+                        .unwrap()
+                        .release_weave
+                );
                 self.write(
                     prefix,
                     is_last,
@@ -430,7 +473,11 @@ impl AstPrinter {
                     self.print_woven_expr(&Self::next_prefix(prefix, is_last), e, true);
                 }
             }
-            WovenStmt::Sign { name, marks, sign_symbol } => {
+            WovenStmt::Sign {
+                name,
+                marks,
+                sign_symbol,
+            } => {
                 let info_str = if self.verbosity >= 1 {
                     let info = sign_symbol.kind.borrow().get_sign_info().unwrap();
                     format!(
@@ -459,7 +506,32 @@ impl AstPrinter {
                 for (i, s) in spells.iter().enumerate() {
                     self.print_woven_stmt(&next, s, i == len - 1);
                 }
-            },
+            }
+            WovenStmt::Tether {
+                token,
+                path,
+                bind_to,
+                is_path,
+            } => {
+                let bind_str = if let Some(bt) = bind_to {
+                    format!(" bind to {}", bt.lexeme)
+                } else {
+                    String::new()
+                };
+                let path_str = if *is_path {
+                    path[0].lexeme.clone()
+                } else {
+                    path.iter()
+                        .map(|t| t.lexeme.clone())
+                        .collect::<Vec<_>>()
+                        .join(".")
+                };
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Tether: {}{} -> {}", token.lexeme, bind_str, path_str),
+                );
+            }
         }
     }
 
@@ -565,7 +637,13 @@ impl AstPrinter {
                     format!(
                         " [slot:{}, fields:{}]",
                         sign_symbol.slot_idx,
-                        sign_symbol.kind.borrow().get_sign_info().unwrap().schema.field_count()
+                        sign_symbol
+                            .kind
+                            .borrow()
+                            .get_sign_info()
+                            .unwrap()
+                            .schema
+                            .field_count()
                     )
                 } else {
                     String::new()
@@ -638,8 +716,14 @@ impl AstPrinter {
                 self.print_woven_expr(&next, deck, false);
                 self.print_woven_expr(&next, index, false);
                 self.print_woven_expr(&next, value, true);
-            },
-            WovenExpr::FieldSet { material, property, value, field_name_idx, weave } => {
+            }
+            WovenExpr::FieldSet {
+                material,
+                property,
+                value,
+                field_name_idx,
+                weave,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 let idx_str = if self.verbosity >= 1 {
                     format!(" [idx:{}]", field_name_idx)
@@ -655,13 +739,26 @@ impl AstPrinter {
                 self.print_woven_expr(&next, material, false);
                 self.print_woven_expr(&next, value, true);
             }
-            WovenExpr::Manifests { value, token, weave } => {
+            WovenExpr::Manifests {
+                value,
+                token,
+                weave,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
-                self.write(prefix, is_last, &format!("Manifests: {}{}", token.lexeme, tap));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Manifests: {}{}", token.lexeme, tap),
+                );
                 let next = Self::next_prefix(prefix, is_last);
                 self.print_woven_expr(&next, value, true);
-            },
-            WovenExpr::SafeAccess { material, property, field_name_idx, weave } => {
+            }
+            WovenExpr::SafeAccess {
+                material,
+                property,
+                field_name_idx,
+                weave,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 let idx_str = if self.verbosity >= 1 {
                     format!(" [idx:{}]", field_name_idx)
@@ -674,14 +771,27 @@ impl AstPrinter {
                     &format!("SafeAccess: .{}{}{}", property.lexeme, idx_str, tap),
                 );
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), material, true);
-            },
-            WovenExpr::AssertSafe { operand, operator, weave } => {
+            }
+            WovenExpr::AssertSafe {
+                operand,
+                operator,
+                weave,
+            } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
-                self.write(prefix, is_last, &format!("AssertSafe: {}{}", operator.lexeme, tap));
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("AssertSafe: {}{}", operator.lexeme, tap),
+                );
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), operand, true);
             }
-            WovenExpr::NativeCast { reagents, callee, weave, native_spell } => {
-                 let tap = self.tapestry_info(&weave.get_tapestry());
+            WovenExpr::NativeCast {
+                reagents,
+                callee,
+                weave,
+                native_spell,
+            } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
                 let sym = native_spell;
                 self.write(
                     prefix,
@@ -693,16 +803,12 @@ impl AstPrinter {
                 for (i, r) in reagents.iter().enumerate() {
                     self.print_woven_expr(&next, r, i == len - 1);
                 }
-            },
+            }
         }
     }
 
     fn print_woven_reagent(&mut self, prefix: &str, reagent: &WovenReagent, is_last: bool) {
-        self.write(
-            prefix,
-            is_last,
-            &format!("{:?}", reagent.weave),
-        );
+        self.write(prefix, is_last, &format!("{:?}", reagent.weave));
     }
 
     fn print_woven_mark(&mut self, prefix: &str, mark: &WovenMark, is_last: bool) {

@@ -9,6 +9,7 @@ use crate::{
         scroll_reader::ScrollReader,
     },
     print_ast, print_byte_code, print_woven_ast,
+    project::config::Project,
     runtime::Instruction,
 };
 
@@ -29,6 +30,7 @@ pub struct CompilerOptions {
 pub struct Compiler {
     pub source_path: String,
     pub options: CompilerOptions,
+    pub project: Option<Project>,
     // pub
 }
 
@@ -39,10 +41,11 @@ pub struct CompiledCode {
 }
 
 impl Compiler {
-    pub fn new(source_path: String, options: CompilerOptions) -> Self {
+    pub fn new(source_path: String, options: CompilerOptions, project: Option<Project>) -> Self {
         Compiler {
             source_path,
             options,
+            project,
         }
     }
 
@@ -114,7 +117,7 @@ impl Compiler {
     }
 
     fn analyze_weaves(&self, ast: Vec<Stmt>) -> Result<Vec<WovenStmt>> {
-        let mut weave_analyzer = WeaveAnalyzer::new();
+        let mut weave_analyzer = WeaveAnalyzer::new(self.project.clone());
         match weave_analyzer.analyze(ast) {
             Err(no_no) => {
                 let errstr = format!(
@@ -136,7 +139,11 @@ impl Compiler {
     }
 
     fn gen_instructions(&self, woven_ast: Vec<WovenStmt>) -> Result<CompiledCode> {
-        let mut cg = CodeGen::new(woven_ast, self.options.print_instructions, self.options.print_bytecode);
+        let mut cg = CodeGen::new(
+            woven_ast,
+            self.options.print_instructions,
+            self.options.print_bytecode,
+        );
         match cg.summon_instructions() {
             Err(gen_error) => {
                 // println!("CodeGen Error: {}", gen_error.msg);

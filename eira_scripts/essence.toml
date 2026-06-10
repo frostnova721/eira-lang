@@ -1,0 +1,5 @@
+[archive]
+name="eira"
+incarnation="1"
+entry="lib/main.eira"
+root="."

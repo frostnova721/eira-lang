@@ -2,7 +2,7 @@
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenType {
     // Keywords
-    Channel, // imports
+    Tether, // imports
     Bind,
     Mark,
     Seal, // variable declarations

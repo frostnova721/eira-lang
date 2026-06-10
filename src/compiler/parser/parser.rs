@@ -203,6 +203,8 @@ impl Parser {
             res = self.sign_declaration();
         } else if self.match_token(TokenType::Attune) {
             res = self.attune_declaration();
+        } else if self.match_token(TokenType::Tether) {
+            res = self.tether_declaration();
         } else {
             res = self.statement();
         }

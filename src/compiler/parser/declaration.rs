@@ -1,4 +1,16 @@
-use crate::{Parser, Token, compiler::{Expr, Stmt, mark::Mark, parser::{parser::{MSG_BIND_VALUE_NOT_INITIALIZED, MSG_MISSED_SEMICOLON}, types::{ParseResult, ParsedWeave}}, reagents::Reagent, token_type::TokenType}};
+use crate::{
+    Parser, Token,
+    compiler::{
+        Expr, Stmt,
+        mark::Mark,
+        parser::{
+            parser::{MSG_BIND_VALUE_NOT_INITIALIZED, MSG_MISSED_SEMICOLON},
+            types::{ParseResult, ParsedWeave},
+        },
+        reagents::Reagent,
+        token_type::TokenType,
+    },
+};
 
 impl Parser {
     pub(super) fn spell_declaration(&mut self, attuned_to: Option<Token>) -> ParseResult<Stmt> {
@@ -120,7 +132,10 @@ impl Parser {
     }
 
     pub(super) fn attune_declaration(&mut self) -> ParseResult<Stmt> {
-        self.consume(TokenType::Identifier, "Expected a name for the sign to attune to.");
+        self.consume(
+            TokenType::Identifier,
+            "Expected a name for the sign to attune to.",
+        );
         let sign = self.previous.clone();
 
         self.consume(TokenType::BraceLeft, "Expected '{' after the sign name.");
@@ -137,8 +152,53 @@ impl Parser {
             }
         }
 
-        self.consume(TokenType::BraceRight, "Expected '}' after the attunement block.");
+        self.consume(
+            TokenType::BraceRight,
+            "Expected '}' after the attunement block.",
+        );
 
         Ok(Stmt::Attune { sign, spells })
+    }
+
+    pub(super) fn tether_declaration(&mut self) -> ParseResult<Stmt> {
+        let token = self.previous.clone();
+
+        let mut is_path = false;
+
+        let path = if self.match_token(TokenType::String) {
+            is_path = true;
+            vec![self.previous.clone()]
+        } else {
+            let mut joined_path: Vec<Token> = vec![];
+            loop {
+                self.consume(TokenType::Identifier, "Expected an identifier.");
+                joined_path.push(self.previous.clone());
+                if self.match_token(TokenType::Dot) {
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            joined_path
+        };
+
+        let bind_to = if self.match_token(TokenType::Bind) {
+            self.consume(
+                TokenType::Identifier,
+                "Expected an identifier after 'bind'.",
+            );
+            Some(self.previous.clone())
+        } else {
+            None
+        };
+
+        self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
+
+        Ok(Stmt::Tether {
+            token,
+            path: path,
+            bind_to: bind_to,
+            is_path: is_path,
+        })
     }
 }
