@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::Hash, rc::Rc};
 
-use crate::{SpellObject, Value, compiler::weaves::Weave, values::spell::SpellInfo};
+use crate::{Value, compiler::weaves::Weave};
 
 /// Represents a Sign (or struct in general terms) in Eira
 /// Marks -> fields/properties of the Sign, Since the magical signs consists of different marks

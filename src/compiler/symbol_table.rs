@@ -151,6 +151,12 @@ impl SymbolTable {
     pub fn get_depth(&self) -> usize {
         self.scopes.len() - 1
     }
+
+    pub fn get_exports(&self) -> &HashMap<String, Symbol> {
+        self.scopes
+            .first()
+            .unwrap()
+    }
 }
 
 impl Display for SymbolTable {

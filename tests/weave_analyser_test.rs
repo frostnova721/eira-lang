@@ -15,7 +15,7 @@ mod weave_analyser_test {
         let ast = parser
             .parse()
             .map_err(|e| format!("Parse error: {:?}", e))?;
-        let mut wa = WeaveAnalyzer::new();
+        let mut wa = WeaveAnalyzer::new(None);
         wa.analyze(ast).map_err(|e| format!("{}", e.msg))
     }
 

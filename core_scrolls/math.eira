@@ -1,0 +1,14 @@
+spell add(a: Num,b: Num):: Num {
+    release a + b;
+}
+
+
+sign Numerical {
+    
+}
+
+attune Numerical {
+    spell he() {
+        chant "callable";
+    }
+}

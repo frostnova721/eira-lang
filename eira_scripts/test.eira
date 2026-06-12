@@ -1,1 +1,6 @@
-tether realm.niga.pika;
+tether eira.math;
+
+chant cast add with 1,4;
+mark a = ~Numerical;
+
+cast a.he;

@@ -117,7 +117,7 @@ impl Compiler {
     }
 
     fn analyze_weaves(&self, ast: Vec<Stmt>) -> Result<Vec<WovenStmt>> {
-        let mut weave_analyzer = WeaveAnalyzer::new(self.project.clone());
+        let mut weave_analyzer = WeaveAnalyzer::new(self.project.clone(), false);
         match weave_analyzer.analyze(ast) {
             Err(no_no) => {
                 let errstr = format!(

@@ -508,28 +508,20 @@ impl AstPrinter {
                 }
             }
             WovenStmt::Tether {
-                token,
-                path,
+                statements:_,
                 bind_to,
-                is_path,
+                path
             } => {
                 let bind_str = if let Some(bt) = bind_to {
                     format!(" bind to {}", bt.lexeme)
                 } else {
                     String::new()
                 };
-                let path_str = if *is_path {
-                    path[0].lexeme.clone()
-                } else {
-                    path.iter()
-                        .map(|t| t.lexeme.clone())
-                        .collect::<Vec<_>>()
-                        .join(".")
-                };
+               
                 self.write(
                     prefix,
                     is_last,
-                    &format!("Tether: {}{} -> {}", token.lexeme, bind_str, path_str),
+                    &format!("Tether: {} -> {}", path, bind_str),
                 );
             }
         }

@@ -269,7 +269,11 @@ impl CodeGen {
                 sign_symbol,
             } => self.gen_sign_instructions(name, marks, sign_symbol),
             WovenStmt::Attune { sign, spells } => self.gen_attune_instructions(sign, spells),
-            WovenStmt::Tether { token, path, bind_to, is_path } => todo!(),
+            WovenStmt::Tether {
+                statements,
+                bind_to,
+                path,
+            } => self.gen_tether_instructions(statements),
         }
     }
 
@@ -374,14 +378,22 @@ impl CodeGen {
         }
     }
 
-    fn gen_attune_instructions(&mut self, sign: Token, spells: Vec<Box<WovenStmt>>) -> GenResult<u8> {
+    fn gen_tether_instructions(&mut self, stmts: Vec<WovenStmt>) -> GenResult<u8> {
+        self.gen_from_stmts(stmts);
+
+        Ok(self.get_last_allocated_register())
+    }
+
+    fn gen_attune_instructions(
+        &mut self,
+        sign: Token,
+        spells: Vec<Box<WovenStmt>>,
+    ) -> GenResult<u8> {
         // let sign_reg = self.gen_from_expr(sign)?;
 
         for spell in spells {
             self.gen_from_stmt(*spell)?;
         }
-
-
 
         Ok(self.get_last_allocated_register())
     }
@@ -765,20 +777,6 @@ impl CodeGen {
         _marks: Vec<WovenMark>,
         sign_symbol: Symbol,
     ) -> GenResult<u8> {
-        // println!("{:?}", marks);
-        // let mut field_names: Vec<String> = vec![];
-        // let field_weaves: Vec<> = vec![];
-
-        // let mut schema = SignSchema::new(name.lexeme.clone());
-
-        // for mark in marks {
-        //     // field_names.push(mark.name.lexeme);
-        //      schema.add_field(mark.name.lexeme);
-        // }
-
-        // for field_name in field_names {
-        // }
-
         // unwrap cus its almost sure that sign info is contained it the symbol
         let sign_info = sign_symbol.kind.borrow().get_sign_info().unwrap();
 

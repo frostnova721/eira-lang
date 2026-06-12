@@ -125,9 +125,8 @@ pub enum WovenStmt {
         spells: Vec<Box<WovenStmt>>,
     },
     Tether {
-        token: Token,
-        path: Vec<Token>,
+        statements: Vec<WovenStmt>,
+        path: String,
         bind_to: Option<Token>,
-        is_path: bool,
     },
 }

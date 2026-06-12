@@ -1,9 +1,17 @@
-use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc, str::FromStr};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    path::{MAIN_SEPARATOR_STR, PathBuf},
+    rc::Rc,
+    str::FromStr,
+};
 
 use crate::{
+    CodeGen, Parser, Scanner,
     Value::{self},
     compiler::{
         Expr, Stmt, WovenExpr, WovenStmt,
+        compiler::Compiler,
         mark::{WovenEtchedMark, WovenMark},
         parser::types::ParsedWeave,
         reagents::WovenReagent,
@@ -51,6 +59,8 @@ enum Realm {
 pub struct WeaveAnalyzer {
     project: Option<Project>,
 
+    import_mode: bool,
+
     symbol_table: SymbolTable,
     loop_depth: usize,
     current_realm: Realm,     // track the realm (scope type) the analyzer is in!
@@ -59,13 +69,16 @@ pub struct WeaveAnalyzer {
     current_upvalues: Vec<UpValue>, // upvalue for currently resolving spell
     spell_base_depth: usize,        // depth where current spell body starts (parameters live here)
     spell_slot_counter: usize,      // continuous slot counter within current spell
+
+    tethered_modules: HashSet<String>,
 }
 
 impl WeaveAnalyzer {
-    pub fn new(project: Option<Project>) -> Self {
+    pub fn new(project: Option<Project>, import_mode: bool) -> Self {
         let st = SymbolTable::new();
         WeaveAnalyzer {
             project,
+            import_mode,
             symbol_table: st,
             loop_depth: 0,
             current_realm: Realm::Genesis,
@@ -73,7 +86,12 @@ impl WeaveAnalyzer {
             current_upvalues: vec![],
             spell_base_depth: 0,
             spell_slot_counter: 0,
+            tethered_modules: HashSet::new(),
         }
+    }
+
+    pub fn get_symbol_table(&self) -> &SymbolTable {
+        &self.symbol_table
     }
 
     fn error<T>(&self, msg: &str, token: Token) -> Result<T, WeaveError> {
@@ -95,6 +113,33 @@ impl WeaveAnalyzer {
     }
 
     fn analyze_statement(&mut self, stmt: Stmt) -> WeaveResult<WovenStmt> {
+        let is_tether_top_level = self.import_mode
+            && self.symbol_table.get_depth() == 0
+            && self.current_realm == Realm::Genesis;
+
+        let woven = self.analyze_statement_inner(stmt)?;
+
+        match woven {
+            WovenStmt::Attune { .. }
+            | WovenStmt::Sign { .. }
+            | WovenStmt::Spell { .. }
+            | WovenStmt::VarDeclaration { .. } => {
+                // this is fine.... (should be.. atleast!)
+            }
+            _ => {
+                if is_tether_top_level {
+                    return self.error(
+                        "The tether scrolls can only contain declarations at top level!",
+                        Token::dummy(),
+                    );
+                }
+            }
+        }
+
+        Ok(woven)
+    }
+
+    fn analyze_statement_inner(&mut self, stmt: Stmt) -> WeaveResult<WovenStmt> {
         match stmt {
             Stmt::Block { statements } => {
                 self.symbol_table.new_scope();
@@ -769,12 +814,18 @@ impl WeaveAnalyzer {
                 bind_to,
                 is_path,
             } => {
+                if self.symbol_table.get_depth() != 0 {
+                    return self.error("Tethering can only be done in the global scope!", token);
+                }
+
                 // impossible, but just in case
                 if path.len() == 0 {
                     return self.error("Tether path cannot be empty!", token);
                 }
 
-                if is_path {
+                let string_content = if is_path {
+                    // Handle path-based tethering
+                    todo!("Path-based tethering is not yet implemented")
                 } else {
                     if path.len() == 1 {
                         return self.error(
@@ -783,8 +834,19 @@ impl WeaveAnalyzer {
                         );
                     }
 
-                    if path[0].lexeme == "eira" {
+                    let contents = if path[0].lexeme == "eira" {
                         // core library/archive/project, whatever you wanna call it
+                        let Some(core_scroll) = self.get_core_scroll(&path[1].lexeme) else {
+                            return self.error(
+                                &format!(
+                                    "The archive or scroll '{}' was not found inside '{}'",
+                                    path[1].lexeme, path[0].lexeme
+                                ),
+                                path[0].clone(),
+                            );
+                        };
+
+                        core_scroll
                     } else if let Some(proj) = self.project.as_ref() {
                         // case of local tethering (imports)
                         if proj.name == path[0].lexeme {
@@ -808,16 +870,85 @@ impl WeaveAnalyzer {
                             "Couldn't find project '{}'. External dependencies are not yet supported!",
                             path[0].lexeme
                         );
-                    }
+                    } else {
+                        return self.error(
+                            &format!(
+                                "No project found for tethering with name '{}'. External dependencies are not yet supported!",
+                                path[0].lexeme
+                            ),
+                            path[0].clone(),
+                        );
+                    };
+
+                    contents
+                };
+
+                let path = path
+                    .iter()
+                    .map(|t| t.lexeme.clone())
+                    .collect::<Vec<String>>()
+                    .join(".");
+
+                if self.tethered_modules.contains(&path) {
+                    // already compiled
+                    return Ok(WovenStmt::Tether {
+                        statements: vec![],
+                        bind_to,
+                        path,
+                    });
                 }
 
-                todo!();
-                // if is_path {
-                //     Ok()
-                // } else {
-                //     let project = path[0];
-                //    // Ok()
-                // }
+                let tokens = Scanner::init(string_content).tokenize();
+                let ast = match Parser::new(tokens, path.clone()).parse() {
+                    Ok(a) => a,
+                    Err(e) => {
+                        return self
+                            .error(&format!("Failed to parse tethered content: {}", e.0), token);
+                    }
+                };
+
+                let mut analyzer = WeaveAnalyzer::new(None, true);
+
+                let w_ast = match analyzer.analyze(ast) {
+                    Ok(w) => w,
+                    Err(e) => {
+                        return self.error(
+                            &format!("Failed to analyze tethered content: {}", e.msg),
+                            token,
+                        );
+                    }
+                };
+
+                let st = analyzer.get_symbol_table();
+
+                let exports = st.get_exports();
+
+                for (name, sym) in exports.iter() {
+                    if self.symbol_table.resolve_in_current_scope(name).is_some() {
+                        return self.error(
+                            &format!(
+                                "Name collision for exported symbol '{}' from tethered module '{}'. Consider renaming the symbol or the module.",
+                                name, path
+                            ),
+                            token,
+                        );
+                    }
+
+                    self.symbol_table.add_symbol(
+                        name.clone(),
+                        sym.weave.clone(),
+                        sym.kind.borrow().clone(),
+                        None,
+                        self.symbol_table.get_current_scope_size(),
+                    );
+                }
+
+                self.tethered_modules.insert(path.clone());
+                Ok(WovenStmt::Tether {
+                    statements: w_ast,
+                    path,
+                    bind_to,
+                })
             }
         }
     }
@@ -1812,6 +1943,13 @@ impl WeaveAnalyzer {
         };
 
         Ok(weave)
+    }
+
+    fn get_core_scroll(&self, name: &str) -> Option<&str> {
+        match name {
+            "math" => Some(include_str!("../../core_scrolls/math.eira")),
+            _ => None,
+        }
     }
 
     fn can_assign(&self, expected: &Weave, provided: &Weave) -> bool {
