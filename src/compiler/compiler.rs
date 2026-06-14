@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf};
 
 use crate::{
     CodeGen, Parser, Value, WeaveAnalyzer,
@@ -6,7 +6,7 @@ use crate::{
     compiler::{
         Stmt, WovenStmt,
         scanner::{Scanner, Token},
-        scroll_reader::ScrollReader,
+        scroll_reader::ScrollReader, weave_analyser::WeaveAnalyzerContext,
     },
     print_ast, print_byte_code, print_woven_ast,
     project::config::Project,
@@ -38,6 +38,10 @@ pub struct CompiledCode {
     pub bytecode: Vec<u8>,
     pub instructions: Vec<Instruction>,
     pub constants: Vec<Value>,
+}
+
+pub enum CompileState {
+    NotCompiled ,Compiling, Compiled
 }
 
 impl Compiler {
@@ -90,7 +94,7 @@ impl Compiler {
     }
 
     fn scan(&self) -> Result<Vec<Token>> {
-        let scroll_reader = ScrollReader::new(PathBuf::from(&self.source_path), Vec::new());
+        let scroll_reader = ScrollReader::new();    
 
         let content = scroll_reader.read_scroll(&PathBuf::from(&self.source_path));
 
@@ -117,7 +121,8 @@ impl Compiler {
     }
 
     fn analyze_weaves(&self, ast: Vec<Stmt>) -> Result<Vec<WovenStmt>> {
-        let mut weave_analyzer = WeaveAnalyzer::new(self.project.clone(), false);
+        let mut context = WeaveAnalyzerContext::new(self.source_path.clone(), self.project.clone(), false);
+        let mut weave_analyzer = WeaveAnalyzer::new(&mut context);
         match weave_analyzer.analyze(ast) {
             Err(no_no) => {
                 let errstr = format!(

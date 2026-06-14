@@ -5,15 +5,11 @@ pub struct ScrollReadError {
 }
 
 pub struct ScrollReader {
-    pub current_scroll: PathBuf,
-    pub include_paths: Vec<PathBuf>,
 }
 
 impl ScrollReader {
-    pub fn new(current_scroll: PathBuf, include_paths: Vec<PathBuf>) -> Self {
+    pub fn new() -> Self {
         ScrollReader {
-            current_scroll,
-            include_paths,
         }
     }
 
@@ -30,13 +26,13 @@ impl ScrollReader {
                 std::io::ErrorKind::NotFound => {
                     msg = format!(
                         "The scroll '{}' could not be found. Has it been lost to the void?",
-                        self.current_scroll.display()
+                        path.display()
                     );
                 }
                 std::io::ErrorKind::PermissionDenied => {
                     msg = format!(
                         "The scroll '{}' is protected by ancient magic. You don't have permission to read it.",
-                        self.current_scroll.display()
+                        path.display()
                     );
                 }
                 std::io::ErrorKind::IsADirectory => {
@@ -46,13 +42,13 @@ impl ScrollReader {
                 std::io::ErrorKind::InvalidData => {
                     msg = format!(
                         "The scroll '{}' is corrupted and cannot be read.",
-                        self.current_scroll.display()
+                        path.display()
                     );
                 }
                 _ => {
                     msg = format!(
                         "The eira was struck by unknown curses while reading the scroll '{}'.",
-                        self.current_scroll.display()
+                        path.display()
                     );
                 }
             };

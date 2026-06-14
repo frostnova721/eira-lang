@@ -1,3 +1,6 @@
 /target
 flamegraph.*
 compiler_old.rs
+
+# docs build files 
+/grimoire/book/

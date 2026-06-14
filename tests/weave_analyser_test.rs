@@ -4,7 +4,7 @@ mod weave_analyser_test {
         Parser, Scanner, WeaveAnalyzer,
         compiler::{
             WovenExpr, WovenStmt,
-            strand::{ADDITIVE_STRAND, CONDITIONAL_STRAND, MULTIPLICATIVE_STRAND},
+            strand::{ADDITIVE_STRAND, CONDITIONAL_STRAND, MULTIPLICATIVE_STRAND}, weave_analyser::WeaveAnalyzerContext,
         },
     };
 
@@ -15,7 +15,8 @@ mod weave_analyser_test {
         let ast = parser
             .parse()
             .map_err(|e| format!("Parse error: {:?}", e))?;
-        let mut wa = WeaveAnalyzer::new(None);
+        let mut context = WeaveAnalyzerContext::new("weave_test.eira".to_string(), None, false);
+        let mut wa = WeaveAnalyzer::new(&mut context);
         wa.analyze(ast).map_err(|e| format!("{}", e.msg))
     }
 

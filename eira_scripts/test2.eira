@@ -1,13 +1,3 @@
 spell a()::Num {
     release 1;
 }
-
-{
-    spell a():: Text {
-        release "hi";
-    }
-
-    chant cast a;
-}
-
-chant cast a;

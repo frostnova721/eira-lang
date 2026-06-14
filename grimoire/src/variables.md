@@ -33,6 +33,7 @@ As these are immutables, it cannot be reassigned with a different value, even if
 bind coffee_monster = "I love coffee!";
 
 // Will result in a compile error since bind values can't be reassigned
+// (and coffee monster loves coffee)
 coffee_monster = "I hate coffee"; 
 ```
 
