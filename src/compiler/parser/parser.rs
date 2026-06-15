@@ -3,6 +3,7 @@ use crate::compiler::{
     parser::types::{ParseError, ParseResult, ParseRule, ParsedWeave, Precedence},
     scanner::Token,
     token_type::TokenType,
+    types::Visibility,
 };
 
 pub(super) const MSG_BIND_VALUE_NOT_INITIALIZED: &str = "bind values must be initialized.";
@@ -192,20 +193,42 @@ impl Parser {
     // ----------------------- PARSE FUNCTIONS ----------------------//
 
     pub(super) fn declaration(&mut self) -> Option<Stmt> {
+        let visisibility = if self.match_token(TokenType::Secret) {
+            Some(Visibility::Secret)
+        } else if self.match_token(TokenType::Forge) {
+            Some(Visibility::Public)
+        } else {
+            None
+        };
+
+        macro_rules! access_modifier_restricted {
+            () => {
+                if visisibility.is_some() {
+                    self.throw_error("Usage of access modifiers are restricted here.");
+                }
+            };
+        }
+
         let res: ParseResult<Stmt>;
         if self.match_token(TokenType::Mark) {
-            res = self.variable_declaration(true);
+            res = self.variable_declaration(true, visisibility);
         } else if self.match_token(TokenType::Bind) {
-            res = self.variable_declaration(false);
+            res = self.variable_declaration(false, visisibility);
         } else if self.match_token(TokenType::Spell) {
-            res = self.spell_declaration(None);
+            res = self.spell_declaration(None, visisibility);
         } else if self.match_token(TokenType::Sign) {
-            res = self.sign_declaration();
+            res = self.sign_declaration(visisibility);
         } else if self.match_token(TokenType::Attune) {
+            access_modifier_restricted!();
             res = self.attune_declaration();
         } else if self.match_token(TokenType::Tether) {
+            access_modifier_restricted!();
             res = self.tether_declaration();
         } else {
+            if visisibility.is_some() {
+                self.throw_error("Access modifiers can just not be applied to everything!");
+            }
+
             res = self.statement();
         }
 

@@ -1,13 +1,11 @@
-use crate::{
-    compiler::{
+use crate::compiler::{
         Expr, WovenExpr,
         mark::{Mark, WovenMark},
         parser::types::ParsedWeave,
         reagents::{Reagent, WovenReagent},
         scanner::Token,
-        symbol_table::Symbol,
-    },
-};
+        symbol_table::Symbol, types::Visibility,
+    };
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
@@ -19,6 +17,7 @@ pub enum Stmt {
         mutable: bool,
         initializer: Option<Expr>,
         weave: Option<ParsedWeave>,
+        visibility: Option<Visibility>,
     },
     Fate {
         condition: Expr,
@@ -46,7 +45,7 @@ pub enum Stmt {
         reagents: Vec<Reagent>,
         body: Box<Stmt>,
         return_weave: Option<ParsedWeave>,
-
+        visibility: Option<Visibility>,
         attuned_to: Option<Token>
     },
     Release {
@@ -56,6 +55,7 @@ pub enum Stmt {
     Sign {
         name: Token,
         marks: Vec<Mark>,
+        visibility: Option<Visibility>,
     },
     Vanish {
         target: Expr,

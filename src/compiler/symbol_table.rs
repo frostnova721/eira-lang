@@ -1,13 +1,14 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc, thread::scope};
 
 use crate::{
-    compiler::weaves::Weave,
+    compiler::{types::Visibility, weaves::Weave},
     values::{sign::SignInfo, spell::SpellInfo},
 };
 
 #[derive(Debug)]
 pub struct SymbolTable {
     scopes: Vec<HashMap<String, Symbol>>,
+    exported_symbols: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,13 +42,17 @@ pub struct Symbol {
     pub kind: RefCell<SymbolKind>,
     pub slot_idx: usize,
     pub parent: Option<Rc<Symbol>>,
+    pub visibility: Visibility,
 }
 
 impl SymbolTable {
     pub fn new() -> Self {
         let mut scopes: Vec<HashMap<String, Symbol>> = vec![];
         scopes.push(HashMap::new());
-        SymbolTable { scopes: scopes }
+        SymbolTable {
+            scopes: scopes,
+            exported_symbols: vec![],
+        }
     }
 
     pub fn new_scope(&mut self) {
@@ -69,6 +74,7 @@ impl SymbolTable {
         mutable: bool,
         slot_idx: usize,
         parent: Option<Rc<Symbol>>,
+        visibility: Visibility,
     ) -> Option<Symbol> {
         self.add_symbol(
             name,
@@ -76,6 +82,7 @@ impl SymbolTable {
             SymbolKind::Variable { mutable },
             parent,
             slot_idx,
+            visibility,
         )
     }
 
@@ -86,9 +93,10 @@ impl SymbolTable {
         info: SpellInfo,
         slot_idx: usize,
         parent: Option<Rc<Symbol>>,
+        visibility: Visibility,
     ) -> Option<Symbol> {
         let kind = SymbolKind::Spell(info);
-        self.add_symbol(name, weave, kind, parent, slot_idx)
+        self.add_symbol(name, weave, kind, parent, slot_idx, visibility)
     }
 
     pub fn define_sign(
@@ -98,9 +106,10 @@ impl SymbolTable {
         info: SignInfo,
         parent: Option<Rc<Symbol>>,
         slot_idx: usize,
+        visibility: Visibility,
     ) -> Option<Symbol> {
         let kind = SymbolKind::Sign(info);
-        self.add_symbol(name, weave, kind, parent, slot_idx)
+        self.add_symbol(name, weave, kind, parent, slot_idx, visibility)
     }
 
     pub fn add_symbol(
@@ -110,8 +119,14 @@ impl SymbolTable {
         kind: SymbolKind,
         parent: Option<Rc<Symbol>>,
         slot_idx: usize,
+        visibility: Visibility,
     ) -> Option<Symbol> {
         let depth = self.scopes.len() - 1;
+
+        // the necessary conditions to be eligible for exports
+        if depth == 0 && visibility == Visibility::Public {
+            self.exported_symbols.push(name.clone());
+        }
 
         if let Some(scope) = self.scopes.last_mut() {
             let symbol = Symbol {
@@ -121,8 +136,11 @@ impl SymbolTable {
                 parent: parent,
                 kind: RefCell::new(kind),
                 slot_idx: slot_idx,
+                visibility: visibility.clone(),
             };
+
             scope.insert(name, symbol.clone());
+
             return Some(symbol);
         } else {
             // This branch is literally impossible!
@@ -152,10 +170,15 @@ impl SymbolTable {
         self.scopes.len() - 1
     }
 
-    pub fn get_exports(&self) -> &HashMap<String, Symbol> {
-        self.scopes
-            .first()
-            .unwrap()
+    pub fn get_exports(&self) -> HashMap<String, Symbol> {
+        let mut exports: HashMap<String, Symbol> = HashMap::new();
+        let scope = self.scopes.first().unwrap();
+        for name in &self.exported_symbols {
+            if let Some(symbol) = scope.get(name) {
+                exports.insert(name.clone(), symbol.clone());
+            }
+        }
+        exports
     }
 }
 

@@ -1,0 +1,20 @@
+sign Sword {
+    type: Text,
+}
+
+attune Sword {
+    spell cut() {
+        chant "It cut an apple!";
+    }
+    spell material() {
+        chant "Made of: ";
+        chant ego.type;
+    }
+}
+
+mark hero_sword = ~Sword with {
+    type: "Phoenix Steel",
+};
+
+cast hero_sword.cut;
+cast hero_sword.material;

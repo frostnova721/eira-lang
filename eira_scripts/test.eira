@@ -5,5 +5,3 @@ chant cast add with 1,4;
 mark a = ~Numerical;
 
 cast a.he;
-
-chant cast idk;

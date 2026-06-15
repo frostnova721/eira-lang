@@ -9,11 +9,16 @@ use crate::{
         },
         reagents::Reagent,
         token_type::TokenType,
+        types::Visibility,
     },
 };
 
 impl Parser {
-    pub(super) fn spell_declaration(&mut self, attuned_to: Option<Token>) -> ParseResult<Stmt> {
+    pub(super) fn spell_declaration(
+        &mut self,
+        attuned_to: Option<Token>,
+        visibility: Option<Visibility>,
+    ) -> ParseResult<Stmt> {
         self.consume(TokenType::Identifier, "Expected a variable name!");
         let name = self.previous.clone();
 
@@ -59,11 +64,12 @@ impl Parser {
             reagents: params,
             body: Box::new(working),
             return_weave: weave_name,
+            visibility,
             attuned_to,
         })
     }
 
-    pub(super) fn variable_declaration(&mut self, mutable: bool) -> ParseResult<Stmt> {
+    pub(super) fn variable_declaration(&mut self, mutable: bool, visibility: Option<Visibility>) -> ParseResult<Stmt> {
         self.consume(TokenType::Identifier, "Expected a variable name!");
         let name = self.previous.clone();
         let initializer: Option<Expr>;
@@ -88,10 +94,11 @@ impl Parser {
             mutable: mutable,
             initializer: initializer,
             weave: weave,
+            visibility: visibility,
         })
     }
 
-    pub(super) fn sign_declaration(&mut self) -> ParseResult<Stmt> {
+    pub(super) fn sign_declaration(&mut self, visibility: Option<Visibility>) -> ParseResult<Stmt> {
         self.consume(TokenType::Identifier, "Expected a name for the sign.");
         let name = self.previous.clone();
         self.consume(TokenType::BraceLeft, "Expected '{' after the sign name.");
@@ -128,7 +135,7 @@ impl Parser {
         self.consume(TokenType::BraceRight, "Expected '}' after sign marks.");
         // self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
 
-        Ok(Stmt::Sign { name, marks })
+        Ok(Stmt::Sign { name, marks, visibility })
     }
 
     pub(super) fn attune_declaration(&mut self) -> ParseResult<Stmt> {
@@ -143,8 +150,25 @@ impl Parser {
         let mut spells: Vec<Box<Stmt>> = vec![];
 
         while !self.check(TokenType::BraceRight) && !self.reached_end() {
+            let visisibility = if self.match_token(TokenType::Secret) {
+                Some(Visibility::Secret)
+            } else if self.match_token(TokenType::Forge) {
+                // public by default
+                Some(Visibility::Public)
+            } else {
+                None
+            };
+
+            if visisibility.is_none() && !self.check(TokenType::Spell) {
+                // user type some thing else other than access modifiers, which is not allowed in attunement block!
+                self.throw_error("Only spell declarations are allowed in an attunement block!");
+                break;
+            }
+
             if self.match_token(TokenType::Spell) {
-                spells.push(Box::new(self.spell_declaration(Some(sign.clone()))?));
+                spells.push(Box::new(
+                    self.spell_declaration(Some(sign.clone()), visisibility)?,
+                ));
             } else {
                 // println!("Hit else in attune! Current token: {:?}", self.current.token_type);
                 self.throw_error("Only spell declarations are allowed in an attunement block!");

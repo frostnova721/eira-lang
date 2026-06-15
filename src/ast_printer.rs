@@ -1,7 +1,7 @@
 use crate::compiler::{
     Expr, Stmt, WovenExpr, WovenStmt,
     mark::{EtchedMark, Mark, WovenEtchedMark, WovenMark},
-    reagents::{Reagent, WovenReagent},
+    reagents::{Reagent, WovenReagent}, types::Visibility,
 };
 
 const PIPE: &str = "│   ";
@@ -55,12 +55,13 @@ impl AstPrinter {
                 mutable,
                 initializer,
                 weave,
+                visibility,
             } => {
                 let mut_str = if *mutable { "mut " } else { "" };
                 self.write(
                     prefix,
                     is_last,
-                    &format!("VarDecl: {}{}", mut_str, name.lexeme),
+                    &format!("VarDecl: {}{} ({})", mut_str, name.lexeme, visibility.as_ref().unwrap_or(&Visibility::default())),
                 );
                 if let Some(init) = initializer {
                     self.print_expr(&Self::next_prefix(prefix, is_last), init, true);
@@ -127,6 +128,7 @@ impl AstPrinter {
                 reagents,
                 body,
                 return_weave,
+                visibility,
                 attuned_to,
             } => {
                 let ret_str = if let Some(rw) = return_weave {
@@ -137,7 +139,7 @@ impl AstPrinter {
                 self.write(
                     prefix,
                     is_last,
-                    &format!("Spell: {}{}", name.lexeme, ret_str),
+                    &format!("Spell: {}{} ({})", name.lexeme, ret_str, visibility.as_ref().unwrap_or(&Visibility::default())),
                 );
                 let next = Self::next_prefix(prefix, is_last);
                 if !reagents.is_empty() {
@@ -160,8 +162,8 @@ impl AstPrinter {
                     self.print_expr(&Self::next_prefix(prefix, is_last), e, true);
                 }
             }
-            Stmt::Sign { name, marks } => {
-                self.write(prefix, is_last, &format!("Sign: {}", name.lexeme));
+            Stmt::Sign { name, marks, visibility } => {
+                self.write(prefix, is_last, &format!("Sign: {} ({})", name.lexeme, visibility.as_ref().unwrap_or(&Visibility::default())));
                 let next = Self::next_prefix(prefix, is_last);
                 let len = marks.len();
                 for (i, m) in marks.iter().enumerate() {

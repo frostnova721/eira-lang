@@ -24,6 +24,7 @@ use crate::{
         },
         symbol_table::{Symbol, SymbolKind, SymbolTable},
         token_type::TokenType,
+        types::Visibility,
         weaves::{Weave, Weaver},
     },
     project::config::Project,
@@ -207,6 +208,7 @@ impl<'a> WeaveAnalyzer<'a> {
                 mutable,
                 initializer,
                 weave,
+                visibility,
             } => {
                 // allow variable shadowing from outer scopes
                 if let Some(_symbol) = self.symbol_table.resolve_in_current_scope(&name.lexeme) {
@@ -218,6 +220,8 @@ impl<'a> WeaveAnalyzer<'a> {
                         name,
                     );
                 }
+
+                let visibility = visibility.unwrap_or(Visibility::default());
 
                 let expr_weave: Result<Weave, WeaveError>;
                 let mut specified_weave: Option<Weave> = None;
@@ -289,7 +293,14 @@ impl<'a> WeaveAnalyzer<'a> {
 
                 let s = self
                     .symbol_table
-                    .define_variable(name.lexeme.clone(), weave_for_symbol, mutable, slot, parent)
+                    .define_variable(
+                        name.lexeme.clone(),
+                        weave_for_symbol,
+                        mutable,
+                        slot,
+                        parent,
+                        visibility,
+                    )
                     .unwrap();
 
                 Ok(WovenStmt::VarDeclaration {
@@ -435,6 +446,7 @@ impl<'a> WeaveAnalyzer<'a> {
                 body,
                 return_weave,
                 attuned_to,
+                visibility,
             } => {
                 // allow spell shadowing from outer scopes
                 let existing = self.symbol_table.resolve_in_current_scope(&name.lexeme);
@@ -447,6 +459,9 @@ impl<'a> WeaveAnalyzer<'a> {
                         name,
                     );
                 }
+
+                // set public visibility by default
+                let visibility = visibility.unwrap_or(Visibility::default());
 
                 let mut w_reagents: Vec<WovenReagent> = vec![];
                 let slot = self.symbol_table.get_current_scope_size();
@@ -484,6 +499,7 @@ impl<'a> WeaveAnalyzer<'a> {
                         },
                         slot,
                         None,
+                        visibility.clone(),
                     )
                     .unwrap(); // this shouldmt be failing
 
@@ -545,6 +561,7 @@ impl<'a> WeaveAnalyzer<'a> {
                         false,
                         self.spell_slot_counter,
                         None,
+                        Visibility::Secret,
                     );
                     self.spell_slot_counter += 1;
 
@@ -561,6 +578,7 @@ impl<'a> WeaveAnalyzer<'a> {
                         false,
                         self.spell_slot_counter, // Use continuous slot counter, (lexical scoping doesnt work right here!)
                         None,
+                        Visibility::Secret,
                     );
                     self.spell_slot_counter += 1; // Increment for next parameter
                     w_reagents.push(WovenReagent {
@@ -639,6 +657,7 @@ impl<'a> WeaveAnalyzer<'a> {
                         },
                         slot,
                         None,
+                        visibility,
                     )
                     .unwrap();
 
@@ -649,13 +668,15 @@ impl<'a> WeaveAnalyzer<'a> {
                     spell_symbol: symbol,
                 })
             }
-            Stmt::Sign { name, marks } => {
+            Stmt::Sign { name, marks, visibility } => {
                 if let Some(_) = self.symbol_table.resolve_in_current_scope(&name.lexeme) {
                     return self.error(
                         "A variable has been declared with same name as the sign.",
                         name,
                     );
                 }
+
+                let visibility = visibility.unwrap_or(Visibility::default());
 
                 let mut sign_info = SignInfo {
                     schema: SignSchema::new(name.lexeme.clone()),
@@ -669,6 +690,7 @@ impl<'a> WeaveAnalyzer<'a> {
                     sign_info.clone(),
                     None,
                     self.symbol_table.get_current_scope_size(),
+                    visibility.clone(),
                 );
 
                 let symbol = match symbol {
@@ -707,6 +729,7 @@ impl<'a> WeaveAnalyzer<'a> {
                     kind: RefCell::new(SymbolKind::Sign(sign_info)),
                     slot_idx: symbol.slot_idx,
                     parent: None,
+                    visibility: visibility,
                 };
 
                 self.symbol_table.modify_symbol(new_symbol.clone());
@@ -980,6 +1003,7 @@ impl<'a> WeaveAnalyzer<'a> {
 
                 let st = analyzer.get_symbol_table();
 
+                // build exports table
                 let exports = st.get_exports().clone();
 
                 for (name, sym) in exports.iter() {
@@ -999,6 +1023,7 @@ impl<'a> WeaveAnalyzer<'a> {
                         sym.kind.borrow().clone(),
                         None,
                         self.symbol_table.get_current_scope_size(),
+                        Visibility::Secret, // we dont want other modules to read symbols of scrolls tethered by this one
                     );
                 }
 
@@ -1455,15 +1480,6 @@ impl<'a> WeaveAnalyzer<'a> {
                 })
             }
             Expr::Draw { marks, callee } => {
-                let var_name = &callee.lexeme;
-
-                let Some(_) = self.symbol_table.resolve_in_current_scope(var_name) else {
-                    return self.error(
-                        "A variable with the same name as the sign exists in the current scope!",
-                        callee,
-                    );
-                };
-
                 let Some(symbol) = self.symbol_table.resolve(&callee.lexeme).cloned() else {
                     return self.error(
                         &format!("The sign '{}' was not found!", callee.lexeme),
