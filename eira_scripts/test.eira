@@ -2,6 +2,9 @@ tether eira.math;
 tether "./test2.eira";
 
 chant cast add with 1,4;
-mark a = ~Numerical;
 
-cast a.he;
+mark a = ~Numerical with {
+    sui: 10
+};
+
+cast a.meow;

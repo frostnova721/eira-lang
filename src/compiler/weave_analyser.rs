@@ -1,13 +1,13 @@
 use std::{
     cell::RefCell,
-    collections::{HashMap, HashSet},
-    path::{MAIN_SEPARATOR_STR, Path, PathBuf},
+    collections::HashMap,
+    path::{MAIN_SEPARATOR_STR, PathBuf},
     rc::Rc,
     str::FromStr,
 };
 
 use crate::{
-    CodeGen, Parser, Scanner,
+    Parser, Scanner,
     Value::{self},
     compiler::{
         Expr, Stmt, WovenExpr, WovenStmt,
@@ -30,7 +30,7 @@ use crate::{
     project::config::Project,
     values::{
         native_spell::NativeSpell,
-        sign::{SignInfo, SignSchema},
+        sign::{AttunedSpell, SignInfo, SignSchema},
         spell::{SpellInfo, UpValue},
     },
 };
@@ -541,7 +541,13 @@ impl<'a> WeaveAnalyzer<'a> {
                                     sign.clone(),);
                                 }
 
-                                si.attunements.insert(name_lexeme.clone(), method_name);
+                                let attuned = AttunedSpell {
+                                    method_name: method_name.clone(),
+                                    visibility: visibility.clone(),
+                                    is_static: false,
+                                };
+
+                                si.attunements.insert(name_lexeme.clone(), attuned);
                             }
                             _ => {
                                 return self.error(
@@ -602,7 +608,7 @@ impl<'a> WeaveAnalyzer<'a> {
                 self.spell_slot_counter = 0;
 
                 self.current_realm = Realm::Spell;
-                self.spell_stack.push(name.lexeme.clone());
+                self.spell_stack.push(spell_name.clone());
 
                 // analyze the body of the spell
                 let woven_body = self.analyze_statement(*body)?;
@@ -668,7 +674,11 @@ impl<'a> WeaveAnalyzer<'a> {
                     spell_symbol: symbol,
                 })
             }
-            Stmt::Sign { name, marks, visibility } => {
+            Stmt::Sign {
+                name,
+                marks,
+                visibility,
+            } => {
                 if let Some(_) = self.symbol_table.resolve_in_current_scope(&name.lexeme) {
                     return self.error(
                         "A variable has been declared with same name as the sign.",
@@ -1017,13 +1027,13 @@ impl<'a> WeaveAnalyzer<'a> {
                         );
                     }
 
-                    self.symbol_table.add_symbol(
+                    self.symbol_table.import_symbol(
                         name.clone(),
                         sym.weave.clone(),
                         sym.kind.borrow().clone(),
                         None,
                         self.symbol_table.get_current_scope_size(),
-                        Visibility::Secret, // we dont want other modules to read symbols of scrolls tethered by this one
+                        sym.visibility.clone(), // preserve visibility but do not re-export
                     );
                 }
 
@@ -1246,6 +1256,10 @@ impl<'a> WeaveAnalyzer<'a> {
                     let w_material = self.analyze_expression(*material, None)?;
 
                     if let Weave::Sign(ref sign_name) = w_material.weave() {
+                        
+                        // wether the material passed is the defined name of sign
+                        let is_declared_symbol = sign_name == w_material.token().lexeme.as_str();
+
                         let Some(sign_symbol) = self.symbol_table.resolve(sign_name).cloned()
                         else {
                             return self.error(
@@ -1256,7 +1270,7 @@ impl<'a> WeaveAnalyzer<'a> {
 
                         let sign_info = sign_symbol.kind.borrow().get_sign_info().unwrap();
 
-                        let Some(method_name) = sign_info.attunements.get(&property.lexeme) else {
+                        let Some(method) = sign_info.attunements.get(&property.lexeme) else {
                             return self.error(
                                 &format!(
                                     "The sign '{}' is not attuned to a spell '{}'",
@@ -1266,12 +1280,37 @@ impl<'a> WeaveAnalyzer<'a> {
                             );
                         };
 
-                        let Some(method_symbol) = self.symbol_table.resolve(method_name).cloned()
+                        if is_declared_symbol && !method.is_static {
+                            return self.error(
+                                "Attunements cannot be invoked directly from the sign!",
+                                property,
+                            );
+                        } else if !is_declared_symbol && method.is_static {
+                            return self.error(
+                                "Static attunements can only be invoked directly from the sign!",
+                                property,
+                            );
+                        }
+
+                        if method.visibility == Visibility::Secret
+                            && w_material.token().token_type != TokenType::Ego
+                        {
+                            return self.error(
+                                &format!(
+                                    "The spell '{}' attuned to sign '{}' is a secret and cannot be casted here!",
+                                    method.method_name, sign_name,
+                                ),
+                                property,
+                            );
+                        }
+
+                        let Some(method_symbol) =
+                            self.symbol_table.resolve(&method.method_name).cloned()
                         else {
                             return self.error(
                                 &format!(
                                     "The spell '{}' was not found for sign '{}'!",
-                                    method_name, sign_name,
+                                    method.method_name, sign_name,
                                 ),
                                 property,
                             );
@@ -1285,7 +1324,7 @@ impl<'a> WeaveAnalyzer<'a> {
                                 return self.error(
                                     &format!(
                                         "The release weave of spell '{}' does not match the expected weave '{}'",
-                                        method_name,
+                                        method.method_name,
                                         expected.get_name()
                                     ),
                                     property,
@@ -1294,6 +1333,7 @@ impl<'a> WeaveAnalyzer<'a> {
                         }
 
                         let mut final_reagents = vec![w_material];
+
                         for (i, r) in reagents.iter().enumerate() {
                             let w_r = self.analyze_expression(
                                 r.clone(),
@@ -1306,9 +1346,9 @@ impl<'a> WeaveAnalyzer<'a> {
                             return self.error(
                                 &format!(
                                     "The spell '{}' expected {} reagent(s), but you provided {} of them!",
-                                    method_name,
-                                    spell_info.reagents.len()-1, // one is ego
-                                    final_reagents.len()-1
+                                    method.method_name,
+                                    spell_info.reagents.len().saturating_sub(1), // one is ego
+                                    final_reagents.len().saturating_sub(1)
                                 ),
                                 property,
                             );

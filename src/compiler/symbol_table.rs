@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc, thread::scope};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::{
     compiler::{types::Visibility, weaves::Weave},
@@ -145,6 +145,37 @@ impl SymbolTable {
         } else {
             // This branch is literally impossible!
             println!("No scopes???!!! Impossible!");
+            None
+        }
+    }
+
+    /// Adds the symbol to ST without adding to export table
+    pub fn import_symbol(
+        &mut self,
+        name: String,
+        weave: Weave,
+        kind: SymbolKind,
+        parent: Option<Rc<Symbol>>,
+        slot_idx: usize,
+        visibility: Visibility,
+    ) -> Option<Symbol> {
+        let depth = self.scopes.len() - 1;
+
+        if let Some(scope) = self.scopes.last_mut() {
+            let symbol = Symbol {
+                name: name.clone(),
+                weave: weave,
+                depth: depth,
+                parent: parent,
+                kind: RefCell::new(kind),
+                slot_idx: slot_idx,
+                visibility: visibility.clone(),
+            };
+
+            scope.insert(name, symbol.clone());
+
+            return Some(symbol);
+        } else {
             None
         }
     }

@@ -4,11 +4,16 @@ spell add(a: Num,b: Num):: Num {
 
 
 sign Numerical {
-    
+    sui: Num,
 }
 
 attune Numerical {
-    spell he() {
+    secret spell he() {
         chant "callable";
+    }
+
+    spell meow() {
+        chant ego.sui;
+        cast ego.he;
     }
 }

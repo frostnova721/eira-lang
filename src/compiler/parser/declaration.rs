@@ -70,7 +70,7 @@ impl Parser {
     }
 
     pub(super) fn variable_declaration(&mut self, mutable: bool, visibility: Option<Visibility>) -> ParseResult<Stmt> {
-        self.consume(TokenType::Identifier, "Expected a variable name!");
+        self.consume(TokenType::Identifier, &format!("Expected a variable name! Got '{}' which is a reserved symbol.", self.current.lexeme));
         let name = self.previous.clone();
         let initializer: Option<Expr>;
 

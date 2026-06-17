@@ -6,7 +6,7 @@ pub mod strand;
 pub mod tapestry;
 pub mod weaves;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Visibility {
     Public,
     Secret,

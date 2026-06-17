@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::Hash, rc::Rc};
 
-use crate::{Value, compiler::weaves::Weave};
+use crate::{Value, compiler::{types::Visibility, weaves::Weave}};
 
 /// Represents a Sign (or struct in general terms) in Eira
 /// Marks -> fields/properties of the Sign, Since the magical signs consists of different marks
@@ -80,10 +80,17 @@ impl Hash for SignSchema {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AttunedSpell {
+    pub method_name: String,
+    pub visibility: Visibility,
+    pub is_static: bool,
+}
+
 /// Represents the compile time information of a Sign, which is used for type checking and other compile time analyses
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignInfo {
     pub schema: SignSchema,
     pub marks: HashMap<String, Weave>,
-    pub attunements: HashMap<String, String>, // maps to method name -> global name
+    pub attunements: HashMap<String, AttunedSpell>, // maps to method name -> global name
 }

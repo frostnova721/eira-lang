@@ -91,13 +91,13 @@ impl Parser {
         self.current.token_type == TokenType::Eof
     }
 
-    pub(super) fn consume(&mut self, expect: TokenType, msg: &str) {
+    pub(super) fn consume(&mut self, expect: TokenType, err_msg: &str) {
         if self.current.token_type == expect {
             self.advance();
             return;
         }
 
-        self.throw_error_at_current(msg);
+        self.throw_error_at_current(err_msg);
     }
 
     pub(super) fn match_token(&mut self, token_type: TokenType) -> bool {
@@ -118,7 +118,7 @@ impl Parser {
         } else {
             self.panic = true;
         }
-        println!(
+        eprintln!(
             "Woah! Caught an incorrect magic at: {}:{}:{}\nError: {}\n",
             self.current_file, pos.line, pos.column, msg
         );
