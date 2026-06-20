@@ -405,17 +405,47 @@ impl<'a> WeaveAnalyzer<'a> {
                     };
 
                     // Exact tapestry check (spells should return the exact weave)
-                    if expected_weave != w_expr.weave() {
-                        return self.error(
-                            &format!(
-                                "The spell '{}' was expected to release '{}' but '{}' was released",
-                                curr_spell_name,
-                                expected_weave.get_name(),
-                                actual_weave.get_name()
-                            ),
-                            token,
-                        );
+                    match &expected_weave {
+                        Weave::Maybe(inner) => {
+                            if actual_weave == Weave::Empty || actual_weave == **inner {
+                                // valid release
+                            } else {
+                                return self.error(
+                                   &format!(
+                                       "The spell '{}' was expected to release '{}' but '{}' was released",
+                                       curr_spell_name,
+                                       expected_weave.get_name(),
+                                       actual_weave.get_name()
+                                   ),
+                                   token,
+                               );
+                            }
+                        }
+                        _ => {
+                            if expected_weave != actual_weave {
+                                return self.error(
+                                    &format!(
+                                        "The spell '{}' was expected to release '{}' but '{}' was released",
+                                        curr_spell_name,
+                                        expected_weave.get_name(),
+                                        actual_weave.get_name()
+                                    ),
+                                    token,
+                                );
+                            }
+                        }
                     }
+                    // if expected_weave != w_expr.weave() {
+                    //     return self.error(
+                    //         &format!(
+                    //             "The spell '{}' was expected to release '{}' but '{}' was released",
+                    //             curr_spell_name,
+                    //             expected_weave.get_name(),
+                    //             actual_weave.get_name()
+                    //         ),
+                    //         token,
+                    //     );
+                    // }
 
                     Ok(WovenStmt::Release {
                         token: token,
@@ -758,9 +788,23 @@ impl<'a> WeaveAnalyzer<'a> {
                     Weave::Maybe(_) => {}
                     _ => {
                         return self.error(
-                            "The weave of the target expression does not support vanishing (not a Maybe<T> weave).",
+                            "The weave of the target expression does not support vanishing (not a Maybe<W> weave).",
                             token,
                         );
+                    }
+                }
+
+                match w_target.symbol() {
+                    Some(symbol) => match *symbol.kind.borrow() {
+                        SymbolKind::Variable { mutable } if !mutable => {
+                            return self
+                                .error("Cannot perform vanish for a bind-ed variable.", token);
+                        }
+                        _ => {}
+                    },
+                    None => {
+                        return self
+                            .error("Cannot perform vanish on a non-variable expression.", token);
                     }
                 }
 
@@ -1016,25 +1060,46 @@ impl<'a> WeaveAnalyzer<'a> {
                 // build exports table
                 let exports = st.get_exports().clone();
 
-                for (name, sym) in exports.iter() {
-                    if self.symbol_table.resolve_in_current_scope(name).is_some() {
+                if let Some(ident) = &bind_to {
+                    if let Some(_) = self.symbol_table.resolve_in_current_scope(&ident.lexeme) {
                         return self.error(
+                            &format!(
+                                "A mark '{}' already exists in the defined realm!",
+                                ident.lexeme
+                            ),
+                            ident.clone(),
+                        )
+                    }
+
+                    self.symbol_table.add_symbol(
+                        ident.lexeme.clone(),
+                        Weave::Module(ident.lexeme.clone()),
+                        SymbolKind::Module(exports),
+                        None,
+                        self.symbol_table.get_current_scope_size(),
+                        Visibility::Secret,
+                    );
+                } else {
+                    for (name, sym) in exports.iter() {
+                        if self.symbol_table.resolve_in_current_scope(name).is_some() {
+                            return self.error(
                             &format!(
                                 "Name collision for exported symbol '{}' from tethered module '{}'. Consider renaming the symbol or the module.",
                                 name, path
                             ),
                             token,
                         );
-                    }
+                        }
 
-                    self.symbol_table.import_symbol(
-                        name.clone(),
-                        sym.weave.clone(),
-                        sym.kind.borrow().clone(),
-                        None,
-                        self.symbol_table.get_current_scope_size(),
-                        sym.visibility.clone(), // preserve visibility but do not re-export
-                    );
+                        self.symbol_table.import_symbol(
+                            name.clone(),
+                            sym.weave.clone(),
+                            sym.kind.borrow().clone(),
+                            None,
+                            self.symbol_table.get_current_scope_size(),
+                            sym.visibility.clone(), // preserve visibility but do not re-export
+                        );
+                    }
                 }
 
                 self.context
@@ -1252,123 +1317,77 @@ impl<'a> WeaveAnalyzer<'a> {
                 callee,
                 token,
             } => {
-                if let Expr::Access { material, property } = *callee.clone() {
-                    let w_material = self.analyze_expression(*material, None)?;
+                let w_callee = self.analyze_expression(*callee, None);
 
-                    if let Weave::Sign(ref sign_name) = w_material.weave() {
-                        
-                        // wether the material passed is the defined name of sign
-                        let is_declared_symbol = sign_name == w_material.token().lexeme.as_str();
+                if let Ok(WovenExpr::BoundSpell {
+                    is_safe,
+                    material,
+                    spell_symbol,
+                    token,
+                    weave,
+                }) = &w_callee
+                {
+                    let method_symbol = spell_symbol;
+                    self.resolve_n_add_upvalue(&method_symbol)?;
+                    let spell_info = method_symbol.kind.borrow().get_spell_info().unwrap();
 
-                        let Some(sign_symbol) = self.symbol_table.resolve(sign_name).cloned()
-                        else {
+                    if let Some(expected) = expected_weave {
+                        if *expected != spell_info.release_weave {
                             return self.error(
-                                &format!("The sign '{}' was not found!", sign_name),
-                                w_material.token(),
-                            );
-                        };
-
-                        let sign_info = sign_symbol.kind.borrow().get_sign_info().unwrap();
-
-                        let Some(method) = sign_info.attunements.get(&property.lexeme) else {
-                            return self.error(
-                                &format!(
-                                    "The sign '{}' is not attuned to a spell '{}'",
-                                    sign_name, property.lexeme
-                                ),
-                                property,
-                            );
-                        };
-
-                        if is_declared_symbol && !method.is_static {
-                            return self.error(
-                                "Attunements cannot be invoked directly from the sign!",
-                                property,
-                            );
-                        } else if !is_declared_symbol && method.is_static {
-                            return self.error(
-                                "Static attunements can only be invoked directly from the sign!",
-                                property,
-                            );
-                        }
-
-                        if method.visibility == Visibility::Secret
-                            && w_material.token().token_type != TokenType::Ego
-                        {
-                            return self.error(
-                                &format!(
-                                    "The spell '{}' attuned to sign '{}' is a secret and cannot be casted here!",
-                                    method.method_name, sign_name,
-                                ),
-                                property,
-                            );
-                        }
-
-                        let Some(method_symbol) =
-                            self.symbol_table.resolve(&method.method_name).cloned()
-                        else {
-                            return self.error(
-                                &format!(
-                                    "The spell '{}' was not found for sign '{}'!",
-                                    method.method_name, sign_name,
-                                ),
-                                property,
-                            );
-                        };
-
-                        self.resolve_n_add_upvalue(&method_symbol)?;
-                        let spell_info = method_symbol.kind.borrow().get_spell_info().unwrap();
-
-                        if let Some(expected) = expected_weave {
-                            if *expected != spell_info.release_weave {
-                                return self.error(
                                     &format!(
                                         "The release weave of spell '{}' does not match the expected weave '{}'",
-                                        method.method_name,
+                                        method_symbol.name,
                                         expected.get_name()
                                     ),
-                                    property,
+                                    token.clone(),
                                 );
-                            }
                         }
+                    }
 
-                        let mut final_reagents = vec![w_material];
+                    let mut final_reagents = vec![*material.clone()];
 
-                        for (i, r) in reagents.iter().enumerate() {
-                            let w_r = self.analyze_expression(
-                                r.clone(),
-                                Some(&spell_info.reagents.get(i).unwrap().weave),
-                            )?;
-                            final_reagents.push(w_r);
-                        }
+                    for (i, r) in reagents.iter().enumerate() {
+                        let w_r = self.analyze_expression(
+                            r.clone(),
+                            Some(&spell_info.reagents.get(i).unwrap().weave),
+                        )?;
+                        final_reagents.push(w_r);
+                    }
 
-                        if final_reagents.len() != spell_info.reagents.len() {
-                            return self.error(
+                    if final_reagents.len() != spell_info.reagents.len() {
+                        return self.error(
                                 &format!(
                                     "The spell '{}' expected {} reagent(s), but you provided {} of them!",
-                                    method.method_name,
+                                    method_symbol.name,
                                     spell_info.reagents.len().saturating_sub(1), // one is ego
                                     final_reagents.len().saturating_sub(1)
                                 ),
-                                property,
+                                token.clone(),
                             );
-                        }
+                    }
 
-                        return Ok(WovenExpr::Cast {
-                            callee: property,
+                    if *is_safe {
+                        return Ok(WovenExpr::SafeCast {
+                            callee: token.clone(),
                             reagents: final_reagents,
                             spell_symbol: method_symbol.clone(),
                             weave: spell_info.release_weave.clone(),
                         });
                     } else {
-                        return self.error(
-                            "for now... just be satisfied with spell casting only on signs!",
-                            w_material.token(),
-                        );
+                        return Ok(WovenExpr::Cast {
+                            callee: token.clone(),
+                            reagents: final_reagents,
+                            spell_symbol: method_symbol.clone(),
+                            weave: spell_info.release_weave.clone(),
+                        });
                     }
+                    // } else {
+                    // return self.error(
+                    // "for now... just be satisfied with spell casting only on signs!",
+                    // w_material.token(),
+                    // );
+                    // }
                 }
-
-                let w_callee = self.analyze_expression(*callee, None);
 
                 let native = match &w_callee {
                     Err(_) => {
@@ -1601,16 +1620,59 @@ impl<'a> WeaveAnalyzer<'a> {
                     sign_symbol: symbol.clone(),
                 })
             }
-            Expr::Access { material, property } => {
+            Expr::Access { .. } | Expr::SafeAccess { .. } => {
+                let (is_safe_access, material, property) = match expr {
+                    Expr::Access { material, property } => (false, material, property),
+                    Expr::SafeAccess { material, property } => (true, material, property),
+                    _ => unreachable!(),
+                };
+
                 let w_material = self.analyze_expression(*material, None)?;
-                // it should be a variable expression
-                let sign_name = match w_material.weave() {
-                    Weave::Sign(s) => s,
-                    _ => {
-                        return self
-                            .error("Only signs can be accessed with '.' operator!", property);
+
+                let sign_name = match (is_safe_access, w_material.weave()) {
+                    (false, Weave::Sign(s)) => s,
+                    (true, Weave::Maybe(inner)) => {
+                        if let Weave::Sign(s) = *inner {
+                            s
+                        } else {
+                            return self.error(
+                                &format!(
+                                    "Only signs can be accessed with '.' operator! Got {}.",
+                                    inner.get_name()
+                                ),
+                                property,
+                            );
+                        }
+                    }
+                    (true, _) => {
+                        return self.error(
+                            "Safe access operation (?.) is only possible for Maybe<W>.",
+                            property,
+                        );
+                    }
+
+                    (false, w) => {
+                        return self.error(
+                            &format!(
+                                "Only signs can be accessed with '.' operator! Got {}.",
+                                w.get_name()
+                            ),
+                            property,
+                        );
                     }
                 };
+
+                // wether the material passed is the defined name of sign
+                let is_declared_symbol = sign_name == w_material.token().lexeme.as_str();
+                // let w_material = self.analyze_expression(*material, None)?;
+                // // it should be a variable expression
+                // let sign_name = match w_material.weave() {
+                //     Weave::Sign(s) => s,
+                //     _ => {
+                //         return self
+                //             .error("Only signs can be accessed with '.' operator!", property);
+                //     }
+                // };
 
                 let Some(sign_symbol) = self.symbol_table.resolve(&sign_name) else {
                     return self.error(
@@ -1626,32 +1688,88 @@ impl<'a> WeaveAnalyzer<'a> {
                     return self.error(&format!("'{}' is not a sign!", sign_symbol.name), property);
                 };
 
-                let Some(mark) = sign_info.schema.get_field_index(property.lexeme.clone()) else {
-                    return self.error(
-                        &format!(
-                            "The mark '{}' is not defined for '{}'",
-                            property.lexeme, sign_name
-                        ),
-                        property,
-                    );
-                };
+                if let Some(mark) = sign_info.schema.get_field_index(property.lexeme.clone()) {
+                    let Some(property_weave) = sign_info.marks.get(&property.lexeme) else {
+                        return self.error(
+                            &format!(
+                                "Eira couldn't find the weave for property '{}'",
+                                property.lexeme
+                            ),
+                            property,
+                        );
+                    };
 
-                let Some(property_weave) = sign_info.marks.get(&property.lexeme) else {
-                    return self.error(
-                        &format!(
-                            "Eira couldn't find the weave for property '{}'",
-                            property.lexeme
-                        ),
-                        property,
-                    );
-                };
+                    if is_safe_access {
+                        return Ok(WovenExpr::SafeAccess {
+                            material: Box::new(w_material),
+                            property,
+                            field_name_idx: mark as u16,
+                            weave: Weave::Maybe(Box::new(property_weave.clone())),
+                        });
+                    }
 
-                Ok(WovenExpr::Access {
-                    material: Box::new(w_material),
+                    return Ok(WovenExpr::Access {
+                        material: Box::new(w_material),
+                        property,
+                        field_name_idx: mark as u16,
+                        weave: property_weave.clone(),
+                    });
+                }
+
+                if let Some(attunement) = sign_info.attunements.get(&property.lexeme) {
+                    if is_declared_symbol && !attunement.is_static {
+                        return self.error(
+                            "Attunements cannot be invoked directly from the sign!",
+                            property,
+                        );
+                    } else if !is_declared_symbol && attunement.is_static {
+                        return self.error(
+                            "Static attunements can only be invoked directly from the sign!",
+                            property,
+                        );
+                    }
+
+                    if attunement.visibility == Visibility::Secret
+                        && w_material.token().token_type != TokenType::Ego
+                    {
+                        return self.error(
+                                &format!(
+                                    "The spell '{}' attuned to sign '{}' is a secret and cannot be casted here!",
+                                    attunement.method_name, sign_name,
+                                ),
+                                property,
+                            );
+                    }
+
+                    let spell_symbol = match self.symbol_table.resolve(&attunement.method_name) {
+                        Some(s) => s.clone(),
+                        None => {
+                            return self.error(
+                                &format!(
+                                    "The spell '{}' was not found for sign '{}'!",
+                                    attunement.method_name, sign_name
+                                ),
+                                property,
+                            );
+                        }
+                    };
+
+                    return Ok(WovenExpr::BoundSpell {
+                        is_safe: is_safe_access,
+                        material: Box::new(w_material),
+                        spell_symbol: spell_symbol.clone(),
+                        token: property.clone(),
+                        weave: spell_symbol.weave.clone(),
+                    });
+                }
+
+                return self.error(
+                    &format!(
+                        "The mark or spell '{}' is not defined for '{}'",
+                        property.lexeme, sign_name
+                    ),
                     property,
-                    field_name_idx: mark as u16,
-                    weave: property_weave.clone(),
-                })
+                );
             }
             Expr::Deck { elements, token } => {
                 let mut w_elements = vec![];
@@ -1867,7 +1985,7 @@ impl<'a> WeaveAnalyzer<'a> {
             }
             Expr::Blank { token } => {
                 return self.error(
-                    "Invalid '_' usage. '_' is used to assign a Empty value to Maybe<T> weaves!",
+                    "Invalid '_' usage. '_' is used to assign a Empty value to Maybe<W> weaves!",
                     token,
                 );
             }
@@ -1885,76 +2003,6 @@ impl<'a> WeaveAnalyzer<'a> {
                     value: Box::new(w_value),
                     token,
                     weave: Weave::Truth,
-                })
-            }
-            Expr::SafeAccess { material, property } => {
-                let w_material = self.analyze_expression(*material, None)?;
-
-                if !matches!(w_material.weave(), Weave::Maybe(_)) {
-                    return self.error(
-                        "Safe access operator '?.' can only be used on Maybe weaves.",
-                        property,
-                    );
-                }
-
-                // same code as of Access Expr
-                let sign_name = match w_material.weave() {
-                    Weave::Maybe(w) => match *w {
-                        Weave::Sign(ref s) => s.clone(),
-                        _ => {
-                            return self.error(
-                                "The weave wrapped by Maybe must be a Sign weave for '?.' operator!",
-                                property,
-                            );
-                        }
-                    },
-                    _ => {
-                        return self.error(
-                            "Only Maybe weaves can be accessed with '?.' operator!",
-                            property,
-                        );
-                    }
-                };
-
-                let Some(sign_symbol) = self.symbol_table.resolve(&sign_name) else {
-                    return self.error(
-                        &format!(
-                            "The sign '{}' was not found across the eira realms!",
-                            sign_name
-                        ),
-                        property,
-                    );
-                };
-
-                let Some(sign_info) = sign_symbol.kind.borrow().get_sign_info() else {
-                    return self.error(&format!("'{}' is not a sign!", sign_symbol.name), property);
-                };
-
-                let Some(mark) = sign_info.schema.get_field_index(property.lexeme.clone()) else {
-                    return self.error(
-                        &format!(
-                            "The mark '{}' is not defined for '{}'",
-                            property.lexeme, sign_name
-                        ),
-                        property,
-                    );
-                };
-
-                let Some(property_weave) = sign_info.marks.get(&property.lexeme) else {
-                    return self.error(
-                        &format!(
-                            "Eira couldn't find the weave for property '{}'",
-                            property.lexeme
-                        ),
-                        property,
-                    );
-                };
-
-                Ok(WovenExpr::SafeAccess {
-                    material: Box::new(w_material),
-                    property,
-                    field_name_idx: mark as u16,
-                    weave: Weave::Maybe(Box::new(property_weave.clone())),
                 })
             }
             Expr::AssertSafe { operand, operator } => {

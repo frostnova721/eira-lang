@@ -180,233 +180,79 @@ pub enum WovenExpr {
         weave: Weave,
         native_spell: NativeSpell,
     },
+    SafeCast {
+        reagents: Vec<WovenExpr>,
+        callee: Token,
+        weave: Weave,
+        spell_symbol: Symbol,
+    },
+    BoundSpell {
+        is_safe: bool, // safe access or normal access
+        material: Box<WovenExpr>,
+        spell_symbol: Symbol,
+        token: Token,
+        weave: Weave,
+    },
 }
 
 impl WovenExpr {
     pub fn weave(&self) -> Weave {
         match self {
-            WovenExpr::Binary {
-                left: _,
-                right: _,
-                operator: _,
-                weave,
-            } => weave.clone(),
-            WovenExpr::Grouping {
-                expression: _,
-                weave,
-            } => weave.clone(),
-            WovenExpr::Literal {
-                value: _,
-                weave,
-                token: _,
-            } => weave.clone(),
-            WovenExpr::Unary {
-                operand: _,
-                operator: _,
-                weave,
-            } => weave.clone(),
-            WovenExpr::Variable {
-                name: _,
-                weave,
-                symbol: _,
-            } => weave.clone(),
-            WovenExpr::Assignment {
-                name: _,
-                value: _,
-                weave,
-                symbol: _,
-            } => weave.clone(),
-            WovenExpr::Cast {
-                reagents: _,
-                callee: _,
-                weave,
-                spell_symbol: _,
-            } => weave.clone(),
-            WovenExpr::Draw {
-                marks: _,
-                callee: _,
-                weave,
-                sign_symbol: _,
-            } => weave.clone(),
-            WovenExpr::Access {
-                material: _,
-                property: _,
-                field_name_idx: _,
-                weave,
-            } => weave.clone(),
+            WovenExpr::Binary { weave, .. } => weave.clone(),
+            WovenExpr::Grouping { weave, .. } => weave.clone(),
+            WovenExpr::Literal { weave, .. } => weave.clone(),
+            WovenExpr::Unary { weave, .. } => weave.clone(),
+            WovenExpr::Variable { weave, .. } => weave.clone(),
+            WovenExpr::Assignment { weave, .. } => weave.clone(),
+            WovenExpr::Cast { weave, .. } => weave.clone(),
+            WovenExpr::Draw { weave, .. } => weave.clone(),
+            WovenExpr::Access { weave, .. } => weave.clone(),
             WovenExpr::Deck { elements: _, weave } => weave.clone(),
-            WovenExpr::Extract {
-                deck: _,
-                index: _,
-                token: _,
-                weave,
-            } => weave.clone(),
-            WovenExpr::DeckSet {
-                deck: _,
-                index: _,
-                value: _,
-                token: _,
-                weave,
-            } => weave.clone(),
-            WovenExpr::FieldSet {
-                material: _,
-                property: _,
-                value: _,
-                field_name_idx: _,
-                weave,
-            } => weave.clone(),
-            WovenExpr::Manifests {
-                value: _,
-                token: _,
-                weave,
-            } => weave.clone(),
-            WovenExpr::SafeAccess {
-                material: _,
-                property: _,
-                weave,
-                field_name_idx: _,
-            } => weave.clone(),
-            WovenExpr::AssertSafe {
-                operand: _,
-                operator: _,
-                weave,
-            } => weave.clone(),
-            WovenExpr::NativeCast {
-                reagents: _,
-                callee: _,
-                weave,
-                native_spell: _,
-            } => weave.clone(),
+            WovenExpr::Extract { weave, .. } => weave.clone(),
+            WovenExpr::DeckSet { weave, .. } => weave.clone(),
+            WovenExpr::FieldSet { weave, .. } => weave.clone(),
+            WovenExpr::Manifests { weave, .. } => weave.clone(),
+            WovenExpr::SafeAccess { weave, .. } => weave.clone(),
+            WovenExpr::AssertSafe { weave, .. } => weave.clone(),
+            WovenExpr::NativeCast { weave, .. } => weave.clone(),
+            WovenExpr::BoundSpell { weave, .. } => weave.clone(),
+            WovenExpr::SafeCast { weave, .. } => weave.clone(),
         }
     }
 
     // might stay unused
     pub fn symbol(&self) -> Option<&Symbol> {
         match self {
-            WovenExpr::Variable {
-                name: _,
-                weave: _,
-                symbol,
-            } => Some(symbol),
-            WovenExpr::Assignment {
-                name: _,
-                value: _,
-                weave: _,
-                symbol,
-            } => Some(symbol),
-            WovenExpr::Cast {
-                reagents: _,
-                callee: _,
-                weave: _,
-                spell_symbol,
-            } => Some(spell_symbol),
-            WovenExpr::Draw {
-                marks: _,
-                callee: _,
-                weave: _,
-                sign_symbol,
-            } => Some(&sign_symbol),
+            WovenExpr::Variable { symbol, .. } => Some(symbol),
+            WovenExpr::Assignment { symbol, .. } => Some(symbol),
+            WovenExpr::Cast { spell_symbol, .. } => Some(spell_symbol),
+            WovenExpr::Draw { sign_symbol, .. } => Some(&sign_symbol),
+            WovenExpr::SafeCast { spell_symbol, .. } => Some(spell_symbol),
             _ => None,
         }
     }
 
     pub fn token(&self) -> Token {
         match self {
-            WovenExpr::Binary {
-                left: _,
-                right: _,
-                operator,
-                weave: _,
-            } => operator.clone(),
-            WovenExpr::Grouping {
-                expression: _,
-                weave: _,
-            } => Token::dummy(),
-            WovenExpr::Literal {
-                value: _,
-                weave: _,
-                token,
-            } => token.clone(),
-            WovenExpr::Unary {
-                operand: _,
-                operator,
-                weave: _,
-            } => operator.clone(),
-            WovenExpr::Variable {
-                name,
-                weave: _,
-                symbol: _,
-            } => name.clone(),
-            WovenExpr::Assignment {
-                name,
-                value: _,
-                weave: _,
-                symbol: _,
-            } => name.clone(),
-            WovenExpr::Cast {
-                reagents: _,
-                callee,
-                weave: _,
-                spell_symbol: _,
-            } => callee.clone(),
-            WovenExpr::Draw {
-                marks: _,
-                callee,
-                weave: _,
-                sign_symbol: _,
-            } => callee.clone(),
-            WovenExpr::Access {
-                material: _,
-                property,
-                field_name_idx: _,
-                weave: _,
-            } => property.clone(),
-            WovenExpr::Deck {
-                elements: _,
-                weave: _,
-            } => Token::dummy(),
-            WovenExpr::Extract {
-                deck: _,
-                index: _,
-                token,
-                weave: _,
-            } => token.clone(),
-            WovenExpr::DeckSet {
-                deck: _,
-                index: _,
-                value: _,
-                token,
-                weave: _,
-            } => token.clone(),
-            WovenExpr::FieldSet {
-                material: _,
-                property,
-                value: _,
-                field_name_idx: _,
-                weave: _,
-            } => property.clone(),
-            WovenExpr::Manifests {
-                value: _,
-                token,
-                weave: _,
-            } => token.clone(),
-            WovenExpr::SafeAccess {
-                material: _,
-                property,
-                weave: _,
-                field_name_idx: _,
-            } => property.clone(),
-            WovenExpr::AssertSafe {
-                operand: _,
-                operator,
-                weave: _,
-            } => operator.clone(),
-            WovenExpr::NativeCast {
-                reagents: _,
-                callee,
-                weave: _,
-                native_spell: _,
-            } => callee.clone(),
+            WovenExpr::Binary { operator, .. } => operator.clone(),
+            WovenExpr::Grouping { .. } => Token::dummy(),
+            WovenExpr::Literal { token, .. } => token.clone(),
+            WovenExpr::Unary { operator, .. } => operator.clone(),
+            WovenExpr::Variable { name, .. } => name.clone(),
+            WovenExpr::Assignment { name, .. } => name.clone(),
+            WovenExpr::Cast { callee, .. } => callee.clone(),
+            WovenExpr::Draw { callee, .. } => callee.clone(),
+            WovenExpr::Access { property, .. } => property.clone(),
+            WovenExpr::Deck { .. } => Token::dummy(),
+            WovenExpr::Extract { token, .. } => token.clone(),
+            WovenExpr::DeckSet { token, .. } => token.clone(),
+            WovenExpr::FieldSet { property, .. } => property.clone(),
+            WovenExpr::Manifests { token, .. } => token.clone(),
+            WovenExpr::SafeAccess { property, .. } => property.clone(),
+            WovenExpr::AssertSafe { operator, .. } => operator.clone(),
+            WovenExpr::NativeCast { callee, .. } => callee.clone(),
+            WovenExpr::BoundSpell { token, .. } => token.clone(),
+            WovenExpr::SafeCast { callee, .. } => callee.clone(),
         }
     }
 }

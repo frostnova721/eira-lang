@@ -1,0 +1,7 @@
+spell fib(n: Num):: Num {
+    fate n <= 1 {
+        release n;
+    }
+    release (cast fib with n-1) + (cast fib with n-2);
+}
+chant cast fib with 30;

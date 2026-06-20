@@ -167,35 +167,36 @@ define_instructions! {
     // Control flow
     Jump(20, 3) { offset: u16 },
     JumpIfFalse(21, 4) { condition_reg: u8, offset: u16 },
-    Loop(22, 3) { offset: u16 },
+    JumpIfTrue(22, 4) { condition_reg: u8, offset: u16 },
+    Loop(23, 3) { offset: u16 },
 
     // Function calls
-    Cast(23, 4) { dest: u8, spell_reg: u8, reg_start: u8 },
-    Release(24, 2) { dest: u8 },
+    Cast(24, 4) { dest: u8, spell_reg: u8, reg_start: u8 },
+    Release(25, 2) { dest: u8 },
 
     // Termination
-    Halt(25, 1) {},
+    Halt(26, 1) {},
 
     // Sign Stuff. schema_reg is the register which has the schema
-    NewSign(26,4) { dest: u8, schema_reg: u8 },
+    NewSign(27,4) { dest: u8, schema_reg: u8 },
 
     // Set a field to a sign. [field_name] is the string constant's index in the const pool
     // The [val_reg] is the register where the value for the field is stored
-    SetField(27,5) { sign_reg: u8, field_name: u16, val_reg: u8 },
+    SetField(28,5) { sign_reg: u8, field_name: u16, val_reg: u8 },
 
-    GetField(28, 5) { dest: u8, sign_reg: u8, field_name: u16 },
-    SafeGetField(29, 5) { dest: u8, sign_reg: u8, field_name: u16 },
+    GetField(29, 5) { dest: u8, sign_reg: u8, field_name: u16 },
+    SafeGetField(30, 5) { dest: u8, sign_reg: u8, field_name: u16 },
 
     // Deck operations.
-    NewDeck(30, 6) { dest: u8, start_reg: u8, count: u8 },
-    NewFixedDeck(31, 6) { dest: u8, start_reg: u8, count: u8, capacity: u16 },
-    AddToDeck(32, 4) { deck: u8, position: u8, value: u8 },
-    ExtractFromDeck(33, 4) { dest: u8, deck: u8, index: u8 },
+    NewDeck(31, 6) { dest: u8, start_reg: u8, count: u8 },
+    NewFixedDeck(32, 6) { dest: u8, start_reg: u8, count: u8, capacity: u16 },
+    AddToDeck(33, 4) { deck: u8, position: u8, value: u8 },
+    ExtractFromDeck(34, 4) { dest: u8, deck: u8, index: u8 },
 
     // Saves bool value to [dest] on wether r1 is an Emptiness
-    IsEmptiness(34, 3) { dest: u8, r1: u8 }, // for manifest
-    AssertSafe(35, 2) { r1: u8 }, // panics if r1 is empty
+    IsEmptiness(35, 3) { dest: u8, r1: u8 }, // for manifest
+    AssertSafe(36, 2) { r1: u8 }, // panics if r1 is empty
 
     // nat_spell_reg is the const_index which stores the name of the native spell
-    NativeCast(36, 6) { dest: u8, nat_spell: u16, reg_start: u8, args_count: u8 },
+    NativeCast(37, 6) { dest: u8, nat_spell: u16, reg_start: u8, args_count: u8 },
 }

@@ -318,6 +318,10 @@ impl EiraVM {
                 }
                 OpCode::Jump => {
                     let offset = frame!().read_u16();
+                    // if offset as usize > frame!().closure.spell.bytecode.len() {
+                    //     self.runtime_error("Fatal: Jump offset is out of bounds.");
+                    //     return InterpretResult::RuntimeError;
+                    // }
                     frame!().ip += offset as usize;
                 }
                 OpCode::JumpIfFalse => {
@@ -325,6 +329,14 @@ impl EiraVM {
                     let offset = frame!().read_u16();
 
                     if get_register!(base, condition_reg).is_falsey() {
+                        frame!().ip += offset as usize;
+                    }
+                }
+                OpCode::JumpIfTrue => {
+                    let condition_reg = frame!().read_byte();
+                    let offset = frame!().read_u16();
+
+                    if get_register!(base, condition_reg).is_truthy() {
                         frame!().ip += offset as usize;
                     }
                 }

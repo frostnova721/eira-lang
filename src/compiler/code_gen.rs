@@ -5,7 +5,7 @@ use crate::{
     compiler::{
         WovenExpr, WovenStmt,
         mark::{WovenEtchedMark, WovenMark},
-        reagents::WovenReagent,
+        reagents::{self, WovenReagent},
         scanner::Token,
         symbol_table::Symbol,
         token_type::TokenType,
@@ -162,6 +162,7 @@ impl CodeGen {
         match &mut self.instructions[jump_idx] {
             Instruction::JumpIfFalse { offset: o, .. } => *o = offset as u16,
             Instruction::Jump { offset: o } => *o = offset as u16,
+            Instruction::JumpIfTrue { offset: o, .. } => *o = offset as u16,
             _ => {
                 return self.error(&format!(
                     "Hmmm... this error shouldnt be thrown! If you are encountering this, congrats! I see a good future in you.Error: Jump patch failed.\
@@ -211,6 +212,7 @@ impl CodeGen {
         match &mut self.instructions[jump_idx] {
             Instruction::Jump { offset: o } => *o = offset as u16,
             Instruction::JumpIfFalse { offset: o, .. } => *o = offset as u16,
+            Instruction::JumpIfTrue { offset: o, .. } => *o = offset as u16,
             _ => {
                 return self.error(&format!(
                     "Patch target at index {} is not a jump instruction: {:?}",
@@ -375,18 +377,131 @@ impl CodeGen {
                 weave: _,
                 native_spell,
             } => self.gen_native_cast_instruction(reagents, callee, native_spell),
+            WovenExpr::BoundSpell { spell_symbol, material, .. } => self.gen_bound_spell_instruction(*material, spell_symbol),
+            WovenExpr::SafeCast {
+                reagents,
+                callee,
+                weave,
+                spell_symbol,
+            } => self.gen_safe_cast_instruction(reagents, callee, weave, spell_symbol),
         }
     }
 
+    fn gen_bound_spell_instruction(&mut self, material: WovenExpr ,spell_symbol: Symbol) -> GenResult<u8> {
+        unreachable!("CURRENTLY ON MAINTANENCE, ATTUNED SPELLS ARE CURRENTLY CASTABLE ONLY!")
+    }
+
+    fn gen_safe_cast_instruction(
+        &mut self,
+        reagents: Vec<WovenExpr>,
+        callee: Token,
+        weave: Weave,
+        spell_symbol: Symbol,
+    ) -> GenResult<u8> {
+        let check_reg = self.get_next_register()?;
+
+        if reagents.is_empty() {
+            return self.error("Safe cast requires at least one reagent to check for emptiness. This shouldnt occur, pls report.");
+        }
+
+        let ego_reg = self.gen_from_expr(reagents.first().unwrap().clone())?;
+
+        self.instructions.push(Instruction::IsEmptiness {
+            dest: check_reg,
+            r1: ego_reg,
+        });
+
+        let final_dest = self.get_next_register()?;
+
+        // we got the emptiness value. Set dest value as empty for no jump case. 
+        self.instructions.push(Instruction::Move {
+            dest: final_dest,
+            source: ego_reg as u16,
+        });
+
+        let jmp_idx = self.write_jump(Instruction::JumpIfTrue {
+            condition_reg: check_reg,
+            offset: 0xffff,
+        });
+
+        let spell_reg = self.gen_variable_instruction(&spell_symbol)?;
+
+        let mut reagent_regs = vec![ego_reg];
+
+        for reagent in reagents.iter().skip(1) {
+            let r = self.gen_from_expr(reagent.clone())?;
+            reagent_regs.push(r);
+        }
+
+        self.gen_cast_from_registers(final_dest, reagent_regs, spell_reg)?;
+
+        self.patch_jump(jmp_idx)?;
+
+        Ok(self.get_last_allocated_register())
+    }
+
+    // Generates cast instruction from already evaluated reagent registers and a spell register.
+    // Handles packing reagents into a contiguous block, for the **efficiency** ofcouse
+    fn gen_cast_from_registers(
+        &mut self,
+        dest: u8,
+        reagents: Vec<u8>,
+        spell_reg: u8,
+    ) -> GenResult<u8> {
+        if reagents.len() > u8::MAX as usize {
+            return self.error(
+                "Too many reagents passed to cast! What are you scheming with all these reagents?!",
+            );
+        }
+
+        let reg_start = if reagents.is_empty() {
+            self.register_index
+        } else if reagents.len() == 1 {
+            reagents[0]
+        } else {
+            let mut contiguous = true;
+            for w in reagents.windows(2) {
+                if w[1] != w[0].saturating_add(1) {
+                    contiguous = false;
+                    break;
+                }
+            }
+
+            if contiguous {
+                reagents[0]
+            } else {
+                // Pack reagents into a fresh contiguous block
+                let start = self.register_index; // first one goes here
+                for (_, &src) in reagents.iter().enumerate() {
+                    let dest = self.get_next_register()?;
+                    // dest should be start + i
+                    self.instructions.push(Instruction::Move {
+                        dest: dest,
+                        source: src as u16,
+                    });
+                }
+                start
+            }
+        };
+
+        self.instructions.push(Instruction::Cast {
+            dest,
+            spell_reg,
+            reg_start,
+        });
+
+        Ok(dest)
+    }
+
     fn gen_tether_instructions(&mut self, stmts: Vec<WovenStmt>) -> GenResult<u8> {
-        self.gen_from_stmts(stmts);
+        self.gen_from_stmts(stmts)?;
 
         Ok(self.get_last_allocated_register())
     }
 
     fn gen_attune_instructions(
         &mut self,
-        sign: Token,
+        _sign: Token,
         spells: Vec<Box<WovenStmt>>,
     ) -> GenResult<u8> {
         // let sign_reg = self.gen_from_expr(sign)?;
@@ -710,51 +825,9 @@ impl CodeGen {
 
         // self.register_index = reg_idx;
 
-        if reagents.len() > u8::MAX as usize {
-            return self.error(
-                "Too many reagents passed to cast! What are you scheming with all these reagents?!",
-            );
-        }
-
         let dest = self.get_next_register()?;
 
-        let reg_start = if reagent_regs.is_empty() {
-            self.register_index
-        } else if reagent_regs.len() == 1 {
-            reagent_regs[0]
-        } else {
-            let mut contiguous = true;
-            for w in reagent_regs.windows(2) {
-                if w[1] != w[0].saturating_add(1) {
-                    contiguous = false;
-                    break;
-                }
-            }
-
-            if contiguous {
-                reagent_regs[0]
-            } else {
-                // Pack reagents into a fresh contiguous block
-                let start = self.register_index; // first one goes here
-                for (_, &src) in reagent_regs.iter().enumerate() {
-                    let dest = self.get_next_register()?;
-                    // dest should be start + i
-                    self.instructions.push(Instruction::Move {
-                        dest: dest,
-                        source: src as u16,
-                    });
-                }
-                start
-            }
-        };
-
-        self.instructions.push(Instruction::Cast {
-            dest,
-            spell_reg,
-            reg_start,
-        });
-
-        Ok(dest)
+        Ok(self.gen_cast_from_registers(dest, reagent_regs, spell_reg)?)
     }
 
     fn gen_release_instructions(&mut self, expr: Option<WovenExpr>) -> GenResult<u8> {

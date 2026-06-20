@@ -1,7 +1,8 @@
 use crate::compiler::{
     Expr, Stmt, WovenExpr, WovenStmt,
     mark::{EtchedMark, Mark, WovenEtchedMark, WovenMark},
-    reagents::{Reagent, WovenReagent}, types::Visibility,
+    reagents::{Reagent, WovenReagent},
+    types::Visibility,
 };
 
 const PIPE: &str = "│   ";
@@ -61,7 +62,12 @@ impl AstPrinter {
                 self.write(
                     prefix,
                     is_last,
-                    &format!("VarDecl: {}{} ({})", mut_str, name.lexeme, visibility.as_ref().unwrap_or(&Visibility::default())),
+                    &format!(
+                        "VarDecl: {}{} ({})",
+                        mut_str,
+                        name.lexeme,
+                        visibility.as_ref().unwrap_or(&Visibility::default())
+                    ),
                 );
                 if let Some(init) = initializer {
                     self.print_expr(&Self::next_prefix(prefix, is_last), init, true);
@@ -139,7 +145,12 @@ impl AstPrinter {
                 self.write(
                     prefix,
                     is_last,
-                    &format!("Spell: {}{} ({})", name.lexeme, ret_str, visibility.as_ref().unwrap_or(&Visibility::default())),
+                    &format!(
+                        "Spell: {}{} ({})",
+                        name.lexeme,
+                        ret_str,
+                        visibility.as_ref().unwrap_or(&Visibility::default())
+                    ),
                 );
                 let next = Self::next_prefix(prefix, is_last);
                 if !reagents.is_empty() {
@@ -162,8 +173,20 @@ impl AstPrinter {
                     self.print_expr(&Self::next_prefix(prefix, is_last), e, true);
                 }
             }
-            Stmt::Sign { name, marks, visibility } => {
-                self.write(prefix, is_last, &format!("Sign: {} ({})", name.lexeme, visibility.as_ref().unwrap_or(&Visibility::default())));
+            Stmt::Sign {
+                name,
+                marks,
+                visibility,
+            } => {
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!(
+                        "Sign: {} ({})",
+                        name.lexeme,
+                        visibility.as_ref().unwrap_or(&Visibility::default())
+                    ),
+                );
                 let next = Self::next_prefix(prefix, is_last);
                 let len = marks.len();
                 for (i, m) in marks.iter().enumerate() {
@@ -510,16 +533,16 @@ impl AstPrinter {
                 }
             }
             WovenStmt::Tether {
-                statements:_,
+                statements: _,
                 bind_to,
-                path
+                path,
             } => {
                 let bind_str = if let Some(bt) = bind_to {
                     format!(" bind to {}", bt.lexeme)
                 } else {
                     String::new()
                 };
-               
+
                 self.write(
                     prefix,
                     is_last,
@@ -797,6 +820,34 @@ impl AstPrinter {
                 for (i, r) in reagents.iter().enumerate() {
                     self.print_woven_expr(&next, r, i == len - 1);
                 }
+            }
+            WovenExpr::SafeCast {
+                reagents,
+                callee,
+                weave,
+                spell_symbol,
+            } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
+                let sym = spell_symbol;
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("SafeCast: {}{:?}{}", callee.lexeme, sym, tap),
+                );
+                let next = Self::next_prefix(prefix, is_last);
+                let len = reagents.len();
+                for (i, r) in reagents.iter().enumerate() {
+                    self.print_woven_expr(&next, r, i == len - 1);
+                }
+            }
+            WovenExpr::BoundSpell {
+                is_safe: _,
+                material: _,
+                spell_symbol,
+                token,
+                weave: _,
+            } => {
+                self.write(prefix, is_last, &format!("SHOULD NOT BE REACHED: BoundSpell in WovenExpr during printing! Spell: {}, Token: {}", spell_symbol.name, token.lexeme));
             }
         }
     }

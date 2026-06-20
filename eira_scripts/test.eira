@@ -1,10 +1,13 @@
-tether eira.math;
-tether "./test2.eira";
+sign Box {
+    value: Num
+}
+attune Box {
+    forge spell do_something() {
+        chant "Doing something with the box!";
+    }
+}
 
-chant cast add with 1,4;
 
-mark a = ~Numerical with {
-    sui: 10
-};
+bind a = ~Box with { value: 10 };
 
-cast a.meow;
+cast a.do_something;

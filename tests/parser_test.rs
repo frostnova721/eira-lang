@@ -28,6 +28,7 @@ mod parser_test {
             name,
             mutable,
             initializer,
+            visibility: _,
             weave: _,
         } = &statements[0]
         {
@@ -42,7 +43,9 @@ mod parser_test {
         if let Stmt::VarDeclaration {
             name,
             mutable,
+
             initializer,
+            visibility: _,
             weave: _,
         } = &statements[1]
         {

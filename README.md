@@ -18,7 +18,7 @@ Eira is aimed to be:
 - [x] Iteration (using while)
 - [x] Function and Closures (spells!)
 - [x] Structs (signs! declaration, object creation done)
-- [x] Arrays (deck!. almost done)
+- [x] Arrays (deck)
 - [x] Native Functions
 - [x] Struct methods (attunements)
 - [ ] Imports

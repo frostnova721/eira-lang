@@ -16,6 +16,7 @@ pub enum SymbolKind {
     Variable { mutable: bool },
     Spell(SpellInfo),
     Sign(SignInfo),
+    Module(HashMap<String, Symbol>),
 }
 
 impl SymbolKind {

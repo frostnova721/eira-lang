@@ -35,46 +35,62 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn is_number(&self) -> bool {
         matches!(self, Self::Number(_))
     }
 
+    #[inline(always)]
     pub fn is_string(&self) -> bool {
         matches!(self, Self::String(_))
     }
 
+    #[inline(always)]
     pub fn is_bool(&self) -> bool {
         matches!(self, Self::Bool(_))
     }
 
+    #[inline(always)]
     pub fn is_emptiness(&self) -> bool {
         matches!(self, Self::Emptiness)
     }
 
+    #[inline(always)]
     pub fn is_falsey(&self) -> bool {
         matches!(self, Self::Bool(false))
     }
 
+    #[inline(always)]
+    pub fn is_truthy(&self) -> bool {
+        matches!(self, Self::Bool(true))
+    }
+
+    #[inline(always)]
     pub fn is_closure(&self) -> bool {
         matches!(self, Self::Closure(_))
     }
 
+    #[inline(always)]
     pub fn is_spell(&self) -> bool {
         matches!(self, Self::Spell(_))
     }
 
+    #[inline(always)]
     pub fn is_sign(&self) -> bool {
         matches!(self, Self::Sign(_))
     }
 
+    #[inline(always)]
     pub fn is_sign_schema(&self) -> bool {
         matches!(self, Self::SignSchema(_))
     }
 
+    #[inline(always)]
     pub fn is_deck(&self) -> bool {
         matches!(self, Self::Deck(_))
     }
 
+    #[inline(always)]
     pub fn extract_number(&self) -> Option<f64> {
         if let Value::Number(n) = self {
             Some(*n)
@@ -83,6 +99,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn extract_string(&self) -> Option<String> {
         if let Value::String(s) = self {
             Some(s.to_string())
@@ -171,7 +188,7 @@ pub fn print_value(value: Value) {
         }
         Value::SignSchema(schema) => println!("SignSchema '{}'", schema.name.clone()),
         Value::Deck(deck) => println!("Deck '{:?}'", deck.items.borrow()),
-        Value::NativeSpell(ns) => println!("NativeSpell '{:?}'", ns)
+        Value::NativeSpell(ns) => println!("NativeSpell '{:?}'", ns),
     }
 }
 
