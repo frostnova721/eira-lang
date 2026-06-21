@@ -27,6 +27,13 @@ impl SymbolKind {
         }
     }
 
+    pub fn get_module_info(&self) -> Option<&HashMap<String, Symbol>> {
+        match self {
+            Self::Module(i) => Some(i),
+            _ => None,
+        }
+    }
+
     pub fn get_sign_info(&self) -> Option<SignInfo> {
         match self {
             Self::Sign(i) => Some(i.clone()),

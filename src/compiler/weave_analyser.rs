@@ -1068,7 +1068,7 @@ impl<'a> WeaveAnalyzer<'a> {
                                 ident.lexeme
                             ),
                             ident.clone(),
-                        )
+                        );
                     }
 
                     self.symbol_table.add_symbol(
@@ -1469,10 +1469,10 @@ impl<'a> WeaveAnalyzer<'a> {
                 }
 
                 // atp its usually a variable expr. If its not, well... good luck ig
-                let spell_info = match w_callee {
+                let (spell_info, spell_symbol) = match w_callee {
                     WovenExpr::Variable { symbol, .. } => {
                         if let SymbolKind::Spell(si) = &*symbol.kind.borrow() {
-                            si.clone()
+                            (si.clone(), symbol.clone())
                         } else {
                             let mut spell_info: Option<SpellInfo> = None;
                             let mut s = symbol.clone();
@@ -1485,7 +1485,7 @@ impl<'a> WeaveAnalyzer<'a> {
                             }
 
                             match spell_info {
-                                Some(si) => si,
+                                Some(si) => (si, symbol),
 
                                 // if not found, try checking Native Spells
                                 None => {
@@ -1531,10 +1531,17 @@ impl<'a> WeaveAnalyzer<'a> {
                     final_reagents.push(self.analyze_expression(r, None)?);
                 }
 
+                // let Some(spell_symbol) = self.symbol_table.resolve(&spell_info.name) else {
+                //     return self.error(
+                //         &format!("Spell symbol not found while casting! for {}", token),
+                //         token,
+                //     );
+                // };
+
                 Ok(WovenExpr::Cast {
                     callee: token.clone(),
                     reagents: final_reagents,
-                    spell_symbol: self.symbol_table.resolve(&token.lexeme).unwrap().clone(),
+                    spell_symbol: spell_symbol,
                     weave: spell_info.release_weave,
                 })
             }
@@ -1628,6 +1635,71 @@ impl<'a> WeaveAnalyzer<'a> {
                 };
 
                 let w_material = self.analyze_expression(*material, None)?;
+                if let Weave::Module(module_name) = w_material.weave() {
+                    if is_safe_access {
+                        return self.error(
+                            "You don't have to use '?.' for accessing tethered scrolls.",
+                            property,
+                        );
+                    }
+
+                    let symbol = match w_material {
+                        WovenExpr::Variable { ref symbol, .. } => symbol.clone(),
+                        _ => {
+                            return self
+                                .error(&format!("{} is not a mark or a bind", property), property);
+                        }
+                    };
+
+                    let mod_info = symbol.kind.borrow();
+
+                    let Some(module) = mod_info.get_module_info() else {
+                        // this shouldnt be thrown (if im not wrong)
+                        return self.error(
+                            &format!("The scroll tethered to '{}' doesn't exist.", module_name),
+                            property,
+                        );
+                    };
+
+                    let Some(sym) = module.get(&property.lexeme) else {
+                        return self.error(
+                            &format!(
+                                "The symbol '{}' cannot be found in the scroll '{}'",
+                                property.lexeme, module_name
+                            ),
+                            property,
+                        );
+                    };
+
+                    if sym.visibility == Visibility::Secret {
+                        return self.error(
+                            &format!(
+                                "The '{}' is currently a secret inside the scroll!",
+                                property.lexeme
+                            ),
+                            property,
+                        );
+                    }
+
+                    // return match sym.kind.borrow().clone() {
+                        // SymbolKind::Variable { mutable } =>
+                         return Ok(WovenExpr::Variable {
+                            name: property.clone(),
+                            weave: sym.weave.clone(),
+                            symbol: sym.clone(),
+                        });
+                        // SymbolKind::Spell(spell_info) => Ok(WovenExpr::BoundSpell {
+                        //     is_safe: false,
+                        //     material: Box::new(w_material),
+                        //     spell_symbol: sym.clone(),
+                        //     token: property.clone(),
+                        //     weave: spell_info.release_weave,
+                        // }),
+                        // _ => {
+                            // return self.error("h,", property);
+                        // }
+                    // };
+                }
 
                 let sign_name = match (is_safe_access, w_material.weave()) {
                     (false, Weave::Sign(s)) => s,

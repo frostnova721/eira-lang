@@ -1,13 +1,3 @@
-sign Box {
-    value: Num
-}
-attune Box {
-    forge spell do_something() {
-        chant "Doing something with the box!";
-    }
-}
+tether eira.math bind meth;
 
-
-bind a = ~Box with { value: 10 };
-
-cast a.do_something;
+chant cast meth.add with 3,4;
