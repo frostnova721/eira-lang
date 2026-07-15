@@ -10,22 +10,11 @@ use crate::{
     Parser, Scanner,
     Value::{self},
     compiler::{
-        Expr, Stmt, WovenExpr, WovenStmt,
-        compiler::CompileState,
-        mark::{WovenEtchedMark, WovenMark},
-        parser::types::ParsedWeave,
-        reagents::WovenReagent,
-        scanner::Token,
-        scroll_reader::ScrollReader,
-        strand::{
+        Expr, Stmt, WovenExpr, WovenStmt, compiler::CompileState, mark::{WovenEtchedMark, WovenMark}, parser::types::ParsedWeave, reagents::WovenReagent, scanner::Token, scroll_reader::ScrollReader, strand::{
             ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND,
             DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND, MAYBE_STRAND,
             MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND,
-        },
-        symbol_table::{Symbol, SymbolKind, SymbolTable},
-        token_type::TokenType,
-        types::Visibility,
-        weaves::{Weave, Weaver},
+        }, symbol_table::{Symbol, SymbolKind, SymbolTable}, token_type::TokenType, types::Visibility, weave_analyser::WeaveAnalyzerContext, weaves::{Weave, Weaver}
     },
     project::config::Project,
     values::{
@@ -56,24 +45,6 @@ pub type WeaveResult<T> = Result<T, WeaveError>;
 enum Realm {
     Genesis, // script level scope
     Spell,   // spell level scope
-}
-
-pub struct WeaveAnalyzerContext {
-    pub source_path: String,
-    pub project: Option<Project>,
-    pub tethered_scrolls: HashMap<String, CompileState>,
-    pub import_mode: bool,
-}
-
-impl WeaveAnalyzerContext {
-    pub fn new(source_path: String, project: Option<Project>, import_mode: bool) -> Self {
-        WeaveAnalyzerContext {
-            source_path,
-            project,
-            import_mode,
-            tethered_scrolls: HashMap::new(),
-        }
-    }
 }
 
 pub struct WeaveAnalyzer<'a> {
@@ -2185,7 +2156,7 @@ impl<'a> WeaveAnalyzer<'a> {
 
     fn get_core_scroll(&self, name: &str) -> Option<&str> {
         match name {
-            "math" => Some(include_str!("../../core_scrolls/math.eira")),
+            "math" => Some(include_str!("../../../core_scrolls/math.eira")),
             _ => None,
         }
     }

@@ -9,8 +9,7 @@ pub mod project;
 pub use compiler::code_gen::CodeGen;
 pub use compiler::parser::Parser;
 pub use compiler::scanner::{Scanner, Token};
-pub use compiler::weave_analyser::WeaveAnalyzer;
-
+pub use compiler::weave_analyser::weave_analyser;
 pub use values::spell::{ClosureObject, SpellObject};
 pub use values::value::{Value, ValueType};
 

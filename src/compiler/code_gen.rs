@@ -1328,15 +1328,3 @@ impl CodeGen {
         Ok(self.get_last_allocated_register())
     }
 }
-
-// pub trait StrandBehaviour {
-//     fn can_binary(&self) -> bool;
-//     fn can_unary(&self) -> bool;
-//     fn gen_binary_instruction(&mut self, left: WovenExpr, right: WovenExpr, op: Token) -> GenResult<Instruction>;
-//     fn gen_unary_instruction(&mut self, operand: WovenExpr, op: Token) -> GenResult<Instruction>;
-// }
-
-// pub struct SubtractBehaviour {}
-// pub struct AdditiveBehaviour {}
-// pub struct MultiplicativeBehaviour {}
-// pub struct DivisiveBehaviour {}

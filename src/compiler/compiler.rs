@@ -1,7 +1,7 @@
 use std::{path::PathBuf};
 
 use crate::{
-    CodeGen, Parser, Value, WeaveAnalyzer,
+    CodeGen, Parser, Value, weave_analyser::WeaveAnalyzer,
     assembler::Assembler,
     compiler::{
         Stmt, WovenStmt,
