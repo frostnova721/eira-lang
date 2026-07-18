@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use crate::{compiler::compiler::CompileState, project::config::Project};
 
 pub mod weave_analyser;
+pub mod decl;
+pub mod expr;
+pub mod stmt;
 
 pub struct WeaveAnalyzerContext {
     pub source_path: String,
