@@ -52,8 +52,8 @@ impl Parser {
         parser
     }
 
-    pub fn parse(mut self) -> ParseResult<Vec<Stmt>> {
-        let mut stmts: Vec<Stmt> = vec![];
+    pub fn parse(mut self) -> ParseResult<Vec<crate::compiler::ast::decl::Decl>> {
+        let mut stmts: Vec<crate::compiler::ast::decl::Decl> = vec![];
         while !self.reached_end() {
             if let Some(stmt) = self.declaration() {
                 stmts.push(stmt);
@@ -192,7 +192,7 @@ impl Parser {
 
     // ----------------------- PARSE FUNCTIONS ----------------------//
 
-    pub(super) fn declaration(&mut self) -> Option<Stmt> {
+    pub(super) fn declaration(&mut self) -> Option<crate::compiler::ast::decl::Decl> {
         let visisibility = if self.match_token(TokenType::Secret) {
             Some(Visibility::Secret)
         } else if self.match_token(TokenType::Forge) {
@@ -209,7 +209,7 @@ impl Parser {
             };
         }
 
-        let res: ParseResult<Stmt>;
+        let res: ParseResult<crate::compiler::ast::decl::Decl>;
         if self.match_token(TokenType::Mark) {
             res = self.variable_declaration(true, visisibility);
         } else if self.match_token(TokenType::Bind) {
@@ -229,7 +229,10 @@ impl Parser {
                 self.throw_error("Access modifiers can just not be applied to everything!");
             }
 
-            res = self.statement();
+            res = self.statement().map(|stmt| crate::compiler::ast::decl::Decl::Statement {
+                stmt: Box::new(stmt),
+                token: self.previous.clone(),
+            });
         }
 
         match res {

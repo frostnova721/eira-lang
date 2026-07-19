@@ -4,7 +4,8 @@ mod weave_analyser_test {
         Parser, Scanner, WeaveAnalyzer,
         compiler::{
             WovenExpr, WovenStmt,
-            strand::{ADDITIVE_STRAND, CONDITIONAL_STRAND, MULTIPLICATIVE_STRAND}, weave_analyser::WeaveAnalyzerContext,
+            strand::{ADDITIVE_STRAND, CONDITIONAL_STRAND, MULTIPLICATIVE_STRAND},
+            weave_analyser::WeaveAnalyzerContext,
         },
     };
 

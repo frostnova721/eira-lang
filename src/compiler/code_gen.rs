@@ -4,8 +4,9 @@ use crate::{
     assembler::Assembler,
     compiler::{
         WovenExpr, WovenStmt,
+        ast::decl::WovenDecl,
         mark::{WovenEtchedMark, WovenMark},
-        reagents::{self, WovenReagent},
+        reagents::WovenReagent,
         scanner::Token,
         symbol_table::Symbol,
         token_type::TokenType,
@@ -36,7 +37,7 @@ pub struct CodeGen {
     pub print_instructions: bool,
     pub print_bytecode: bool,
 
-    woven_ast: Vec<WovenStmt>,
+    woven_ast: Vec<WovenDecl>,
     instructions: Vec<Instruction>,
 
     register_index: u8,
@@ -52,7 +53,7 @@ pub struct CodeGen {
 }
 
 impl CodeGen {
-    pub fn new(w_ast: Vec<WovenStmt>, print_instructions: bool, print_bytecode: bool) -> Self {
+    pub fn new(w_ast: Vec<WovenDecl>, print_instructions: bool, print_bytecode: bool) -> Self {
         CodeGen {
             woven_ast: w_ast,
             instructions: vec![],
@@ -80,7 +81,7 @@ impl CodeGen {
     pub fn summon_instructions(&mut self) -> GenResult<Vec<Instruction>> {
         let stmts = self.woven_ast.clone();
 
-        let _ = self.gen_from_stmts(stmts)?;
+        let _ = self.gen_from_decls(stmts)?;
 
         self.instructions.push(Instruction::Halt {});
 
@@ -231,6 +232,43 @@ impl CodeGen {
     //--------------- Actual Core parts ---------------
 
     /// A Helper like function to iterate through the statement list
+
+    fn gen_from_decls(&mut self, decls: Vec<WovenDecl>) -> GenResult<u8> {
+        for decl in decls {
+            self.gen_decl(decl)?;
+        }
+        Ok(0)
+    }
+
+    fn gen_decl(&mut self, decl: WovenDecl) -> GenResult<u8> {
+        match decl {
+            WovenDecl::VarDeclaration {
+                name: _,
+                mutable: _,
+                initializer,
+                symbol,
+            } => self.gen_var_decl_instruction(initializer, symbol),
+            WovenDecl::Spell {
+                name,
+                reagents,
+                body,
+                spell_symbol,
+            } => self.gen_spell_instructions(name, reagents, *body, spell_symbol),
+            WovenDecl::Sign {
+                name,
+                marks,
+                sign_symbol,
+            } => self.gen_sign_instructions(name, marks, sign_symbol),
+            WovenDecl::Attune { sign, spells } => self.gen_attune_instructions(sign, spells),
+            WovenDecl::Tether {
+                statements,
+                bind_to: _,
+                path: _,
+            } => self.gen_tether_instructions(statements),
+            WovenDecl::Statement { stmt, token: _ } => self.gen_from_stmt(*stmt),
+        }
+    }
+
     fn gen_from_stmts(&mut self, stmts: Vec<WovenStmt>) -> GenResult<u8> {
         for stmt in stmts {
             self.gen_from_stmt(stmt)?;
@@ -242,12 +280,6 @@ impl CodeGen {
     fn gen_from_stmt(&mut self, stmt: WovenStmt) -> GenResult<u8> {
         match stmt {
             WovenStmt::ExprStmt { expr } => self.gen_from_expr(expr),
-            WovenStmt::VarDeclaration {
-                name: _,
-                mutable: _,
-                initializer,
-                symbol,
-            } => self.gen_var_decl_instruction(initializer, symbol),
             WovenStmt::Fate {
                 condition,
                 then_branch,
@@ -258,24 +290,8 @@ impl CodeGen {
             WovenStmt::Block { statements } => self.gen_from_stmts(statements),
             WovenStmt::Sever { token: _ } => self.gen_sever_instructions(),
             WovenStmt::Flow { token: _ } => self.gen_flow_instructions(),
-            WovenStmt::Spell {
-                name,
-                reagents,
-                body,
-                spell_symbol,
-            } => self.gen_spell_instructions(name, reagents, *body, spell_symbol),
             WovenStmt::Release { token: _, expr } => self.gen_release_instructions(expr),
-            WovenStmt::Sign {
-                name,
-                marks,
-                sign_symbol,
-            } => self.gen_sign_instructions(name, marks, sign_symbol),
-            WovenStmt::Attune { sign, spells } => self.gen_attune_instructions(sign, spells),
-            WovenStmt::Tether {
-                statements,
-                bind_to,
-                path,
-            } => self.gen_tether_instructions(statements),
+            WovenStmt::Declaration(decl) => self.gen_decl(*decl),
         }
     }
 
@@ -377,7 +393,11 @@ impl CodeGen {
                 weave: _,
                 native_spell,
             } => self.gen_native_cast_instruction(reagents, callee, native_spell),
-            WovenExpr::BoundSpell { spell_symbol, material, .. } => self.gen_bound_spell_instruction(*material, spell_symbol),
+            WovenExpr::BoundSpell {
+                spell_symbol,
+                material,
+                ..
+            } => self.gen_bound_spell_instruction(*material, spell_symbol),
             WovenExpr::SafeCast {
                 reagents,
                 callee,
@@ -387,15 +407,19 @@ impl CodeGen {
         }
     }
 
-    fn gen_bound_spell_instruction(&mut self, material: WovenExpr ,spell_symbol: Symbol) -> GenResult<u8> {
+    fn gen_bound_spell_instruction(
+        &mut self,
+        _material: WovenExpr,
+        _spell_symbol: Symbol,
+    ) -> GenResult<u8> {
         unreachable!("CURRENTLY ON MAINTANENCE, ATTUNED SPELLS ARE CURRENTLY CASTABLE ONLY!")
     }
 
     fn gen_safe_cast_instruction(
         &mut self,
         reagents: Vec<WovenExpr>,
-        callee: Token,
-        weave: Weave,
+        _callee: Token,
+        _weave: Weave,
         spell_symbol: Symbol,
     ) -> GenResult<u8> {
         let check_reg = self.get_next_register()?;
@@ -413,7 +437,7 @@ impl CodeGen {
 
         let final_dest = self.get_next_register()?;
 
-        // we got the emptiness value. Set dest value as empty for no jump case. 
+        // we got the emptiness value. Set dest value as empty for no jump case.
         self.instructions.push(Instruction::Move {
             dest: final_dest,
             source: ego_reg as u16,
@@ -493,9 +517,10 @@ impl CodeGen {
         Ok(dest)
     }
 
-    fn gen_tether_instructions(&mut self, stmts: Vec<WovenStmt>) -> GenResult<u8> {
-        self.gen_from_stmts(stmts)?;
-
+    fn gen_tether_instructions(&mut self, stmts: Vec<WovenDecl>) -> GenResult<u8> {
+        for stmt in stmts {
+            self.gen_decl(stmt)?;
+        }
         Ok(self.get_last_allocated_register())
     }
 

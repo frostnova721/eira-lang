@@ -1,8 +1,8 @@
 pub mod deck;
+pub mod native_spell;
 pub mod sign;
 pub mod spell;
 pub mod value;
-pub mod native_spell;
 
 pub mod native_spells;
 

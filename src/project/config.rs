@@ -66,7 +66,7 @@ impl Project {
                 return Some(potential_config); // Found it!
             }
             if !current_dir.pop() {
-                break; 
+                break;
             }
         }
 

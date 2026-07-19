@@ -1,16 +1,17 @@
-use std::{path::PathBuf};
+use std::path::PathBuf;
 
 use crate::{
-    CodeGen, Parser, Value, weave_analyser::WeaveAnalyzer,
+    CodeGen, Parser, Value,
     assembler::Assembler,
     compiler::{
-        Stmt, WovenStmt,
         scanner::{Scanner, Token},
-        scroll_reader::ScrollReader, weave_analyser::WeaveAnalyzerContext,
+        scroll_reader::ScrollReader,
+        weave_analyser::WeaveAnalyzerContext,
     },
     print_ast, print_byte_code, print_woven_ast,
     project::config::Project,
     runtime::Instruction,
+    weave_analyser::WeaveAnalyzer,
 };
 
 type Result<T> = std::result::Result<T, CompileError>;
@@ -41,7 +42,9 @@ pub struct CompiledCode {
 }
 
 pub enum CompileState {
-    NotCompiled ,Compiling, Compiled
+    NotCompiled,
+    Compiling,
+    Compiled,
 }
 
 impl Compiler {
@@ -94,7 +97,7 @@ impl Compiler {
     }
 
     fn scan(&self) -> Result<Vec<Token>> {
-        let scroll_reader = ScrollReader::new();    
+        let scroll_reader = ScrollReader::new();
 
         let content = scroll_reader.read_scroll(&PathBuf::from(&self.source_path));
 
@@ -107,7 +110,7 @@ impl Compiler {
         Ok(Scanner::init(&content.ok().unwrap()).tokenize())
     }
 
-    fn parse(&self, tokens: Vec<Token>) -> Result<Vec<Stmt>> {
+    fn parse(&self, tokens: Vec<Token>) -> Result<Vec<crate::compiler::ast::decl::Decl>> {
         let ast = Parser::new(tokens, self.source_path.clone()).parse();
         match ast {
             Err(parse_error) => {
@@ -120,8 +123,12 @@ impl Compiler {
         }
     }
 
-    fn analyze_weaves(&self, ast: Vec<Stmt>) -> Result<Vec<WovenStmt>> {
-        let mut context = WeaveAnalyzerContext::new(self.source_path.clone(), self.project.clone(), false);
+    fn analyze_weaves(
+        &self,
+        ast: Vec<crate::compiler::ast::decl::Decl>,
+    ) -> Result<Vec<crate::compiler::ast::decl::WovenDecl>> {
+        let mut context =
+            WeaveAnalyzerContext::new(self.source_path.clone(), self.project.clone(), false);
         let mut weave_analyzer = WeaveAnalyzer::new(&mut context);
         match weave_analyzer.analyze(ast) {
             Err(no_no) => {
@@ -143,7 +150,10 @@ impl Compiler {
         Assembler::convert_to_byte_code(instructions)
     }
 
-    fn gen_instructions(&self, woven_ast: Vec<WovenStmt>) -> Result<CompiledCode> {
+    fn gen_instructions(
+        &self,
+        woven_ast: Vec<crate::compiler::ast::decl::WovenDecl>,
+    ) -> Result<CompiledCode> {
         let mut cg = CodeGen::new(
             woven_ast,
             self.options.print_instructions,

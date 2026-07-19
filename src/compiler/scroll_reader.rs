@@ -4,13 +4,11 @@ pub struct ScrollReadError {
     pub msg: String,
 }
 
-pub struct ScrollReader {
-}
+pub struct ScrollReader {}
 
 impl ScrollReader {
     pub fn new() -> Self {
-        ScrollReader {
-        }
+        ScrollReader {}
     }
 
     pub fn read_scroll(&self, path: &PathBuf) -> Result<String, ScrollReadError> {

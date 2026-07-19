@@ -1,7 +1,13 @@
 use crate::{
     EiraVM, Value,
     compiler::{reagents::WovenReagent, weaves::Weave},
-    values::{native_spells::{io::read_line, math::{self}}, spell::SpellInfo},
+    values::{
+        native_spells::{
+            io::read_line,
+            math::{self},
+        },
+        spell::SpellInfo,
+    },
 };
 
 #[derive(Debug, Clone, PartialEq)]

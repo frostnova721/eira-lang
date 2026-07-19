@@ -1,8 +1,12 @@
-use std::{cell::RefCell, hash::{Hash, Hasher}, rc::Rc};
+use std::{
+    cell::RefCell,
+    hash::{Hash, Hasher},
+    rc::Rc,
+};
 
-use crate::values::{deck::DeckObject, native_spell::NativeSpell};
 use crate::values::sign::{SignObject, SignSchema};
 use crate::values::spell::{ClosureObject, SpellObject};
+use crate::values::{deck::DeckObject, native_spell::NativeSpell};
 
 /// The value's container for runtime
 #[derive(Debug, Clone)]

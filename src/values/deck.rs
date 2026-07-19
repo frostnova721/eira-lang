@@ -11,7 +11,8 @@ pub struct DeckObject {
 impl DeckObject {
     pub fn new(items: Vec<Value>, capacity: Option<usize>) -> DeckObject {
         DeckObject {
-            items: RefCell::new(items), capacity,
+            items: RefCell::new(items),
+            capacity,
         }
     }
 }

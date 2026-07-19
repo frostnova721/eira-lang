@@ -1,11 +1,18 @@
-use crate::{Parser, compiler::{Stmt, parser::{parser::MSG_MISSED_SEMICOLON, types::ParseResult}, token_type::TokenType}};
+use crate::{
+    Parser,
+    compiler::{
+        Stmt,
+        parser::{parser::MSG_MISSED_SEMICOLON, types::ParseResult},
+        token_type::TokenType,
+    },
+};
 
 impl Parser {
-      pub(super) fn block(&mut self) -> ParseResult<Stmt> {
+    pub(super) fn block(&mut self) -> ParseResult<Stmt> {
         let mut stmts: Vec<Stmt> = vec![];
         while !self.check(TokenType::BraceRight) && !self.reached_end() {
-            if let Some(stmt) = self.declaration() {
-                stmts.push(stmt);
+            if let Some(decl) = self.declaration() {
+                stmts.push(Stmt::Declaration(Box::new(decl)));
             } else {
                 break;
             }
@@ -69,12 +76,12 @@ impl Parser {
             if self.match_token(TokenType::Fate) {
                 Some(Box::new(self.fate_statement()?))
             } else {
-            self.consume(
-                TokenType::BraceLeft,
-                "Expected '{' at start of fate-else block.",
-            );
-            Some(Box::new(self.block()?))
-        }
+                self.consume(
+                    TokenType::BraceLeft,
+                    "Expected '{' at start of fate-else block.",
+                );
+                Some(Box::new(self.block()?))
+            }
         } else {
             None
         };
@@ -102,9 +109,9 @@ impl Parser {
     pub(super) fn vanish_statement(&mut self) -> ParseResult<Stmt> {
         let tkn = self.previous.clone();
         let expr = self.expression()?;
-        
+
         self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
-        
+
         Ok(Stmt::Vanish {
             token: tkn,
             target: expr,

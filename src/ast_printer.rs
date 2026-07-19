@@ -1,8 +1,5 @@
 use crate::compiler::{
-    Expr, Stmt, WovenExpr, WovenStmt,
-    mark::{EtchedMark, Mark, WovenEtchedMark, WovenMark},
-    reagents::{Reagent, WovenReagent},
-    types::Visibility,
+    Expr, Stmt, WovenExpr, WovenStmt, ast::decl::{Decl, WovenDecl}, mark::{EtchedMark, Mark, WovenEtchedMark, WovenMark}, reagents::{Reagent, WovenReagent}, types::Visibility,
 };
 
 const PIPE: &str = "│   ";
@@ -35,6 +32,158 @@ impl AstPrinter {
 
     // ===== Parsed AST (Stmt/Expr) =====
 
+    pub fn print_decls(&mut self, decls: &[crate::compiler::ast::decl::Decl]) -> String {
+        self.output.clear();
+        self.output.push_str("AST\n");
+        let len = decls.len();
+        for (i, decl) in decls.iter().enumerate() {
+            self.print_decl("", decl, i == len - 1);
+        }
+        self.output.clone()
+    }
+
+    fn print_decl(&mut self, prefix: &str, decl: &crate::compiler::ast::decl::Decl, is_last: bool) {
+        match decl {
+            crate::compiler::ast::decl::Decl::VarDeclaration {
+                name,
+                mutable,
+                initializer,
+                weave,
+                visibility,
+            } => {
+                let mut_str = if *mutable { "mut " } else { "" };
+                let vis_str = if *visibility == Some(crate::compiler::types::Visibility::Public) {
+                    "pub "
+                } else {
+                    ""
+                };
+
+                let val_str = if let Some(v) = initializer {
+                    format!("{} = ...", name.lexeme)
+                } else {
+                    name.lexeme.clone()
+                };
+
+                let weave_str = if let Some(w) = weave {
+                    format!(": {}", w.base.lexeme)
+                } else {
+                    String::new()
+                };
+
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!(
+                        "VarDeclaration: {}{}{}{}",
+                        vis_str, mut_str, val_str, weave_str
+                    ),
+                );
+            }
+            crate::compiler::ast::decl::Decl::Spell {
+                name,
+                reagents,
+                body,
+                return_weave,
+                visibility,
+                attuned_to,
+            } => {
+                let ret_str = if let Some(rw) = return_weave {
+                    format!(" -> {}", rw.base.lexeme)
+                } else {
+                    String::new()
+                };
+
+                let vis_str = if *visibility == Some(crate::compiler::types::Visibility::Public) {
+                    "pub "
+                } else {
+                    ""
+                };
+                let att_str = if let Some(att) = attuned_to {
+                    format!(" attuned to {}", att.lexeme)
+                } else {
+                    String::new()
+                };
+
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!(
+                        "Spell: {}{} ({:?}){}{}",
+                        vis_str, name.lexeme, reagents, ret_str, att_str
+                    ),
+                );
+
+                if let Stmt::Block { statements } = &**body {
+                    let child_prefix = Self::next_prefix(prefix, is_last);
+                    let len = statements.len();
+                    for (i, stmt) in statements.iter().enumerate() {
+                        self.print_stmt(&child_prefix, stmt, i == len - 1);
+                    }
+                }
+            }
+            crate::compiler::ast::decl::Decl::Sign {
+                name,
+                marks,
+                visibility,
+            } => {
+                let vis_str = if *visibility == Some(crate::compiler::types::Visibility::Public) {
+                    "pub "
+                } else {
+                    ""
+                };
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Sign: {}{}", vis_str, name.lexeme),
+                );
+                let child_prefix = Self::next_prefix(prefix, is_last);
+                let len = marks.len();
+                for (i, mark) in marks.iter().enumerate() {
+                    self.write(&child_prefix, i == len - 1, &format!("Mark: {:?}", mark));
+                }
+            }
+            crate::compiler::ast::decl::Decl::Attune { sign, spells } => {
+                self.write(prefix, is_last, &format!("Attune: {}", sign.lexeme));
+                let child_prefix = Self::next_prefix(prefix, is_last);
+                let len = spells.len();
+                for (i, spell) in spells.iter().enumerate() {
+                    self.print_stmt(&child_prefix, spell, i == len - 1);
+                }
+            }
+            crate::compiler::ast::decl::Decl::Tether {
+                token: _,
+                path,
+                bind_to,
+                is_path,
+            } => {
+                let bind_str = if let Some(bt) = bind_to {
+                    format!(" bind to {}", bt.lexeme)
+                } else {
+                    String::new()
+                };
+
+                let type_str = if *is_path { "Path" } else { "Package" };
+                let path_str = if *is_path {
+                    path[0].lexeme.clone()
+                } else {
+                    path.iter()
+                        .map(|t| t.lexeme.clone())
+                        .collect::<Vec<_>>()
+                        .join(".")
+                };
+
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Tether: {} ({}){}", path_str, type_str, bind_str),
+                );
+            }
+            Decl::Statement { stmt, token: _ } => {
+                self.print_stmt(prefix, stmt, is_last)
+            }
+        }
+    }
+
     pub fn print_stmts(&mut self, stmts: &[Stmt]) -> String {
         self.output.clear();
         self.output.push_str("AST\n");
@@ -50,35 +199,6 @@ impl AstPrinter {
             Stmt::ExprStmt { expr } => {
                 self.write(prefix, is_last, "ExprStmt");
                 self.print_expr(&Self::next_prefix(prefix, is_last), expr, true);
-            }
-            Stmt::VarDeclaration {
-                name,
-                mutable,
-                initializer,
-                weave,
-                visibility,
-            } => {
-                let mut_str = if *mutable { "mut " } else { "" };
-                self.write(
-                    prefix,
-                    is_last,
-                    &format!(
-                        "VarDecl: {}{} ({})",
-                        mut_str,
-                        name.lexeme,
-                        visibility.as_ref().unwrap_or(&Visibility::default())
-                    ),
-                );
-                if let Some(init) = initializer {
-                    self.print_expr(&Self::next_prefix(prefix, is_last), init, true);
-                }
-                if let Some(weave) = weave {
-                    self.write(
-                        &Self::next_prefix(prefix, is_last),
-                        true,
-                        &format!("weave: {}", weave.base.lexeme),
-                    );
-                }
             }
             Stmt::Fate {
                 condition,
@@ -129,106 +249,18 @@ impl AstPrinter {
             Stmt::Flow { token: _ } => {
                 self.write(prefix, is_last, "Flow");
             }
-            Stmt::Spell {
-                name,
-                reagents,
-                body,
-                return_weave,
-                visibility,
-                attuned_to,
-            } => {
-                let ret_str = if let Some(rw) = return_weave {
-                    format!(" -> {}", rw.base.lexeme)
-                } else {
-                    String::new()
-                };
-                self.write(
-                    prefix,
-                    is_last,
-                    &format!(
-                        "Spell: {}{} ({})",
-                        name.lexeme,
-                        ret_str,
-                        visibility.as_ref().unwrap_or(&Visibility::default())
-                    ),
-                );
-                let next = Self::next_prefix(prefix, is_last);
-                if !reagents.is_empty() {
-                    self.write(&next, false, "reagents:");
-                    let reagent_prefix = Self::next_prefix(&next, false);
-                    let len = reagents.len();
-                    for (i, r) in reagents.iter().enumerate() {
-                        self.print_reagent(&reagent_prefix, r, i == len - 1);
-                    }
-                }
-                if let Some(attuned_to) = attuned_to {
-                    self.write(&next, false, &format!("attuned to: {}", attuned_to.lexeme));
-                }
-                self.write(&next, true, "body:");
-                self.print_stmt(&Self::next_prefix(&next, true), body, true);
-            }
             Stmt::Release { token: _, expr } => {
                 self.write(prefix, is_last, "Release");
                 if let Some(e) = expr {
                     self.print_expr(&Self::next_prefix(prefix, is_last), e, true);
                 }
             }
-            Stmt::Sign {
-                name,
-                marks,
-                visibility,
-            } => {
-                self.write(
-                    prefix,
-                    is_last,
-                    &format!(
-                        "Sign: {} ({})",
-                        name.lexeme,
-                        visibility.as_ref().unwrap_or(&Visibility::default())
-                    ),
-                );
-                let next = Self::next_prefix(prefix, is_last);
-                let len = marks.len();
-                for (i, m) in marks.iter().enumerate() {
-                    self.print_mark(&next, m, i == len - 1);
-                }
-            }
             Stmt::Vanish { target, token } => {
                 self.write(prefix, is_last, &format!("Vanish: {}", token.lexeme));
                 self.print_expr(&Self::next_prefix(prefix, is_last), target, true);
             }
-            Stmt::Attune { sign, spells } => {
-                self.write(prefix, is_last, &format!("Attune: {}", sign.lexeme));
-                let next = Self::next_prefix(prefix, is_last);
-                let len = spells.len();
-                for (i, s) in spells.iter().enumerate() {
-                    self.print_stmt(&next, s, i == len - 1);
-                }
-            }
-            Stmt::Tether {
-                token,
-                path,
-                bind_to,
-                is_path,
-            } => {
-                let bind_str = if let Some(bt) = bind_to {
-                    format!(" bind to {}", bt.lexeme)
-                } else {
-                    String::new()
-                };
-                let path_str = if *is_path {
-                    path[0].lexeme.clone()
-                } else {
-                    path.iter()
-                        .map(|t| t.lexeme.clone())
-                        .collect::<Vec<_>>()
-                        .join(".")
-                };
-                self.write(
-                    prefix,
-                    is_last,
-                    &format!("Tether: {}{} -> {}", token.lexeme, bind_str, path_str),
-                );
+            Stmt::Declaration(decl) => {
+                self.print_decl(prefix, decl, is_last);
             }
         }
     }
@@ -378,6 +410,94 @@ impl AstPrinter {
 
     // ===== Woven AST (WovenStmt/WovenExpr) =====
 
+    pub fn print_woven_decls(&mut self, decls: &[crate::compiler::ast::decl::WovenDecl]) -> String {
+        self.output.clear();
+        self.output.push_str("Woven AST\n");
+        let len = decls.len();
+        for (i, decl) in decls.iter().enumerate() {
+            self.print_woven_decl("", decl, i == len - 1);
+        }
+        self.output.clone()
+    }
+
+    fn print_woven_decl(
+        &mut self,
+        prefix: &str,
+        decl: &crate::compiler::ast::decl::WovenDecl,
+        is_last: bool,
+    ) {
+        match decl {
+            crate::compiler::ast::decl::WovenDecl::VarDeclaration {
+                name: _,
+                mutable: _,
+                initializer,
+                symbol,
+            } => {
+                let val_str = if initializer.is_some() { " = ..." } else { "" };
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("VarDeclaration: {}{}", symbol.name, val_str),
+                );
+            }
+            crate::compiler::ast::decl::WovenDecl::Spell {
+                name,
+                reagents,
+                body,
+                spell_symbol,
+            } => {
+                self.write(
+                    prefix,
+                    is_last,
+                    &format!("Spell: {} ({:?}) -> ...", name.lexeme, reagents),
+                );
+
+                if let WovenStmt::Block { statements } = &**body {
+                    let child_prefix = Self::next_prefix(prefix, is_last);
+                    let len = statements.len();
+                    for (i, stmt) in statements.iter().enumerate() {
+                        self.print_woven_stmt(&child_prefix, stmt, i == len - 1);
+                    }
+                }
+            }
+            crate::compiler::ast::decl::WovenDecl::Sign {
+                name,
+                marks,
+                sign_symbol: _,
+            } => {
+                self.write(prefix, is_last, &format!("Sign: {}", name.lexeme));
+                let child_prefix = Self::next_prefix(prefix, is_last);
+                let len = marks.len();
+                for (i, mark) in marks.iter().enumerate() {
+                    self.write(&child_prefix, i == len - 1, &format!("Mark: {:?}", mark));
+                }
+            }
+            crate::compiler::ast::decl::WovenDecl::Attune { sign, spells } => {
+                self.write(prefix, is_last, &format!("Attune: {}", sign.lexeme));
+                let child_prefix = Self::next_prefix(prefix, is_last);
+                let len = spells.len();
+                for (i, spell) in spells.iter().enumerate() {
+                    self.print_woven_stmt(&child_prefix, spell, i == len - 1);
+                }
+            }
+            crate::compiler::ast::decl::WovenDecl::Tether {
+                statements,
+                bind_to: _,
+                path,
+            } => {
+                self.write(prefix, is_last, &format!("Tether: {}", path));
+                let child_prefix = Self::next_prefix(prefix, is_last);
+                let len = statements.len();
+                for (i, stmt) in statements.iter().enumerate() {
+                    self.print_woven_decl(&child_prefix, stmt, i == len - 1);
+                }
+            }
+            WovenDecl::Statement { stmt, token: _ } => {
+                self.print_woven_stmt(prefix, stmt, is_last)
+            }
+        }
+    }
+
     pub fn print_woven_stmts(&mut self, stmts: &[WovenStmt]) -> String {
         self.output.clear();
         self.output.push_str("Woven AST\n");
@@ -393,23 +513,6 @@ impl AstPrinter {
             WovenStmt::ExprStmt { expr } => {
                 self.write(prefix, is_last, "ExprStmt");
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), expr, true);
-            }
-            WovenStmt::VarDeclaration {
-                name,
-                mutable,
-                initializer,
-                symbol,
-            } => {
-                let mut_str = if *mutable { "mut " } else { "" };
-                let sym_info = self.symbol_info(symbol);
-                self.write(
-                    prefix,
-                    is_last,
-                    &format!("VarDecl: {}{}{}", mut_str, name.lexeme, sym_info),
-                );
-                if let Some(init) = initializer {
-                    self.print_woven_expr(&Self::next_prefix(prefix, is_last), init, true);
-                }
             }
             WovenStmt::Fate {
                 condition,
@@ -460,94 +563,14 @@ impl AstPrinter {
             WovenStmt::Flow { token: _ } => {
                 self.write(prefix, is_last, "Flow");
             }
-            WovenStmt::Spell {
-                name,
-                reagents,
-                body,
-                spell_symbol,
-            } => {
-                let ret_str = format!(
-                    " -> {:?}",
-                    spell_symbol
-                        .kind
-                        .borrow()
-                        .get_spell_info()
-                        .unwrap()
-                        .release_weave
-                );
-                self.write(
-                    prefix,
-                    is_last,
-                    &format!("Spell: {}{}", name.lexeme, ret_str),
-                );
-                let next = Self::next_prefix(prefix, is_last);
-                if !reagents.is_empty() {
-                    self.write(&next, false, "reagents:");
-                    let reagent_prefix = Self::next_prefix(&next, false);
-                    let len = reagents.len();
-                    for (i, r) in reagents.iter().enumerate() {
-                        self.print_woven_reagent(&reagent_prefix, r, i == len - 1);
-                    }
-                }
-                self.write(&next, true, "body:");
-                self.print_woven_stmt(&Self::next_prefix(&next, true), body, true);
-            }
             WovenStmt::Release { token: _, expr } => {
                 self.write(prefix, is_last, "Release");
                 if let Some(e) = expr {
                     self.print_woven_expr(&Self::next_prefix(prefix, is_last), e, true);
                 }
             }
-            WovenStmt::Sign {
-                name,
-                marks,
-                sign_symbol,
-            } => {
-                let info_str = if self.verbosity >= 1 {
-                    let info = sign_symbol.kind.borrow().get_sign_info().unwrap();
-                    format!(
-                        " [slot:{}, fields:{}]",
-                        sign_symbol.slot_idx,
-                        info.schema.field_count()
-                    )
-                } else {
-                    String::new()
-                };
-                self.write(
-                    prefix,
-                    is_last,
-                    &format!("Sign: {}{}", name.lexeme, info_str),
-                );
-                let next = Self::next_prefix(prefix, is_last);
-                let len = marks.len();
-                for (i, m) in marks.iter().enumerate() {
-                    self.print_woven_mark(&next, m, i == len - 1);
-                }
-            }
-            WovenStmt::Attune { sign, spells } => {
-                self.write(prefix, is_last, &format!("Attune: {}", sign.lexeme));
-                let next = Self::next_prefix(prefix, is_last);
-                let len = spells.len();
-                for (i, s) in spells.iter().enumerate() {
-                    self.print_woven_stmt(&next, s, i == len - 1);
-                }
-            }
-            WovenStmt::Tether {
-                statements: _,
-                bind_to,
-                path,
-            } => {
-                let bind_str = if let Some(bt) = bind_to {
-                    format!(" bind to {}", bt.lexeme)
-                } else {
-                    String::new()
-                };
-
-                self.write(
-                    prefix,
-                    is_last,
-                    &format!("Tether: {} -> {}", path, bind_str),
-                );
+            WovenStmt::Declaration(decl) => {
+                self.print_woven_decl(prefix, decl, is_last);
             }
         }
     }
@@ -887,20 +910,20 @@ impl AstPrinter {
 }
 
 // Convenience functions
-pub fn print_ast(stmts: &[Stmt], verbosity: u8) {
+pub fn print_ast(stmts: &[crate::compiler::ast::decl::Decl], verbosity: u8) {
     if verbosity >= 3 {
         println!("{:#?}", stmts);
     } else {
         let mut printer = AstPrinter::new(verbosity);
-        println!("{}", printer.print_stmts(stmts));
+        println!("{}", printer.print_decls(stmts));
     }
 }
 
-pub fn print_woven_ast(stmts: &[WovenStmt], verbosity: u8) {
+pub fn print_woven_ast(stmts: &[crate::compiler::ast::decl::WovenDecl], verbosity: u8) {
     if verbosity >= 3 {
         println!("{:#?}", stmts);
     } else {
         let mut printer = AstPrinter::new(verbosity);
-        println!("{}", printer.print_woven_stmts(stmts));
+        println!("{}", printer.print_woven_decls(stmts));
     }
 }

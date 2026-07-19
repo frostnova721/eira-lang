@@ -20,17 +20,17 @@ pub enum TokenType {
     False,
     Release, // return
     // Maybe, // yeah maybe
-    Refers, // inheritance
-    Origin, // super
-    Ego,  // this/self (ego as in sense of self)
-    Chant,  // print
-    Alias,  // type aliasing
-    Glyph,  // enum
-    Sever,  // break
-    Flow,   // continue
-    Weave,  // types (more like set of behaviours)d
-    Deck,   // array type
-    Vanish, // sets a Maybe<T> to empty
+    Refers,    // inheritance
+    Origin,    // super
+    Ego,       // this/self (ego as in sense of self)
+    Chant,     // print
+    Alias,     // type aliasing
+    Glyph,     // enum
+    Sever,     // break
+    Flow,      // continue
+    Weave,     // types (more like set of behaviours)d
+    Deck,      // array type
+    Vanish,    // sets a Maybe<T> to empty
     Manifests, // returns bool value on the presence of a value in Maybe<T>
 
     // Connector words
@@ -41,7 +41,7 @@ pub enum TokenType {
     Colon,
     ColonColon,
     QuestionMark, // colon for typing and their pair for the thing(?:)!
-    QuestionDot, // ?. for safe navigation
+    QuestionDot,  // ?. for safe navigation
     Equal,
     EqualEqual, // =
     Greater,
@@ -66,8 +66,8 @@ pub enum TokenType {
     And,
     AndAnd, // &
     Or,
-    OrOr,  // |
-    Tilde, // ~
+    OrOr,       // |
+    Tilde,      // ~
     Underscore, // _
 
     Identifier,

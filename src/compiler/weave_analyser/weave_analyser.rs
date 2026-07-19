@@ -10,13 +10,25 @@ use crate::{
     Parser, Scanner,
     Value::{self},
     compiler::{
-        Expr, Stmt, WovenExpr, WovenStmt, compiler::CompileState, mark::{WovenEtchedMark, WovenMark}, parser::types::ParsedWeave, reagents::WovenReagent, scanner::Token, scroll_reader::ScrollReader, strand::{
+        Expr, Stmt, WovenExpr, WovenStmt,
+        ast::decl::{Decl, WovenDecl},
+        compiler::CompileState,
+        mark::{WovenEtchedMark, WovenMark},
+        parser::types::ParsedWeave,
+        reagents::WovenReagent,
+        scanner::Token,
+        scroll_reader::ScrollReader,
+        strand::{
             ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND,
             DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND, MAYBE_STRAND,
             MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND,
-        }, symbol_table::{Symbol, SymbolKind, SymbolTable}, token_type::TokenType, types::Visibility, weave_analyser::WeaveAnalyzerContext, weaves::{Weave, Weaver}
+        },
+        symbol_table::{Symbol, SymbolKind, SymbolTable},
+        token_type::TokenType,
+        types::Visibility,
+        weave_analyser::WeaveAnalyzerContext,
+        weaves::{Weave, Weaver},
     },
-    project::config::Project,
     values::{
         native_spell::NativeSpell,
         sign::{AttunedSpell, SignInfo, SignSchema},
@@ -83,8 +95,43 @@ impl<'a> WeaveAnalyzer<'a> {
         Err(WeaveError::new(msg, token))
     }
 
-    pub fn analyze(&mut self, ast: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
-        self.analyze_statements(ast)
+    pub fn analyze(&mut self, ast: Vec<Decl>) -> WeaveResult<Vec<WovenDecl>> {
+        self.analyze_decls(ast)
+    }
+
+    fn analyze_decls(&mut self, decls: Vec<Decl>) -> WeaveResult<Vec<WovenDecl>> {
+        let mut w_decls: Vec<WovenDecl> = Vec::new();
+        for decl in decls {
+            let woven = self.analyze_decl(decl)?;
+            w_decls.push(woven);
+        }
+        Ok(w_decls)
+    }
+
+    fn analyze_decl(&mut self, decl: Decl) -> WeaveResult<WovenDecl> {
+        let is_tether_top_level = self.context.import_mode
+            && self.symbol_table.get_depth() == 0
+            && self.current_realm == Realm::Genesis;
+
+        let woven = self.analyze_decl_inner(decl)?;
+
+        match woven {
+            WovenDecl::Attune { .. }
+            | WovenDecl::Sign { .. }
+            | WovenDecl::Spell { .. }
+            | WovenDecl::VarDeclaration { .. }
+            | WovenDecl::Tether { .. } => {},
+            WovenDecl::Statement { ref token, ..} => {
+                if is_tether_top_level {
+                    return self.error(
+                        "Only declarations are allowed at top level in a tethered scroll.",
+                        token.clone(),
+                    );
+                }
+                // return self.error("Only declarations are allowed at top level.", token)
+            }
+        }
+        Ok(woven)
     }
 
     fn analyze_statements(&mut self, stmts: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
@@ -98,83 +145,17 @@ impl<'a> WeaveAnalyzer<'a> {
     }
 
     fn analyze_statement(&mut self, stmt: Stmt) -> WeaveResult<WovenStmt> {
-        let is_tether_top_level = self.context.import_mode
-            && self.symbol_table.get_depth() == 0
-            && self.current_realm == Realm::Genesis;
+        // let is_tether_top_level = self.context.import_mode
+        //     && self.symbol_table.get_depth() == 0
+        //     && self.current_realm == Realm::Genesis;
 
         let woven = self.analyze_statement_inner(stmt)?;
 
-        match woven {
-            WovenStmt::Attune { .. }
-            | WovenStmt::Sign { .. }
-            | WovenStmt::Spell { .. }
-            | WovenStmt::VarDeclaration { .. } => {
-                // this is fine.... (should be.. atleast!)
-            }
-            _ => {
-                if is_tether_top_level {
-                    return self.error(
-                        "The tether scrolls can only contain declarations at top level!",
-                        Token::dummy(),
-                    );
-                }
-            }
-        }
-
         Ok(woven)
     }
-
-    fn analyze_statement_inner(&mut self, stmt: Stmt) -> WeaveResult<WovenStmt> {
-        match stmt {
-            Stmt::Block { statements } => {
-                self.symbol_table.new_scope();
-                let w_block = self.analyze_statements(statements)?;
-                self.symbol_table.end_scope();
-                return Ok(WovenStmt::Block {
-                    statements: w_block,
-                });
-            }
-            Stmt::Chant { expression } => {
-                let w_expr = self.analyze_expression(expression, None)?;
-                Ok(WovenStmt::Chant { expression: w_expr })
-            }
-            Stmt::ExprStmt { expr } => {
-                let w_expr = self.analyze_expression(expr, None)?;
-                Ok(WovenStmt::ExprStmt { expr: w_expr })
-            }
-            Stmt::Fate {
-                condition,
-                then_branch,
-                else_branch,
-            } => {
-                let w_condition = self.analyze_expression(condition, None)?;
-
-                if !w_condition
-                    .weave()
-                    .get_tapestry()
-                    .has_strand(CONDITIONAL_STRAND)
-                {
-                    return self.error(
-                        "The condition provided to determine the fate does not contain the 'Conditional' strand.",
-                        w_condition.token(),
-                    );
-                }
-                // scoping n stuff will be added by the block!
-                let w_then = self.analyze_statement(*then_branch)?;
-
-                // self.symbol_table.end_scope();
-
-                let w_else: Option<Box<WovenStmt>> = match else_branch {
-                    Some(e_b) => Some(Box::new(self.analyze_statement(*e_b)?)),
-                    None => None,
-                };
-                Ok(WovenStmt::Fate {
-                    condition: w_condition,
-                    then_branch: Box::new(w_then),
-                    else_branch: w_else,
-                })
-            }
-            Stmt::VarDeclaration {
+    fn analyze_decl_inner(&mut self, decl: Decl) -> WeaveResult<WovenDecl> {
+        match decl {
+            Decl::VarDeclaration {
                 name,
                 mutable,
                 initializer,
@@ -274,174 +255,14 @@ impl<'a> WeaveAnalyzer<'a> {
                     )
                     .unwrap();
 
-                Ok(WovenStmt::VarDeclaration {
+                Ok(WovenDecl::VarDeclaration {
                     name: name,
                     mutable: mutable,
                     initializer: w_initializer,
                     symbol: s,
                 })
             }
-            Stmt::While { condition, body } => {
-                let w_condition = self.analyze_expression(condition, None)?;
-
-                if !w_condition
-                    .weave()
-                    .get_tapestry()
-                    .has_strand(CONDITIONAL_STRAND)
-                {
-                    return self.error(
-                        "The condition provided to determine the fate of loop does not contain the 'Conditional' strand.",
-                        w_condition.token(),
-                    );
-                }
-
-                // enter loop scope (for sever, flow purposes)
-                self.loop_depth += 1;
-
-                let w_body = self.analyze_statement(*body)?;
-
-                // loop scope exit
-                self.loop_depth -= 1;
-
-                Ok(WovenStmt::While {
-                    condition: w_condition,
-                    body: Box::new(w_body),
-                })
-            }
-            Stmt::Sever { token } => {
-                if self.loop_depth == 0 {
-                    return self.error("'sever' cannot be used outside a loop circle!", token);
-                }
-                Ok(WovenStmt::Sever { token })
-            }
-            Stmt::Flow { token } => {
-                if self.loop_depth == 0 {
-                    return self.error("'flow' cannot be used outside a loop circle!", token);
-                }
-                Ok(WovenStmt::Flow { token })
-            }
-            Stmt::Release { token, expr } => {
-                // Ensure 'release' is only used within a spell realm
-                if self.current_realm == Realm::Genesis {
-                    return self.error(
-                        "Values cannot be released from the 'Genesis' realm!\n\
-                        Error: Usage of 'release' outside the spell scope.",
-                        token,
-                    );
-                }
-
-                let curr_spell_name = match self.spell_stack.last() {
-                    Some(name) => name.clone(),
-                    None => {
-                        return self.error("Release used outside of any spell scope.", token);
-                    }
-                };
-
-                // Ensure spell exists and check if already released
-                let spell_entry = match self.symbol_table.resolve(&curr_spell_name) {
-                    Some(v) => match v.kind.borrow().clone() {
-                        SymbolKind::Spell(info) => info,
-                        _ => {
-                            return self.error(
-                                &format!(
-                                    "No Spell found in the realm with the name '{}'",
-                                    curr_spell_name
-                                ),
-                                token,
-                            );
-                        }
-                    },
-                    None => {
-                        return self.error(
-                            &format!(
-                                "No Spell found in the realm with the name '{}'",
-                                curr_spell_name
-                            ),
-                            token,
-                        );
-                    }
-                };
-
-                let expected_weave = spell_entry.release_weave.clone();
-
-                if let Some(e) = expr {
-                    let w_expr = self.analyze_expression(e, Some(&expected_weave))?;
-
-                    // Try to get the weave from the symbol first (for variables with composite weaves)
-                    // Otherwise fall back to tapestry lookup
-                    let actual_weave = if let Some(symbol) = w_expr.symbol() {
-                        symbol.weave.clone()
-                    } else {
-                        w_expr.weave()
-                    };
-
-                    // Exact tapestry check (spells should return the exact weave)
-                    match &expected_weave {
-                        Weave::Maybe(inner) => {
-                            if actual_weave == Weave::Empty || actual_weave == **inner {
-                                // valid release
-                            } else {
-                                return self.error(
-                                   &format!(
-                                       "The spell '{}' was expected to release '{}' but '{}' was released",
-                                       curr_spell_name,
-                                       expected_weave.get_name(),
-                                       actual_weave.get_name()
-                                   ),
-                                   token,
-                               );
-                            }
-                        }
-                        _ => {
-                            if expected_weave != actual_weave {
-                                return self.error(
-                                    &format!(
-                                        "The spell '{}' was expected to release '{}' but '{}' was released",
-                                        curr_spell_name,
-                                        expected_weave.get_name(),
-                                        actual_weave.get_name()
-                                    ),
-                                    token,
-                                );
-                            }
-                        }
-                    }
-                    // if expected_weave != w_expr.weave() {
-                    //     return self.error(
-                    //         &format!(
-                    //             "The spell '{}' was expected to release '{}' but '{}' was released",
-                    //             curr_spell_name,
-                    //             expected_weave.get_name(),
-                    //             actual_weave.get_name()
-                    //         ),
-                    //         token,
-                    //     );
-                    // }
-
-                    Ok(WovenStmt::Release {
-                        token: token,
-                        expr: Some(w_expr),
-                    })
-                } else {
-                    // release; with no expression implies Emptiness.
-                    // If the spell expects a non-empty weave, this is an error.
-                    if expected_weave != Weave::Empty {
-                        return self.error(
-                            &format!(
-                                "The spell '{}' expects a value of weave '{}' to be released, but no value was provided.",
-                                curr_spell_name, expected_weave.get_name()
-                            ),
-                            token,
-                        );
-                    }
-
-                    Ok(WovenStmt::Release {
-                        token: token,
-                        expr: None,
-                    })
-                }
-            }
-            Stmt::Spell {
+            Decl::Spell {
                 name,
                 reagents,
                 body,
@@ -668,14 +489,14 @@ impl<'a> WeaveAnalyzer<'a> {
                     )
                     .unwrap();
 
-                Ok(WovenStmt::Spell {
+                Ok(WovenDecl::Spell {
                     name: name,
                     reagents: w_reagents,
                     body: Box::new(woven_body),
                     spell_symbol: symbol,
                 })
             }
-            Stmt::Sign {
+            Decl::Sign {
                 name,
                 marks,
                 visibility,
@@ -745,92 +566,14 @@ impl<'a> WeaveAnalyzer<'a> {
 
                 self.symbol_table.modify_symbol(new_symbol.clone());
 
-                Ok(WovenStmt::Sign {
+                Ok(WovenDecl::Sign {
                     name,
                     marks: w_marks,
                     sign_symbol: new_symbol,
                     // schema
                 })
             }
-            Stmt::Vanish { target, token } => {
-                let w_target = self.analyze_expression(target, None)?;
-
-                match w_target.weave() {
-                    Weave::Maybe(_) => {}
-                    _ => {
-                        return self.error(
-                            "The weave of the target expression does not support vanishing (not a Maybe<W> weave).",
-                            token,
-                        );
-                    }
-                }
-
-                match w_target.symbol() {
-                    Some(symbol) => match *symbol.kind.borrow() {
-                        SymbolKind::Variable { mutable } if !mutable => {
-                            return self
-                                .error("Cannot perform vanish for a bind-ed variable.", token);
-                        }
-                        _ => {}
-                    },
-                    None => {
-                        return self
-                            .error("Cannot perform vanish on a non-variable expression.", token);
-                    }
-                }
-
-                let empty_literal = WovenExpr::Literal {
-                    value: Value::Emptiness,
-                    token: token.clone(),
-                    weave: Weave::Empty,
-                };
-
-                // aka desugared
-                let sugar_less = match w_target {
-                    WovenExpr::Access {
-                        material,
-                        property,
-                        field_name_idx,
-                        weave,
-                    } => WovenExpr::FieldSet {
-                        material,
-                        property,
-                        value: Box::new(empty_literal),
-                        field_name_idx,
-                        weave,
-                    },
-                    // WovenExpr::Assignment { name, value, weave, symbol } => {},
-                    WovenExpr::Variable {
-                        name,
-                        weave,
-                        symbol,
-                    } => WovenExpr::Assignment {
-                        name,
-                        value: Box::new(empty_literal),
-                        weave,
-                        symbol,
-                    },
-                    WovenExpr::Extract {
-                        deck,
-                        index,
-                        token,
-                        weave,
-                    } => WovenExpr::DeckSet {
-                        deck,
-                        index,
-                        value: Box::new(empty_literal),
-                        token,
-                        weave,
-                    },
-
-                    _ => {
-                        return self.error("Cannot vanish from provided expression.", token);
-                    }
-                };
-
-                return Ok(WovenStmt::ExprStmt { expr: sugar_less });
-            }
-            Stmt::Attune { sign, spells } => {
+            Decl::Attune { sign, spells } => {
                 // verify that the symbol exists and it is a sign
                 let Some(sign_symbol) = self.symbol_table.resolve(&sign.lexeme) else {
                     return self.error(
@@ -864,12 +607,12 @@ impl<'a> WeaveAnalyzer<'a> {
 
                 // self.symbol_table.end_scope();
 
-                Ok(WovenStmt::Attune {
+                Ok(WovenDecl::Attune {
                     sign: sign,
                     spells: w_spells,
                 })
             }
-            Stmt::Tether {
+            Decl::Tether {
                 token,
                 path,
                 bind_to,
@@ -984,7 +727,7 @@ impl<'a> WeaveAnalyzer<'a> {
                     match state {
                         CompileState::Compiled => {
                             // already compiled
-                            return Ok(WovenStmt::Tether {
+                            return Ok(WovenDecl::Tether {
                                 statements: vec![],
                                 bind_to,
                                 path,
@@ -1077,11 +820,316 @@ impl<'a> WeaveAnalyzer<'a> {
                     .tethered_scrolls
                     .insert(path.clone(), CompileState::Compiled);
 
-                Ok(WovenStmt::Tether {
+                Ok(WovenDecl::Tether {
                     statements: w_ast,
                     path,
                     bind_to,
                 })
+            }
+
+            Decl::Statement { stmt, token } => {
+                let w_stmt = self.analyze_statement(*stmt)?;
+                Ok(WovenDecl::Statement {
+                    stmt: Box::new(w_stmt),
+                    token: token,
+                })
+            }
+        }
+    }
+
+    fn analyze_statement_inner(&mut self, stmt: Stmt) -> WeaveResult<WovenStmt> {
+        match stmt {
+            Stmt::Declaration(decl) => {
+                let w_decl = self.analyze_decl(*decl)?;
+                Ok(WovenStmt::Declaration(Box::new(w_decl)))
+            }
+            Stmt::Block { statements } => {
+                self.symbol_table.new_scope();
+                let w_block = self.analyze_statements(statements)?;
+                self.symbol_table.end_scope();
+                return Ok(WovenStmt::Block {
+                    statements: w_block,
+                });
+            }
+            Stmt::Chant { expression } => {
+                let w_expr = self.analyze_expression(expression, None)?;
+                Ok(WovenStmt::Chant { expression: w_expr })
+            }
+            Stmt::ExprStmt { expr } => {
+                let w_expr = self.analyze_expression(expr, None)?;
+                Ok(WovenStmt::ExprStmt { expr: w_expr })
+            }
+            Stmt::Fate {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                let w_condition = self.analyze_expression(condition, None)?;
+
+                if !w_condition
+                    .weave()
+                    .get_tapestry()
+                    .has_strand(CONDITIONAL_STRAND)
+                {
+                    return self.error(
+                        "The condition provided to determine the fate does not contain the 'Conditional' strand.",
+                        w_condition.token(),
+                    );
+                }
+                // scoping n stuff will be added by the block!
+                let w_then = self.analyze_statement(*then_branch)?;
+
+                // self.symbol_table.end_scope();
+
+                let w_else: Option<Box<WovenStmt>> = match else_branch {
+                    Some(e_b) => Some(Box::new(self.analyze_statement(*e_b)?)),
+                    None => None,
+                };
+                Ok(WovenStmt::Fate {
+                    condition: w_condition,
+                    then_branch: Box::new(w_then),
+                    else_branch: w_else,
+                })
+            }
+
+            Stmt::While { condition, body } => {
+                let w_condition = self.analyze_expression(condition, None)?;
+
+                if !w_condition
+                    .weave()
+                    .get_tapestry()
+                    .has_strand(CONDITIONAL_STRAND)
+                {
+                    return self.error(
+                        "The condition provided to determine the fate of loop does not contain the 'Conditional' strand.",
+                        w_condition.token(),
+                    );
+                }
+
+                // enter loop scope (for sever, flow purposes)
+                self.loop_depth += 1;
+
+                let w_body = self.analyze_statement(*body)?;
+
+                // loop scope exit
+                self.loop_depth -= 1;
+
+                Ok(WovenStmt::While {
+                    condition: w_condition,
+                    body: Box::new(w_body),
+                })
+            }
+            Stmt::Sever { token } => {
+                if self.loop_depth == 0 {
+                    return self.error("'sever' cannot be used outside a loop circle!", token);
+                }
+                Ok(WovenStmt::Sever { token })
+            }
+            Stmt::Flow { token } => {
+                if self.loop_depth == 0 {
+                    return self.error("'flow' cannot be used outside a loop circle!", token);
+                }
+                Ok(WovenStmt::Flow { token })
+            }
+            Stmt::Release { token, expr } => {
+                // Ensure 'release' is only used within a spell realm
+                if self.current_realm == Realm::Genesis {
+                    return self.error(
+                        "Values cannot be released from the 'Genesis' realm!\n\
+                        Error: Usage of 'release' outside the spell scope.",
+                        token,
+                    );
+                }
+
+                let curr_spell_name = match self.spell_stack.last() {
+                    Some(name) => name.clone(),
+                    None => {
+                        return self.error("Release used outside of any spell scope.", token);
+                    }
+                };
+
+                // Ensure spell exists and check if already released
+                let spell_entry = match self.symbol_table.resolve(&curr_spell_name) {
+                    Some(v) => match v.kind.borrow().clone() {
+                        SymbolKind::Spell(info) => info,
+                        _ => {
+                            return self.error(
+                                &format!(
+                                    "No Spell found in the realm with the name '{}'",
+                                    curr_spell_name
+                                ),
+                                token,
+                            );
+                        }
+                    },
+                    None => {
+                        return self.error(
+                            &format!(
+                                "No Spell found in the realm with the name '{}'",
+                                curr_spell_name
+                            ),
+                            token,
+                        );
+                    }
+                };
+
+                let expected_weave = spell_entry.release_weave.clone();
+
+                if let Some(e) = expr {
+                    let w_expr = self.analyze_expression(e, Some(&expected_weave))?;
+
+                    // Try to get the weave from the symbol first (for variables with composite weaves)
+                    // Otherwise fall back to tapestry lookup
+                    let actual_weave = if let Some(symbol) = w_expr.symbol() {
+                        symbol.weave.clone()
+                    } else {
+                        w_expr.weave()
+                    };
+
+                    // Exact tapestry check (spells should return the exact weave)
+                    match &expected_weave {
+                        Weave::Maybe(inner) => {
+                            if actual_weave == Weave::Empty || actual_weave == **inner {
+                                // valid release
+                            } else {
+                                return self.error(
+                                   &format!(
+                                       "The spell '{}' was expected to release '{}' but '{}' was released",
+                                       curr_spell_name,
+                                       expected_weave.get_name(),
+                                       actual_weave.get_name()
+                                   ),
+                                   token,
+                               );
+                            }
+                        }
+                        _ => {
+                            if expected_weave != actual_weave {
+                                return self.error(
+                                    &format!(
+                                        "The spell '{}' was expected to release '{}' but '{}' was released",
+                                        curr_spell_name,
+                                        expected_weave.get_name(),
+                                        actual_weave.get_name()
+                                    ),
+                                    token,
+                                );
+                            }
+                        }
+                    }
+                    // if expected_weave != w_expr.weave() {
+                    //     return self.error(
+                    //         &format!(
+                    //             "The spell '{}' was expected to release '{}' but '{}' was released",
+                    //             curr_spell_name,
+                    //             expected_weave.get_name(),
+                    //             actual_weave.get_name()
+                    //         ),
+                    //         token,
+                    //     );
+                    // }
+
+                    Ok(WovenStmt::Release {
+                        token: token,
+                        expr: Some(w_expr),
+                    })
+                } else {
+                    // release; with no expression implies Emptiness.
+                    // If the spell expects a non-empty weave, this is an error.
+                    if expected_weave != Weave::Empty {
+                        return self.error(
+                            &format!(
+                                "The spell '{}' expects a value of weave '{}' to be released, but no value was provided.",
+                                curr_spell_name, expected_weave.get_name()
+                            ),
+                            token,
+                        );
+                    }
+
+                    Ok(WovenStmt::Release {
+                        token: token,
+                        expr: None,
+                    })
+                }
+            }
+
+            Stmt::Vanish { target, token } => {
+                let w_target = self.analyze_expression(target, None)?;
+
+                match w_target.weave() {
+                    Weave::Maybe(_) => {}
+                    _ => {
+                        return self.error(
+                            "The weave of the target expression does not support vanishing (not a Maybe<W> weave).",
+                            token,
+                        );
+                    }
+                }
+
+                match w_target.symbol() {
+                    Some(symbol) => match *symbol.kind.borrow() {
+                        SymbolKind::Variable { mutable } if !mutable => {
+                            return self
+                                .error("Cannot perform vanish for a bind-ed variable.", token);
+                        }
+                        _ => {}
+                    },
+                    None => {
+                        return self
+                            .error("Cannot perform vanish on a non-variable expression.", token);
+                    }
+                }
+
+                let empty_literal = WovenExpr::Literal {
+                    value: Value::Emptiness,
+                    token: token.clone(),
+                    weave: Weave::Empty,
+                };
+
+                // aka desugared
+                let sugar_less = match w_target {
+                    WovenExpr::Access {
+                        material,
+                        property,
+                        field_name_idx,
+                        weave,
+                    } => WovenExpr::FieldSet {
+                        material,
+                        property,
+                        value: Box::new(empty_literal),
+                        field_name_idx,
+                        weave,
+                    },
+                    // WovenExpr::Assignment { name, value, weave, symbol } => {},
+                    WovenExpr::Variable {
+                        name,
+                        weave,
+                        symbol,
+                    } => WovenExpr::Assignment {
+                        name,
+                        value: Box::new(empty_literal),
+                        weave,
+                        symbol,
+                    },
+                    WovenExpr::Extract {
+                        deck,
+                        index,
+                        token,
+                        weave,
+                    } => WovenExpr::DeckSet {
+                        deck,
+                        index,
+                        value: Box::new(empty_literal),
+                        token,
+                        weave,
+                    },
+
+                    _ => {
+                        return self.error("Cannot vanish from provided expression.", token);
+                    }
+                };
+
+                return Ok(WovenStmt::ExprStmt { expr: sugar_less });
             }
         }
     }
@@ -1295,7 +1343,7 @@ impl<'a> WeaveAnalyzer<'a> {
                     material,
                     spell_symbol,
                     token,
-                    weave,
+                    weave:_,
                 }) = &w_callee
                 {
                     let method_symbol = spell_symbol;
@@ -1653,22 +1701,22 @@ impl<'a> WeaveAnalyzer<'a> {
                     }
 
                     // return match sym.kind.borrow().clone() {
-                        // SymbolKind::Variable { mutable } =>
-                         return Ok(WovenExpr::Variable {
-                            name: property.clone(),
-                            weave: sym.weave.clone(),
-                            symbol: sym.clone(),
-                        });
-                        // SymbolKind::Spell(spell_info) => Ok(WovenExpr::BoundSpell {
-                        //     is_safe: false,
-                        //     material: Box::new(w_material),
-                        //     spell_symbol: sym.clone(),
-                        //     token: property.clone(),
-                        //     weave: spell_info.release_weave,
-                        // }),
-                        // _ => {
-                            // return self.error("h,", property);
-                        // }
+                    // SymbolKind::Variable { mutable } =>
+                    return Ok(WovenExpr::Variable {
+                        name: property.clone(),
+                        weave: sym.weave.clone(),
+                        symbol: sym.clone(),
+                    });
+                    // SymbolKind::Spell(spell_info) => Ok(WovenExpr::BoundSpell {
+                    //     is_safe: false,
+                    //     material: Box::new(w_material),
+                    //     spell_symbol: sym.clone(),
+                    //     token: property.clone(),
+                    //     weave: spell_info.release_weave,
+                    // }),
+                    // _ => {
+                    // return self.error("h,", property);
+                    // }
                     // };
                 }
 

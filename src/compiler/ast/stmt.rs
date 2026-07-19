@@ -1,24 +1,11 @@
-use crate::compiler::{
-        Expr, WovenExpr,
-        mark::{Mark, WovenMark},
-        parser::types::ParsedWeave,
-        reagents::{Reagent, WovenReagent},
-        scanner::Token,
-        symbol_table::Symbol, types::Visibility,
-    };
+use crate::compiler::{Expr, WovenExpr, ast::decl::Decl, scanner::Token};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     ExprStmt {
         expr: Expr,
     },
-    VarDeclaration {
-        name: Token,
-        mutable: bool,
-        initializer: Option<Expr>,
-        weave: Option<ParsedWeave>,
-        visibility: Option<Visibility>,
-    },
+
     Fate {
         condition: Expr,
         then_branch: Box<Stmt>,
@@ -40,37 +27,17 @@ pub enum Stmt {
     Flow {
         token: Token,
     },
-    Spell {
-        name: Token,
-        reagents: Vec<Reagent>,
-        body: Box<Stmt>,
-        return_weave: Option<ParsedWeave>,
-        visibility: Option<Visibility>,
-        attuned_to: Option<Token>
-    },
+
     Release {
         token: Token,
         expr: Option<Expr>,
     },
-    Sign {
-        name: Token,
-        marks: Vec<Mark>,
-        visibility: Option<Visibility>,
-    },
+
     Vanish {
         target: Expr,
         token: Token,
     },
-    Attune {
-        sign: Token,
-        spells: Vec<Box<Stmt>>
-    },
-    Tether {
-        token: Token,
-        path: Vec<Token>,
-        bind_to: Option<Token>,
-        is_path: bool,
-    }
+    Declaration(Box<Decl>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -78,12 +45,7 @@ pub enum WovenStmt {
     ExprStmt {
         expr: WovenExpr,
     },
-    VarDeclaration {
-        name: Token,
-        mutable: bool,
-        initializer: Option<WovenExpr>,
-        symbol: Symbol,
-    },
+
     Fate {
         condition: WovenExpr,
         then_branch: Box<WovenStmt>,
@@ -105,28 +67,10 @@ pub enum WovenStmt {
     Flow {
         token: Token,
     },
-    Spell {
-        name: Token,
-        reagents: Vec<WovenReagent>,
-        body: Box<WovenStmt>,
-        spell_symbol: Symbol,
-    },
+
     Release {
         token: Token,
         expr: Option<WovenExpr>,
     },
-    Sign {
-        name: Token,
-        marks: Vec<WovenMark>,
-        sign_symbol: Symbol,
-    },
-    Attune {
-        sign: Token,
-        spells: Vec<Box<WovenStmt>>,
-    },
-    Tether {
-        statements: Vec<WovenStmt>,
-        path: String,
-        bind_to: Option<Token>,
-    },
+    Declaration(Box<crate::compiler::ast::decl::WovenDecl>),
 }

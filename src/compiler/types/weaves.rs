@@ -1,6 +1,8 @@
 use crate::compiler::{
     strand::{
-        ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND, MAYBE_STRAND, MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND
+        ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND, DIVISIVE_STRAND,
+        EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND, MAYBE_STRAND, MULTIPLICATIVE_STRAND,
+        NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND,
     },
     tapestry::Tapestry,
 };
@@ -10,9 +12,7 @@ pub enum Weave {
     Num,
     Text,
     Truth,
-    Spell {
-        release: Box<Weave>,
-    },
+    Spell { release: Box<Weave> },
     Sign(String /* name */),
     Deck(Box<Weave>, Option<usize>),
     Maybe(Box<Weave>),
@@ -22,7 +22,10 @@ pub enum Weave {
 
 impl Weave {
     pub fn can_sub_weave(&self) -> bool {
-        matches!(self, Weave::Spell { .. } | Weave::Deck(_, _) | Weave::Maybe(_))
+        matches!(
+            self,
+            Weave::Spell { .. } | Weave::Deck(_, _) | Weave::Maybe(_)
+        )
     }
 
     pub fn get_tapestry(&self) -> Tapestry {
@@ -61,7 +64,7 @@ impl Weave {
                     ""
                 };
                 format!("Deck<{}{}>", inner.get_name(), str)
-            },
+            }
             Weave::Maybe(base) => format!("Maybe<{}>", base.get_name()),
             Weave::Module(name) => format!("Module<{}>", name),
         }

@@ -2,9 +2,9 @@ pub mod assembler;
 pub mod ast_printer;
 pub mod compiler;
 pub mod debug;
+pub mod project;
 pub mod runtime;
 pub mod values;
-pub mod project;
 
 pub use compiler::code_gen::CodeGen;
 pub use compiler::parser::Parser;

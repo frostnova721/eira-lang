@@ -2,6 +2,7 @@ use crate::{
     Parser, Token,
     compiler::{
         Expr, Stmt,
+        ast::decl::Decl,
         mark::Mark,
         parser::{
             parser::{MSG_BIND_VALUE_NOT_INITIALIZED, MSG_MISSED_SEMICOLON},
@@ -18,7 +19,7 @@ impl Parser {
         &mut self,
         attuned_to: Option<Token>,
         visibility: Option<Visibility>,
-    ) -> ParseResult<Stmt> {
+    ) -> ParseResult<Decl> {
         self.consume(TokenType::Identifier, "Expected a variable name!");
         let name = self.previous.clone();
 
@@ -59,7 +60,7 @@ impl Parser {
 
         self.consume(TokenType::BraceLeft, "Expected spell's working block!");
         let working = self.block()?;
-        Ok(Stmt::Spell {
+        Ok(Decl::Spell {
             name: name.clone(),
             reagents: params,
             body: Box::new(working),
@@ -69,8 +70,18 @@ impl Parser {
         })
     }
 
-    pub(super) fn variable_declaration(&mut self, mutable: bool, visibility: Option<Visibility>) -> ParseResult<Stmt> {
-        self.consume(TokenType::Identifier, &format!("Expected a variable name! Got '{}' which is a reserved symbol.", self.current.lexeme));
+    pub(super) fn variable_declaration(
+        &mut self,
+        mutable: bool,
+        visibility: Option<Visibility>,
+    ) -> ParseResult<Decl> {
+        self.consume(
+            TokenType::Identifier,
+            &format!(
+                "Expected a variable name! Got '{}' which is a reserved symbol.",
+                self.current.lexeme
+            ),
+        );
         let name = self.previous.clone();
         let initializer: Option<Expr>;
 
@@ -89,7 +100,7 @@ impl Parser {
             initializer = None;
         }
         self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
-        Ok(Stmt::VarDeclaration {
+        Ok(Decl::VarDeclaration {
             name: name,
             mutable: mutable,
             initializer: initializer,
@@ -98,7 +109,7 @@ impl Parser {
         })
     }
 
-    pub(super) fn sign_declaration(&mut self, visibility: Option<Visibility>) -> ParseResult<Stmt> {
+    pub(super) fn sign_declaration(&mut self, visibility: Option<Visibility>) -> ParseResult<Decl> {
         self.consume(TokenType::Identifier, "Expected a name for the sign.");
         let name = self.previous.clone();
         self.consume(TokenType::BraceLeft, "Expected '{' after the sign name.");
@@ -135,10 +146,14 @@ impl Parser {
         self.consume(TokenType::BraceRight, "Expected '}' after sign marks.");
         // self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
 
-        Ok(Stmt::Sign { name, marks, visibility })
+        Ok(Decl::Sign {
+            name,
+            marks,
+            visibility,
+        })
     }
 
-    pub(super) fn attune_declaration(&mut self) -> ParseResult<Stmt> {
+    pub(super) fn attune_declaration(&mut self) -> ParseResult<Decl> {
         self.consume(
             TokenType::Identifier,
             "Expected a name for the sign to attune to.",
@@ -166,9 +181,9 @@ impl Parser {
             }
 
             if self.match_token(TokenType::Spell) {
-                spells.push(Box::new(
+                spells.push(Box::new(Stmt::Declaration(Box::new(
                     self.spell_declaration(Some(sign.clone()), visisibility)?,
-                ));
+                ))));
             } else {
                 // println!("Hit else in attune! Current token: {:?}", self.current.token_type);
                 self.throw_error("Only spell declarations are allowed in an attunement block!");
@@ -181,10 +196,10 @@ impl Parser {
             "Expected '}' after the attunement block.",
         );
 
-        Ok(Stmt::Attune { sign, spells })
+        Ok(Decl::Attune { sign, spells })
     }
 
-    pub(super) fn tether_declaration(&mut self) -> ParseResult<Stmt> {
+    pub(super) fn tether_declaration(&mut self) -> ParseResult<Decl> {
         let token = self.previous.clone();
 
         let mut is_path = false;
@@ -218,7 +233,7 @@ impl Parser {
 
         self.consume(TokenType::SemiColon, MSG_MISSED_SEMICOLON);
 
-        Ok(Stmt::Tether {
+        Ok(Decl::Tether {
             token,
             path: path,
             bind_to: bind_to,

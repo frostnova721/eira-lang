@@ -74,7 +74,7 @@ impl<'a> Scanner<'a> {
             lexeme: self.source[self.start..self.current].to_string(),
             token_type,
             line: self.line,
-            column: self.column+1,
+            column: self.column + 1,
         }
     }
 
@@ -83,7 +83,7 @@ impl<'a> Scanner<'a> {
             lexeme,
             token_type,
             line: self.line,
-            column: self.column+1,
+            column: self.column + 1,
         }
     }
 

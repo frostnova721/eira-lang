@@ -38,7 +38,12 @@ impl Augury {
         !self.curses.is_empty()
     }
 
-    pub fn forsee_curse(&mut self, source: SourceLocation, message: String, phase: CompilationPhase) {
+    pub fn forsee_curse(
+        &mut self,
+        source: SourceLocation,
+        message: String,
+        phase: CompilationPhase,
+    ) {
         let diagnostic = Diagnostic {
             message,
             location: source,
@@ -47,7 +52,12 @@ impl Augury {
         self.curses.push(diagnostic);
     }
 
-    pub fn forsee_omen(&mut self, source: SourceLocation, message: String, phase: CompilationPhase) {
+    pub fn forsee_omen(
+        &mut self,
+        source: SourceLocation,
+        message: String,
+        phase: CompilationPhase,
+    ) {
         let diagnostic = Diagnostic {
             message,
             location: source,
