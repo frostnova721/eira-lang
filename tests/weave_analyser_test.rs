@@ -1,15 +1,17 @@
 #[cfg(test)]
 mod weave_analyser_test {
     use eira::{
-        Parser, Scanner, WeaveAnalyzer,
+        Parser, Scanner,
         compiler::{
             WovenExpr, WovenStmt,
+            ast::decl::WovenDecl,
             strand::{ADDITIVE_STRAND, CONDITIONAL_STRAND, MULTIPLICATIVE_STRAND},
             weave_analyser::WeaveAnalyzerContext,
         },
+        weave_analyser::WeaveAnalyzer,
     };
 
-    fn analyze_helper(source: &str) -> Result<Vec<WovenStmt>, String> {
+    fn analyze_helper(source: &str) -> Result<Vec<WovenDecl>, String> {
         let scanner = Scanner::init(source);
         let tokens = scanner.tokenize();
         let parser = Parser::new(tokens, "weave_test.eira".to_string());
@@ -21,12 +23,15 @@ mod weave_analyser_test {
         wa.analyze(ast).map_err(|e| format!("{}", e.msg))
     }
 
-    fn first_expr(stmts: &Vec<WovenStmt>) -> &WovenExpr {
+    fn first_expr(stmts: &Vec<WovenDecl>) -> &WovenExpr {
         // Prefer the first Chant or ExprStmt found
         for stmt in stmts {
             match stmt {
-                WovenStmt::ExprStmt { expr } => return expr,
-                WovenStmt::Chant { expression } => return expression,
+                WovenDecl::Statement { stmt, token: _ } => match **stmt {
+                    WovenStmt::ExprStmt { ref expr } => return expr,
+                    WovenStmt::Chant { ref expression } => return expression,
+                    _ => {}
+                },
                 _ => {}
             }
         }
@@ -86,14 +91,17 @@ mod weave_analyser_test {
         let stmts = analyze_helper(src).expect("analyze ok");
         // second stmt uses variable
         match &stmts[1] {
-            WovenStmt::Chant { expression } => match expression {
-                WovenExpr::Variable { weave, .. } => {
-                    // at least not empty
-                    assert!(weave.get_tapestry().0 != 0);
-                }
-                _ => panic!("Expected variable in chant"),
+            WovenDecl::Statement { stmt, token: _ } => match **stmt {
+                WovenStmt::Chant { ref expression } => match expression {
+                    WovenExpr::Variable { weave, .. } => {
+                        // at least not empty
+                        assert!(weave.get_tapestry().0 != 0);
+                    }
+                    _ => panic!("Expected variable in chant"),
+                },
+                _ => panic!("Expected chant"),
             },
-            _ => panic!("Expected chant"),
+            _ => panic!("Expected statement"),
         }
     }
 
@@ -230,7 +238,7 @@ mod weave_analyser_test {
     fn comparison_operators_return_truth_weave() {
         let src = "mark result = 5 > 3;";
         let stmts = analyze_helper(src).expect("comparison ok");
-        if let WovenStmt::VarDeclaration { initializer, .. } = &stmts[0] {
+        if let WovenDecl::VarDeclaration { initializer, .. } = &stmts[0] {
             if let Some(WovenExpr::Binary { weave, .. }) = initializer {
                 // truth weave has conditional strand
                 assert!(weave.get_tapestry().has_strand(CONDITIONAL_STRAND));

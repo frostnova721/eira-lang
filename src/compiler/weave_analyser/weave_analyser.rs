@@ -7,31 +7,15 @@ use std::{
 };
 
 use crate::{
-    Parser, Scanner,
-    Value::{self},
-    compiler::{
-        Expr, Stmt, WovenExpr, WovenStmt,
-        ast::decl::{Decl, WovenDecl},
-        compiler::CompileState,
-        mark::{WovenEtchedMark, WovenMark},
-        parser::types::ParsedWeave,
-        reagents::WovenReagent,
-        scanner::Token,
-        scroll_reader::ScrollReader,
-        strand::{
+    Parser, Scanner, Value::{self}, compiler::{
+        Expr, Stmt, WovenExpr, WovenStmt, ast::decl::{Decl, WovenDecl}, compiler::CompileState, diagnostics::{Augury, CompilationPhase, SourceLocation}, mark::{WovenEtchedMark, WovenMark}, parser::types::ParsedWeave, scanner::Token, scroll_reader::ScrollReader, strand::{
             ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND,
             DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND, MAYBE_STRAND,
             MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND,
-        },
-        symbol_table::{Symbol, SymbolKind, SymbolTable},
-        token_type::TokenType,
-        types::Visibility,
-        weave_analyser::WeaveAnalyzerContext,
-        weaves::{Weave, Weaver},
-    },
-    values::{
+        }, symbol_table::{Symbol, SymbolKind, SymbolTable}, token_type::TokenType, types::Visibility, weave_analyser::WeaveAnalyzerContext, weaves::{Weave, Weaver},
+    }, values::{
         native_spell::NativeSpell,
-        sign::{AttunedSpell, SignInfo, SignSchema},
+        sign::{SignInfo, SignSchema},
         spell::{SpellInfo, UpValue},
     },
 };
@@ -54,29 +38,31 @@ impl WeaveError {
 pub type WeaveResult<T> = Result<T, WeaveError>;
 
 #[derive(PartialEq, Clone)]
-enum Realm {
+pub enum Realm {
     Genesis, // script level scope
     Spell,   // spell level scope
 }
 
 pub struct WeaveAnalyzer<'a> {
-    context: &'a mut WeaveAnalyzerContext,
+    pub(super) context: &'a mut WeaveAnalyzerContext,
+    pub(super) augury: &'a mut Augury,
 
-    symbol_table: SymbolTable,
-    loop_depth: usize,
-    current_realm: Realm,     // track the realm (scope type) the analyzer is in!
-    spell_stack: Vec<String>, // track the current spell name
+    pub(super) symbol_table: SymbolTable,
+    pub(super) loop_depth: usize,
+    pub(super) current_realm: Realm, // track the realm (scope type) the analyzer is in!
+    pub(super) spell_stack: Vec<String>, // track the current spell name
 
-    current_upvalues: Vec<UpValue>, // upvalue for currently resolving spell
-    spell_base_depth: usize,        // depth where current spell body starts (parameters live here)
-    spell_slot_counter: usize,      // continuous slot counter within current spell
+    pub(super) current_upvalues: Vec<UpValue>, // upvalue for currently resolving spell
+    pub(super) spell_base_depth: usize, // depth where current spell body starts (parameters live here)
+    pub(super) spell_slot_counter: usize, // continuous slot counter within current spell
 }
 
 impl<'a> WeaveAnalyzer<'a> {
-    pub fn new(context: &'a mut WeaveAnalyzerContext) -> Self {
+    pub fn new(context: &'a mut WeaveAnalyzerContext, augury: &'a mut Augury) -> Self {
         let st = SymbolTable::new();
         WeaveAnalyzer {
             context,
+            augury,
             symbol_table: st,
             loop_depth: 0,
             current_realm: Realm::Genesis,
@@ -91,7 +77,7 @@ impl<'a> WeaveAnalyzer<'a> {
         &self.symbol_table
     }
 
-    fn error<T>(&self, msg: &str, token: Token) -> Result<T, WeaveError> {
+    pub(super) fn error<T>(&self, msg: &str, token: Token) -> Result<T, WeaveError> {
         Err(WeaveError::new(msg, token))
     }
 
@@ -99,7 +85,7 @@ impl<'a> WeaveAnalyzer<'a> {
         self.analyze_decls(ast)
     }
 
-    fn analyze_decls(&mut self, decls: Vec<Decl>) -> WeaveResult<Vec<WovenDecl>> {
+    pub(super) fn analyze_decls(&mut self, decls: Vec<Decl>) -> WeaveResult<Vec<WovenDecl>> {
         let mut w_decls: Vec<WovenDecl> = Vec::new();
         for decl in decls {
             let woven = self.analyze_decl(decl)?;
@@ -108,7 +94,7 @@ impl<'a> WeaveAnalyzer<'a> {
         Ok(w_decls)
     }
 
-    fn analyze_decl(&mut self, decl: Decl) -> WeaveResult<WovenDecl> {
+    pub(super) fn analyze_decl(&mut self, decl: Decl) -> WeaveResult<WovenDecl> {
         let is_tether_top_level = self.context.import_mode
             && self.symbol_table.get_depth() == 0
             && self.current_realm == Realm::Genesis;
@@ -120,21 +106,21 @@ impl<'a> WeaveAnalyzer<'a> {
             | WovenDecl::Sign { .. }
             | WovenDecl::Spell { .. }
             | WovenDecl::VarDeclaration { .. }
-            | WovenDecl::Tether { .. } => {},
-            WovenDecl::Statement { ref token, ..} => {
+            | WovenDecl::Tether { .. } => {}
+            WovenDecl::Statement { ref token, stmt: _ } => {
                 if is_tether_top_level {
                     return self.error(
                         "Only declarations are allowed at top level in a tethered scroll.",
                         token.clone(),
                     );
                 }
-                // return self.error("Only declarations are allowed at top level.", token)
+                // return self.error("Only declarations are allowed at top level.", token.clone());
             }
         }
         Ok(woven)
     }
 
-    fn analyze_statements(&mut self, stmts: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
+    pub(super) fn analyze_statements(&mut self, stmts: Vec<Stmt>) -> WeaveResult<Vec<WovenStmt>> {
         let mut w_stmts: Vec<WovenStmt> = Vec::new();
         for stmt in stmts {
             let woven = self.analyze_statement(stmt)?;
@@ -144,7 +130,7 @@ impl<'a> WeaveAnalyzer<'a> {
         Ok(w_stmts)
     }
 
-    fn analyze_statement(&mut self, stmt: Stmt) -> WeaveResult<WovenStmt> {
+    pub(super) fn analyze_statement(&mut self, stmt: Stmt) -> WeaveResult<WovenStmt> {
         // let is_tether_top_level = self.context.import_mode
         //     && self.symbol_table.get_depth() == 0
         //     && self.current_realm == Realm::Genesis;
@@ -153,7 +139,7 @@ impl<'a> WeaveAnalyzer<'a> {
 
         Ok(woven)
     }
-    fn analyze_decl_inner(&mut self, decl: Decl) -> WeaveResult<WovenDecl> {
+    pub(super) fn analyze_decl_inner(&mut self, decl: Decl) -> WeaveResult<WovenDecl> {
         match decl {
             Decl::VarDeclaration {
                 name,
@@ -269,233 +255,7 @@ impl<'a> WeaveAnalyzer<'a> {
                 return_weave,
                 attuned_to,
                 visibility,
-            } => {
-                // allow spell shadowing from outer scopes
-                let existing = self.symbol_table.resolve_in_current_scope(&name.lexeme);
-                if existing.is_some() {
-                    return self.error(
-                        &format!(
-                            "The spell '{}' already exists in the current scope!",
-                            name.lexeme
-                        ),
-                        name,
-                    );
-                }
-
-                // set public visibility by default
-                let visibility = visibility.unwrap_or(Visibility::default());
-
-                let mut w_reagents: Vec<WovenReagent> = vec![];
-                let slot = self.symbol_table.get_current_scope_size();
-
-                // get the ret type (weave ofcourse)
-                let ret_weave = match return_weave {
-                    Some(rw) => self.analyze_parsed_weave(rw)?,
-                    None => Weave::Empty,
-                };
-
-                // define the spell
-                // Create SpellWeave<ReturnWeave> for the spell's symbol
-                let spell_weave = Weave::Spell {
-                    // reagents: Vec::new(),
-                    release: Box::new(ret_weave.clone()),
-                };
-
-                let spell_name = if attuned_to.is_some() {
-                    format!("{}:{}", attuned_to.as_ref().unwrap().lexeme, name.lexeme)
-                } else {
-                    name.lexeme.clone()
-                };
-
-                // mark the symbol definition
-                let mut stub_symbol = self
-                    .symbol_table
-                    .define_spell(
-                        spell_name.clone(),
-                        spell_weave.clone(),
-                        SpellInfo {
-                            name: spell_name.clone(),
-                            reagents: w_reagents.clone(),
-                            release_weave: ret_weave.clone(),
-                            upvalues: vec![],
-                        },
-                        slot,
-                        None,
-                        visibility.clone(),
-                    )
-                    .unwrap(); // this shouldmt be failing
-
-                self.symbol_table.new_scope();
-
-                // spell_base_depth should be equal to depth where spell is defined;
-                // so the base_depth should be incremented after savin it
-                // Variables from this depth or shallower can be upvalues
-                let saved_spell_base_depth = self.spell_base_depth;
-                self.spell_base_depth = self.symbol_table.get_depth() - 1;
-
-                // Reset spell slot counter for parameters
-                self.spell_slot_counter = 0;
-
-                let upvals_saved = std::mem::take(&mut self.current_upvalues);
-
-                if let Some(sign) = attuned_to {
-                    let sign_lexeme = &sign.lexeme;
-                    let name_lexeme = &name.lexeme;
-                    let method_name = format!("{}:{}", sign_lexeme, name_lexeme);
-
-                    {
-                        let Some(s) = self.symbol_table.resolve(sign_lexeme) else {
-                            return self.error(
-                                &format!(
-                                    "No symbol found across the eira realms with the name '{}'.",
-                                    sign_lexeme
-                                ),
-                                sign.clone(),
-                            );
-                        };
-
-                        let mut kind = s.kind.borrow_mut();
-
-                        match &mut *kind {
-                            SymbolKind::Sign(si) => {
-                                if si.attunements.contains_key(&name.lexeme) {
-                                    return self.error(&format!("The sign '{}' is already attuned to a spell named '{}', Try renaming the spell.",sign_lexeme, name_lexeme),
-                                    sign.clone(),);
-                                }
-
-                                let attuned = AttunedSpell {
-                                    method_name: method_name.clone(),
-                                    visibility: visibility.clone(),
-                                    is_static: false,
-                                };
-
-                                si.attunements.insert(name_lexeme.clone(), attuned);
-                            }
-                            _ => {
-                                return self.error(
-                                    &format!(
-                                        "'{}' is not a sign. Attunement can only be done on signs.",
-                                        sign_lexeme
-                                    ),
-                                    sign.clone(),
-                                );
-                            }
-                        }
-                    }
-
-                    self.symbol_table.define_variable(
-                        "ego".to_string(),
-                        Weave::Sign(sign_lexeme.clone()),
-                        false,
-                        self.spell_slot_counter,
-                        None,
-                        Visibility::Secret,
-                    );
-                    self.spell_slot_counter += 1;
-
-                    w_reagents.push(WovenReagent {
-                        weave: Weave::Sign(sign_lexeme.clone()),
-                    });
-                }
-
-                for r in reagents {
-                    let weave = self.analyze_parsed_weave(r.weave)?;
-                    self.symbol_table.define_variable(
-                        r.name.lexeme.clone(),
-                        weave.clone(),
-                        false,
-                        self.spell_slot_counter, // Use continuous slot counter, (lexical scoping doesnt work right here!)
-                        None,
-                        Visibility::Secret,
-                    );
-                    self.spell_slot_counter += 1; // Increment for next parameter
-                    w_reagents.push(WovenReagent {
-                        // name: r.name.clone(),
-                        weave: weave,
-                    });
-                }
-
-                stub_symbol.kind = RefCell::new(SymbolKind::Spell(SpellInfo {
-                    name: stub_symbol.name.clone(),
-                    reagents: w_reagents.clone(),
-                    release_weave: ret_weave.clone(),
-                    upvalues: vec![],
-                }));
-
-                self.symbol_table.modify_symbol(stub_symbol);
-
-                let prev_realm = self.current_realm.clone();
-                let prev_slot_counter = self.spell_slot_counter;
-
-                self.spell_slot_counter = 0;
-
-                self.current_realm = Realm::Spell;
-                self.spell_stack.push(spell_name.clone());
-
-                // analyze the body of the spell
-                let woven_body = self.analyze_statement(*body)?;
-
-                self.spell_stack.pop();
-
-                // Reset spell slot counter when exiting spell
-                // self.spell_slot_counter = 0;
-
-                self.spell_slot_counter = prev_slot_counter;
-
-                self.current_realm = prev_realm;
-
-                let captured_vals = std::mem::replace(&mut self.current_upvalues, upvals_saved);
-                let Some(s) = self.symbol_table.resolve(&spell_name) else {
-                    return self.error(
-                        &format!("Could not find '{}' across the realms of eira!", spell_name),
-                        name,
-                    );
-                };
-                let _ = {
-                    let mut kind = s.kind.borrow_mut();
-
-                    let spell_info = match &mut *kind {
-                        SymbolKind::Spell(i) => i,
-                        _ => {
-                            return self
-                                .error(&format!("The symbol '{}' is not a spell", s.name), name);
-                        }
-                    };
-                    spell_info.upvalues = captured_vals.clone();
-
-                    spell_info.clone()
-                };
-
-                self.symbol_table.end_scope();
-
-                // Restore base_depth
-                self.spell_base_depth = saved_spell_base_depth;
-
-                // overwrite the spell with updated information
-                let symbol = self
-                    .symbol_table
-                    .define_spell(
-                        spell_name.clone(),
-                        spell_weave.clone(),
-                        SpellInfo {
-                            name: spell_name.clone(),
-                            reagents: w_reagents.clone(),
-                            release_weave: ret_weave,
-                            upvalues: captured_vals,
-                        },
-                        slot,
-                        None,
-                        visibility,
-                    )
-                    .unwrap();
-
-                Ok(WovenDecl::Spell {
-                    name: name,
-                    reagents: w_reagents,
-                    body: Box::new(woven_body),
-                    spell_symbol: symbol,
-                })
-            }
+            } => self.analyze_spell(name, reagents, visibility, return_weave, attuned_to, body),
             Decl::Sign {
                 name,
                 marks,
@@ -573,45 +333,8 @@ impl<'a> WeaveAnalyzer<'a> {
                     // schema
                 })
             }
-            Decl::Attune { sign, spells } => {
-                // verify that the symbol exists and it is a sign
-                let Some(sign_symbol) = self.symbol_table.resolve(&sign.lexeme) else {
-                    return self.error(
-                        &format!(
-                            "No sign found across the eira realms with the name '{}'",
-                            sign.lexeme
-                        ),
-                        sign,
-                    );
-                };
+            Decl::Attune { sign, spells } => Ok(self.analyze_attune(sign, spells)?),
 
-                match *sign_symbol.kind.borrow() {
-                    SymbolKind::Sign(_) => {}
-                    _ => {
-                        return self.error(
-                            &format!("The symbol '{}' is not a sign.", sign.lexeme),
-                            sign,
-                        );
-                    }
-                };
-
-                // new scope, we dont want stuff colliding
-                // self.symbol_table.new_scope();
-
-                let mut w_spells: Vec<Box<WovenStmt>> = vec![];
-
-                for spell in spells {
-                    let w_spell = self.analyze_statement(*spell)?;
-                    w_spells.push(Box::new(w_spell));
-                }
-
-                // self.symbol_table.end_scope();
-
-                Ok(WovenDecl::Attune {
-                    sign: sign,
-                    spells: w_spells,
-                })
-            }
             Decl::Tether {
                 token,
                 path,
@@ -700,9 +423,12 @@ impl<'a> WeaveAnalyzer<'a> {
                         }
 
                         // TODO: Handle external dependencies
-                        todo!(
-                            "Couldn't find project '{}'. External dependencies are not yet supported!",
-                            path[0].lexeme
+                        return self.error(
+                            &format!(
+                                "Couldn't find project '{}'. External dependencies are not yet supported!",
+                                path[0].lexeme
+                            ),
+                            token,
                         );
                     } else {
                         return self.error(
@@ -748,6 +474,9 @@ impl<'a> WeaveAnalyzer<'a> {
                     .tethered_scrolls
                     .insert(path.clone(), CompileState::Compiling);
 
+                // set mode to import
+                self.context.import_mode = true;
+
                 let tokens = Scanner::init(&string_content).tokenize();
                 let ast = match Parser::new(tokens, path.clone()).parse() {
                     Ok(a) => a,
@@ -757,7 +486,7 @@ impl<'a> WeaveAnalyzer<'a> {
                     }
                 };
 
-                let mut analyzer = WeaveAnalyzer::new(self.context);
+                let mut analyzer = WeaveAnalyzer::new(self.context, self.augury);
 
                 let w_ast = match analyzer.analyze(ast) {
                     Ok(w) => w,
@@ -819,6 +548,9 @@ impl<'a> WeaveAnalyzer<'a> {
                 self.context
                     .tethered_scrolls
                     .insert(path.clone(), CompileState::Compiled);
+
+                // reset import mode after analyzing the tethered scroll
+                self.context.import_mode = false;
 
                 Ok(WovenDecl::Tether {
                     statements: w_ast,
@@ -1343,7 +1075,7 @@ impl<'a> WeaveAnalyzer<'a> {
                     material,
                     spell_symbol,
                     token,
-                    weave:_,
+                    weave: _,
                 }) = &w_callee
                 {
                     let method_symbol = spell_symbol;
@@ -2118,7 +1850,7 @@ impl<'a> WeaveAnalyzer<'a> {
         }
     }
 
-    fn analyze_parsed_weave(&mut self, parsed_weave: ParsedWeave) -> WeaveResult<Weave> {
+    pub(super) fn analyze_parsed_weave(&mut self, parsed_weave: ParsedWeave) -> WeaveResult<Weave> {
         let Some(base_weave) = self.get_weave_from_name(&parsed_weave.base.lexeme) else {
             return self.error(
                 &format!(

@@ -2,10 +2,10 @@
 mod parser_test {
     use eira::{
         Parser, Scanner, Value,
-        compiler::{Expr, Stmt, token_type::TokenType},
+        compiler::{Expr, Stmt, token_type::TokenType, ast::decl::Decl},
     };
 
-    fn parse_helper(source: &str) -> Vec<Stmt> {
+    fn parse_helper(source: &str) -> Vec<Decl> {
         let scanner = Scanner::init(source);
         let tokens = scanner.tokenize();
         let parser = Parser::new(tokens, "parser_test".to_string());
@@ -24,7 +24,7 @@ mod parser_test {
         assert_eq!(statements.len(), 2);
 
         // check n verify the mark
-        if let Stmt::VarDeclaration {
+        if let Decl::VarDeclaration {
             name,
             mutable,
             initializer,
@@ -40,7 +40,7 @@ mod parser_test {
         }
 
         // check n verify the bind
-        if let Stmt::VarDeclaration {
+        if let Decl::VarDeclaration {
             name,
             mutable,
 
@@ -65,25 +65,29 @@ mod parser_test {
         assert_eq!(stmts.len(), 1);
 
         // fragile check, but OK
-        if let Stmt::ExprStmt { expr } = &stmts[0] {
-            if let Expr::Binary {
-                left,
-                operator,
-                right,
-            } = expr
-            {
-                assert_eq!(operator.token_type, TokenType::Plus);
+        if let Decl::Statement { stmt: box_stmt, token: _ } = &stmts[0] {
+            if let Stmt::ExprStmt { expr } = &**box_stmt {
+                if let Expr::Binary {
+                    left,
+                    operator,
+                    right,
+                } = expr
+                {
+                    assert_eq!(operator.token_type, TokenType::Plus);
 
-                // Check left side is Unary
-                assert!(matches!(**left, Expr::Unary { .. }));
+                    // Check left side is Unary
+                    assert!(matches!(**left, Expr::Unary { .. }));
 
-                // Check right side is Binary
-                assert!(matches!(**right, Expr::Binary { .. }));
+                    // Check right side is Binary
+                    assert!(matches!(**right, Expr::Binary { .. }));
+                } else {
+                    panic!("Expected top-level expression to be Binary");
+                }
             } else {
-                panic!("Expected top-level expression to be Binary");
+                panic!("Expected Expression Statement");
             }
         } else {
-            panic!("Expected Expression Statement");
+            panic!("Expected Statement Declaration wrapper");
         }
     }
 
@@ -94,21 +98,25 @@ mod parser_test {
         let stmts = parse_helper(source);
         assert_eq!(stmts.len(), 1);
 
-        if let Stmt::ExprStmt { expr } = &stmts[0] {
-            if let Expr::Binary {
-                left,
-                operator,
-                right,
-            } = expr
-            {
-                assert_eq!(operator.token_type, TokenType::Star);
-                assert!(matches!(**left, Expr::Grouping { .. }));
-                assert!(matches!(**right, Expr::Literal { .. }));
+        if let Decl::Statement { stmt: box_stmt, token: _ } = &stmts[0] {
+            if let Stmt::ExprStmt { expr } = &**box_stmt {
+                if let Expr::Binary {
+                    left,
+                    operator,
+                    right,
+                } = expr
+                {
+                    assert_eq!(operator.token_type, TokenType::Star);
+                    assert!(matches!(**left, Expr::Grouping { .. }));
+                    assert!(matches!(**right, Expr::Literal { .. }));
+                } else {
+                    panic!("Expected top-level expression to be Binary");
+                }
             } else {
-                panic!("Expected top-level expression to be Binary");
+                panic!("Expected Expression Statement");
             }
         } else {
-            panic!("Expected Expression Statement");
+            panic!("Expected Statement Declaration wrapper");
         }
     }
 
@@ -118,26 +126,30 @@ mod parser_test {
         let stmts = parse_helper(source);
         assert_eq!(stmts.len(), 1);
 
-        if let Stmt::Fate {
-            condition,
-            then_branch,
-            else_branch,
-        } = &stmts[0]
-        {
-            assert!(matches!(
+        if let Decl::Statement { stmt: box_stmt, token: _ } = &stmts[0] {
+            if let Stmt::Fate {
                 condition,
-                Expr::Literal {
-                    value: Value::Bool(true),
-                    token: _
+                then_branch,
+                else_branch,
+            } = &**box_stmt
+            {
+                assert!(matches!(
+                    condition,
+                    Expr::Literal {
+                        value: Value::Bool(true),
+                        token: _
+                    }
+                ));
+                assert!(matches!(**then_branch, Stmt::Block { .. }));
+                assert!(else_branch.is_some());
+                if let Some(else_b) = else_branch {
+                    assert!(matches!(**else_b, Stmt::Block { .. }));
                 }
-            ));
-            assert!(matches!(**then_branch, Stmt::Block { .. }));
-            assert!(else_branch.is_some());
-            if let Some(else_b) = else_branch {
-                assert!(matches!(**else_b, Stmt::Block { .. }));
+            } else {
+                panic!("Expected a Fate (if) statement.");
             }
         } else {
-            panic!("Expected a Fate (if) statement.");
+            panic!("Expected Statement Declaration wrapper");
         }
     }
 
@@ -147,11 +159,15 @@ mod parser_test {
         let stmts = parse_helper(source);
         assert_eq!(stmts.len(), 1);
 
-        if let Stmt::While { condition, body } = &stmts[0] {
-            assert!(matches!(condition, Expr::Binary { .. }));
-            assert!(matches!(**body, Stmt::Block { .. }));
+        if let Decl::Statement { stmt: box_stmt, token: _ } = &stmts[0] {
+            if let Stmt::While { condition, body } = &**box_stmt {
+                assert!(matches!(condition, Expr::Binary { .. }));
+                assert!(matches!(**body, Stmt::Block { .. }));
+            } else {
+                panic!("Expected a While statement.");
+            }
         } else {
-            panic!("Expected a While statement.");
+            panic!("Expected Statement Declaration wrapper");
         }
     }
 }

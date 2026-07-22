@@ -1,17 +1,9 @@
 use std::path::PathBuf;
 
 use crate::{
-    CodeGen, Parser, Value,
-    assembler::Assembler,
-    compiler::{
-        scanner::{Scanner, Token},
-        scroll_reader::ScrollReader,
-        weave_analyser::WeaveAnalyzerContext,
-    },
-    print_ast, print_byte_code, print_woven_ast,
-    project::config::Project,
-    runtime::Instruction,
-    weave_analyser::WeaveAnalyzer,
+    CodeGen, Parser, Value, assembler::Assembler, compiler::{
+        diagnostics::Augury, scanner::{Scanner, Token}, scroll_reader::ScrollReader, weave_analyser::WeaveAnalyzerContext,
+    }, print_ast, print_byte_code, print_woven_ast, project::config::Project, runtime::Instruction, weave_analyser::WeaveAnalyzer,
 };
 
 type Result<T> = std::result::Result<T, CompileError>;
@@ -32,6 +24,8 @@ pub struct Compiler {
     pub source_path: String,
     pub options: CompilerOptions,
     pub project: Option<Project>,
+
+    pub augury: Augury,
     // pub
 }
 
@@ -53,10 +47,11 @@ impl Compiler {
             source_path,
             options,
             project,
+            augury: Augury::new(),
         }
     }
 
-    pub fn compile(&self) -> Result<CompiledCode> {
+    pub fn compile(&mut self) -> Result<CompiledCode> {
         let tokens = self.scan()?;
 
         if self.options.print_tokens {
@@ -85,7 +80,7 @@ impl Compiler {
         Ok(instructions)
     }
 
-    pub fn compile_to_bytecode(&self) -> Result<CompiledCode> {
+    pub fn compile_to_bytecode(&mut self) -> Result<CompiledCode> {
         let mut compiled_code = self.compile()?;
         compiled_code.bytecode = self.gen_bytecode(&compiled_code.instructions);
 
@@ -124,12 +119,12 @@ impl Compiler {
     }
 
     fn analyze_weaves(
-        &self,
+        &mut self,
         ast: Vec<crate::compiler::ast::decl::Decl>,
     ) -> Result<Vec<crate::compiler::ast::decl::WovenDecl>> {
         let mut context =
             WeaveAnalyzerContext::new(self.source_path.clone(), self.project.clone(), false);
-        let mut weave_analyzer = WeaveAnalyzer::new(&mut context);
+        let mut weave_analyzer = WeaveAnalyzer::new(&mut context, &mut self.augury);
         match weave_analyzer.analyze(ast) {
             Err(no_no) => {
                 let errstr = format!(

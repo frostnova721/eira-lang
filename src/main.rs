@@ -71,7 +71,7 @@ fn main() {
         return;
     };
 
-    let compiler = Compiler::new(target_file_path.clone(), compiler_options, project);
+    let mut compiler = Compiler::new(target_file_path.clone(), compiler_options, project);
 
     let compiled = compiler.compile_to_bytecode();
 
