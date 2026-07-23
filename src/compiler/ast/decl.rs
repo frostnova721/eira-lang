@@ -46,6 +46,10 @@ pub enum Decl {
         is_path: bool,
     },
     Statement { stmt: Box<Stmt>, token: Token },
+
+    Cursed {
+        span: (usize, usize),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -78,4 +82,8 @@ pub enum WovenDecl {
         bind_to: Option<Token>,
     },
     Statement { stmt: Box<WovenStmt>, token: Token },
+
+     Cursed {
+        span: (usize, usize),
+    }
 }

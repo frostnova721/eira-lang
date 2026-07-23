@@ -6,7 +6,7 @@ use crate::{
         Stmt,
         ast::decl::WovenDecl,
         parser::types::ParsedWeave,
-        reagents::{self, Reagent, WovenReagent},
+        reagents::{Reagent, WovenReagent},
         symbol_table::SymbolKind,
         types::Visibility,
         weaves::Weave,

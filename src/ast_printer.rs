@@ -44,21 +44,18 @@ impl AstPrinter {
 
     fn print_decl(&mut self, prefix: &str, decl: &crate::compiler::ast::decl::Decl, is_last: bool) {
         match decl {
-            crate::compiler::ast::decl::Decl::VarDeclaration {
-                name,
-                mutable,
-                initializer,
-                weave,
-                visibility,
-            } => {
+            Decl::Statement { stmt, token: _ } => {
+                self.print_stmt(prefix, stmt, is_last)
+            }
+            Decl::VarDeclaration { name, mutable, initializer, weave, visibility } => {
                 let mut_str = if *mutable { "mut " } else { "" };
-                let vis_str = if *visibility == Some(crate::compiler::types::Visibility::Public) {
+                let vis_str = if *visibility == Some(Visibility::Public) {
                     "pub "
                 } else {
                     ""
                 };
 
-                let val_str = if let Some(v) = initializer {
+                let val_str = if initializer.is_some() {
                     format!("{} = ...", name.lexeme)
                 } else {
                     name.lexeme.clone()
@@ -78,22 +75,15 @@ impl AstPrinter {
                         vis_str, mut_str, val_str, weave_str
                     ),
                 );
-            }
-            crate::compiler::ast::decl::Decl::Spell {
-                name,
-                reagents,
-                body,
-                return_weave,
-                visibility,
-                attuned_to,
-            } => {
+            },
+            Decl::Spell { name, reagents, body, return_weave, visibility, attuned_to } => {
                 let ret_str = if let Some(rw) = return_weave {
                     format!(" -> {}", rw.base.lexeme)
                 } else {
                     String::new()
                 };
 
-                let vis_str = if *visibility == Some(crate::compiler::types::Visibility::Public) {
+                let vis_str = if *visibility == Some(Visibility::Public) {
                     "pub "
                 } else {
                     ""
@@ -120,42 +110,29 @@ impl AstPrinter {
                         self.print_stmt(&child_prefix, stmt, i == len - 1);
                     }
                 }
-            }
-            crate::compiler::ast::decl::Decl::Sign {
-                name,
-                marks,
-                visibility,
-            } => {
-                let vis_str = if *visibility == Some(crate::compiler::types::Visibility::Public) {
+            },
+            Decl::Sign { name, marks, visibility } => {
+                let vis_str = if *visibility == Some(Visibility::Public) {
                     "pub "
                 } else {
                     ""
                 };
-                self.write(
-                    prefix,
-                    is_last,
-                    &format!("Sign: {}{}", vis_str, name.lexeme),
-                );
+                self.write(prefix, is_last, &format!("Sign: {}{}", vis_str, name.lexeme));
                 let child_prefix = Self::next_prefix(prefix, is_last);
                 let len = marks.len();
                 for (i, mark) in marks.iter().enumerate() {
                     self.write(&child_prefix, i == len - 1, &format!("Mark: {:?}", mark));
                 }
-            }
-            crate::compiler::ast::decl::Decl::Attune { sign, spells } => {
+            },
+            Decl::Attune { sign, spells } => {
                 self.write(prefix, is_last, &format!("Attune: {}", sign.lexeme));
                 let child_prefix = Self::next_prefix(prefix, is_last);
                 let len = spells.len();
                 for (i, spell) in spells.iter().enumerate() {
                     self.print_stmt(&child_prefix, spell, i == len - 1);
                 }
-            }
-            crate::compiler::ast::decl::Decl::Tether {
-                token: _,
-                path,
-                bind_to,
-                is_path,
-            } => {
+            },
+            Decl::Tether { token: _, path, bind_to, is_path } => {
                 let bind_str = if let Some(bt) = bind_to {
                     format!(" bind to {}", bt.lexeme)
                 } else {
@@ -166,10 +143,7 @@ impl AstPrinter {
                 let path_str = if *is_path {
                     path[0].lexeme.clone()
                 } else {
-                    path.iter()
-                        .map(|t| t.lexeme.clone())
-                        .collect::<Vec<_>>()
-                        .join(".")
+                    path.iter().map(|t| t.lexeme.clone()).collect::<Vec<_>>().join(".")
                 };
 
                 self.write(
@@ -177,10 +151,10 @@ impl AstPrinter {
                     is_last,
                     &format!("Tether: {} ({}){}", path_str, type_str, bind_str),
                 );
-            }
-            Decl::Statement { stmt, token: _ } => {
-                self.print_stmt(prefix, stmt, is_last)
-            }
+            },
+            Decl::Cursed { span } => {
+                self.write(prefix, is_last, &format!("Cursed: {:?}", span));
+            },
         }
     }
 
@@ -262,6 +236,9 @@ impl AstPrinter {
             Stmt::Declaration(decl) => {
                 self.print_decl(prefix, decl, is_last);
             }
+            Stmt::Cursed { span } => {
+                self.write(prefix, is_last, &format!("Cursed: {:?}", span));
+            },
         }
     }
 
@@ -384,6 +361,9 @@ impl AstPrinter {
                 self.write(prefix, is_last, &format!("AssertSafe: {}", operator.lexeme));
                 self.print_expr(&Self::next_prefix(prefix, is_last), operand, true);
             }
+            Expr::Cursed { span } => {
+                self.write(prefix, is_last, &format!("Cursed: {:?}", span));
+            },
         }
     }
 
@@ -427,25 +407,19 @@ impl AstPrinter {
         is_last: bool,
     ) {
         match decl {
-            crate::compiler::ast::decl::WovenDecl::VarDeclaration {
-                name: _,
-                mutable: _,
-                initializer,
-                symbol,
-            } => {
+            
+            WovenDecl::Statement { stmt, token: _ } => {
+                self.print_woven_stmt(prefix, stmt, is_last)
+            }
+            WovenDecl::VarDeclaration { name: _, mutable: _, initializer, symbol } => {
                 let val_str = if initializer.is_some() { " = ..." } else { "" };
                 self.write(
                     prefix,
                     is_last,
                     &format!("VarDeclaration: {}{}", symbol.name, val_str),
                 );
-            }
-            crate::compiler::ast::decl::WovenDecl::Spell {
-                name,
-                reagents,
-                body,
-                spell_symbol,
-            } => {
+            },
+            WovenDecl::Spell { name, reagents, body, spell_symbol: _spell_symbol } => {
                 self.write(
                     prefix,
                     is_last,
@@ -459,42 +433,34 @@ impl AstPrinter {
                         self.print_woven_stmt(&child_prefix, stmt, i == len - 1);
                     }
                 }
-            }
-            crate::compiler::ast::decl::WovenDecl::Sign {
-                name,
-                marks,
-                sign_symbol: _,
-            } => {
+            },
+            WovenDecl::Sign { name, marks, sign_symbol: _ } => {
                 self.write(prefix, is_last, &format!("Sign: {}", name.lexeme));
                 let child_prefix = Self::next_prefix(prefix, is_last);
                 let len = marks.len();
                 for (i, mark) in marks.iter().enumerate() {
                     self.write(&child_prefix, i == len - 1, &format!("Mark: {:?}", mark));
                 }
-            }
-            crate::compiler::ast::decl::WovenDecl::Attune { sign, spells } => {
+            },
+            WovenDecl::Attune { sign, spells } => {
                 self.write(prefix, is_last, &format!("Attune: {}", sign.lexeme));
                 let child_prefix = Self::next_prefix(prefix, is_last);
                 let len = spells.len();
                 for (i, spell) in spells.iter().enumerate() {
                     self.print_woven_stmt(&child_prefix, spell, i == len - 1);
                 }
-            }
-            crate::compiler::ast::decl::WovenDecl::Tether {
-                statements,
-                bind_to: _,
-                path,
-            } => {
+            },
+            WovenDecl::Tether { statements, path, bind_to: _bind_to } => {
                 self.write(prefix, is_last, &format!("Tether: {}", path));
                 let child_prefix = Self::next_prefix(prefix, is_last);
                 let len = statements.len();
                 for (i, stmt) in statements.iter().enumerate() {
                     self.print_woven_decl(&child_prefix, stmt, i == len - 1);
                 }
-            }
-            WovenDecl::Statement { stmt, token: _ } => {
-                self.print_woven_stmt(prefix, stmt, is_last)
-            }
+            },
+            WovenDecl::Cursed { span } => {
+                self.write(prefix, is_last, &format!("Cursed: {:?}", span));
+            },
         }
     }
 
@@ -572,6 +538,9 @@ impl AstPrinter {
             WovenStmt::Declaration(decl) => {
                 self.print_woven_decl(prefix, decl, is_last);
             }
+            WovenStmt::Cursed { span } => {
+                self.write(prefix, is_last, &format!("Cursed: {:?}", span));
+            },
         }
     }
 
@@ -872,6 +841,9 @@ impl AstPrinter {
             } => {
                 self.write(prefix, is_last, &format!("SHOULD NOT BE REACHED: BoundSpell in WovenExpr during printing! Spell: {}, Token: {}", spell_symbol.name, token.lexeme));
             }
+            WovenExpr::Cursed { span } => {
+                self.write(prefix, is_last, &format!("Cursed: {:?}", span));
+            },
         }
     }
 

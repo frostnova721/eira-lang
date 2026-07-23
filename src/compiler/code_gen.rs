@@ -266,6 +266,7 @@ impl CodeGen {
                 path: _,
             } => self.gen_tether_instructions(statements),
             WovenDecl::Statement { stmt, token: _ } => self.gen_from_stmt(*stmt),
+            WovenDecl::Cursed { span } => todo!(),
         }
     }
 
@@ -292,6 +293,7 @@ impl CodeGen {
             WovenStmt::Flow { token: _ } => self.gen_flow_instructions(),
             WovenStmt::Release { token: _, expr } => self.gen_release_instructions(expr),
             WovenStmt::Declaration(decl) => self.gen_decl(*decl),
+            WovenStmt::Cursed { span } => todo!(),
         }
     }
 
@@ -404,6 +406,7 @@ impl CodeGen {
                 weave,
                 spell_symbol,
             } => self.gen_safe_cast_instruction(reagents, callee, weave, spell_symbol),
+            WovenExpr::Cursed { span } => todo!(),
         }
     }
 

@@ -38,6 +38,9 @@ pub enum Stmt {
         token: Token,
     },
     Declaration(Box<Decl>),
+     Cursed {
+        span: (usize, usize),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -73,4 +76,8 @@ pub enum WovenStmt {
         expr: Option<WovenExpr>,
     },
     Declaration(Box<crate::compiler::ast::decl::WovenDecl>),
+
+     Cursed {
+        span: (usize, usize),
+    }
 }

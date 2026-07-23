@@ -19,6 +19,15 @@ impl Token {
             column: 0,
         }
     }
+
+    pub fn cursed() -> Self {
+        Token {
+            token_type: TokenType::Error,
+            lexeme: "Cursed".to_string(),
+            line: 0,
+            column: 0,
+        }
+    }
 }
 
 impl Display for Token {

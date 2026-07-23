@@ -7,13 +7,29 @@ use std::{
 };
 
 use crate::{
-    Parser, Scanner, Value::{self}, compiler::{
-        Expr, Stmt, WovenExpr, WovenStmt, ast::decl::{Decl, WovenDecl}, compiler::CompileState, diagnostics::{Augury, CompilationPhase, SourceLocation}, mark::{WovenEtchedMark, WovenMark}, parser::types::ParsedWeave, scanner::Token, scroll_reader::ScrollReader, strand::{
+    Parser, Scanner,
+    Value::{self},
+    compiler::{
+        Expr, Stmt, WovenExpr, WovenStmt,
+        ast::decl::{Decl, WovenDecl},
+        compiler::CompileState,
+        diagnostics::{Augury, CompilationPhase, SourceLocation},
+        mark::{WovenEtchedMark, WovenMark},
+        parser::types::ParsedWeave,
+        scanner::Token,
+        scroll_reader::ScrollReader,
+        strand::{
             ADDITIVE_STRAND, CALLABLE_STRAND, CONCATINABLE_STRAND, CONDITIONAL_STRAND,
             DIVISIVE_STRAND, EQUATABLE_STRAND, INDEXIVE_STRAND, ITERABLE_STRAND, MAYBE_STRAND,
             MULTIPLICATIVE_STRAND, NO_STRAND, ORDINAL_STRAND, SUBTRACTIVE_STRAND,
-        }, symbol_table::{Symbol, SymbolKind, SymbolTable}, token_type::TokenType, types::Visibility, weave_analyser::WeaveAnalyzerContext, weaves::{Weave, Weaver},
-    }, values::{
+        },
+        symbol_table::{Symbol, SymbolKind, SymbolTable},
+        token_type::TokenType,
+        types::Visibility,
+        weave_analyser::WeaveAnalyzerContext,
+        weaves::{Weave, Weaver},
+    },
+    values::{
         native_spell::NativeSpell,
         sign::{SignInfo, SignSchema},
         spell::{SpellInfo, UpValue},
@@ -77,8 +93,25 @@ impl<'a> WeaveAnalyzer<'a> {
         &self.symbol_table
     }
 
-    pub(super) fn error<T>(&self, msg: &str, token: Token) -> Result<T, WeaveError> {
-        Err(WeaveError::new(msg, token))
+    pub(super) fn error(&mut self, msg: &str, token: Token) {
+        let source = SourceLocation {
+            file: PathBuf::from(self.context.source_path.clone()),
+            line: token.line,
+            column: token.column,
+        };
+        self.augury
+            .forsee_curse(source, msg.to_string(), CompilationPhase::Weave);
+        // Err(WeaveError::new(msg, token))
+    }
+
+    pub(super) fn warn(&mut self, msg: &str, token: Token) {
+        let source = SourceLocation {
+            file: PathBuf::from(self.context.source_path.clone()),
+            line: token.line,
+            column: token.column,
+        };
+        self.augury
+            .forsee_omen(source, msg.to_string(), CompilationPhase::Weave);
     }
 
     pub fn analyze(&mut self, ast: Vec<Decl>) -> WeaveResult<Vec<WovenDecl>> {
@@ -116,6 +149,7 @@ impl<'a> WeaveAnalyzer<'a> {
                 }
                 // return self.error("Only declarations are allowed at top level.", token.clone());
             }
+            WovenDecl::Cursed { .. } => {}
         }
         Ok(woven)
     }
@@ -177,7 +211,7 @@ impl<'a> WeaveAnalyzer<'a> {
                         };
                         Some(self.analyze_expression(val, w)?)
                     }
-                    None => None,
+                    _ => None,
                 };
 
                 let mut parent: Option<Rc<Symbol>> = None;
@@ -566,6 +600,7 @@ impl<'a> WeaveAnalyzer<'a> {
                     token: token,
                 })
             }
+            Decl::Cursed { span } => todo!(),
         }
     }
 
@@ -863,6 +898,7 @@ impl<'a> WeaveAnalyzer<'a> {
 
                 return Ok(WovenStmt::ExprStmt { expr: sugar_less });
             }
+            Stmt::Cursed { span } => todo!(),
         }
     }
 
@@ -1847,6 +1883,7 @@ impl<'a> WeaveAnalyzer<'a> {
                     weave: weave,
                 })
             }
+            Expr::Cursed { span } => todo!(),
         }
     }
 
