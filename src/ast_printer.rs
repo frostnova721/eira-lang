@@ -55,12 +55,6 @@ impl AstPrinter {
                     ""
                 };
 
-                let val_str = if initializer.is_some() {
-                    format!("{} = ...", name.lexeme)
-                } else {
-                    name.lexeme.clone()
-                };
-
                 let weave_str = if let Some(w) = weave {
                     format!(": {}", w.base.lexeme)
                 } else {
@@ -72,9 +66,12 @@ impl AstPrinter {
                     is_last,
                     &format!(
                         "VarDeclaration: {}{}{}{}",
-                        vis_str, mut_str, val_str, weave_str
+                        vis_str, mut_str, name.lexeme, weave_str
                     ),
                 );
+                if let Some(init) = initializer {
+                    self.print_expr(&Self::next_prefix(prefix, is_last), init, true);
+                }
             },
             Decl::Spell { name, reagents, body, return_weave, visibility, attuned_to } => {
                 let ret_str = if let Some(rw) = return_weave {
@@ -98,18 +95,25 @@ impl AstPrinter {
                     prefix,
                     is_last,
                     &format!(
-                        "Spell: {}{} ({:?}){}{}",
-                        vis_str, name.lexeme, reagents, ret_str, att_str
+                        "Spell: {}{}{}{}",
+                        vis_str, name.lexeme, ret_str, att_str
                     ),
                 );
 
-                if let Stmt::Block { statements } = &**body {
-                    let child_prefix = Self::next_prefix(prefix, is_last);
-                    let len = statements.len();
-                    for (i, stmt) in statements.iter().enumerate() {
-                        self.print_stmt(&child_prefix, stmt, i == len - 1);
-                    }
+                let child_prefix = Self::next_prefix(prefix, is_last);
+                let statements = if let Stmt::Block { statements } = &**body { statements.as_slice() } else { &[] };
+                let total_children = reagents.len() + statements.len();
+                let mut child_idx = 0;
+
+                for reagent in reagents {
+                    self.print_reagent(&child_prefix, reagent, child_idx == total_children - 1);
+                    child_idx += 1;
                 }
+                for stmt in statements {
+                    self.print_stmt(&child_prefix, stmt, child_idx == total_children - 1);
+                    child_idx += 1;
+                }
+                
             },
             Decl::Sign { name, marks, visibility } => {
                 let vis_str = if *visibility == Some(Visibility::Public) {
@@ -121,7 +125,7 @@ impl AstPrinter {
                 let child_prefix = Self::next_prefix(prefix, is_last);
                 let len = marks.len();
                 for (i, mark) in marks.iter().enumerate() {
-                    self.write(&child_prefix, i == len - 1, &format!("Mark: {:?}", mark));
+                    self.print_mark(&child_prefix, mark, i == len - 1);
                 }
             },
             Decl::Attune { sign, spells } => {
@@ -181,9 +185,9 @@ impl AstPrinter {
             } => {
                 self.write(prefix, is_last, "Fate");
                 let next = Self::next_prefix(prefix, is_last);
-                self.write(&next, else_branch.is_none(), "condition:");
+                self.write(&next, false, "condition:");
                 self.print_expr(
-                    &Self::next_prefix(&next, else_branch.is_none()),
+                    &Self::next_prefix(&next, false),
                     condition,
                     true,
                 );
@@ -277,8 +281,8 @@ impl AstPrinter {
                 callee,
                 token: _,
             } => {
-                self.write(prefix, is_last, &format!("Cast",));
-                self.print_expr(&Self::next_prefix(prefix, is_last), callee, true);
+                self.write(prefix, is_last, "Cast");
+                self.print_expr(&Self::next_prefix(prefix, is_last), callee, reagents.is_empty());
                 let next = Self::next_prefix(prefix, is_last);
                 let len = reagents.len();
                 for (i, r) in reagents.iter().enumerate() {
@@ -412,26 +416,34 @@ impl AstPrinter {
                 self.print_woven_stmt(prefix, stmt, is_last)
             }
             WovenDecl::VarDeclaration { name: _, mutable: _, initializer, symbol } => {
-                let val_str = if initializer.is_some() { " = ..." } else { "" };
                 self.write(
                     prefix,
                     is_last,
-                    &format!("VarDeclaration: {}{}", symbol.name, val_str),
+                    &format!("VarDeclaration: {}", symbol.name),
                 );
+                if let Some(init) = initializer {
+                    self.print_woven_expr(&Self::next_prefix(prefix, is_last), init, true);
+                }
             },
             WovenDecl::Spell { name, reagents, body, spell_symbol: _spell_symbol } => {
                 self.write(
                     prefix,
                     is_last,
-                    &format!("Spell: {} ({:?}) -> ...", name.lexeme, reagents),
+                    &format!("Spell: {} -> ...", name.lexeme),
                 );
 
-                if let WovenStmt::Block { statements } = &**body {
-                    let child_prefix = Self::next_prefix(prefix, is_last);
-                    let len = statements.len();
-                    for (i, stmt) in statements.iter().enumerate() {
-                        self.print_woven_stmt(&child_prefix, stmt, i == len - 1);
-                    }
+                let child_prefix = Self::next_prefix(prefix, is_last);
+                let statements = if let WovenStmt::Block { statements } = &**body { statements.as_slice() } else { &[] };
+                let total_children = reagents.len() + statements.len();
+                let mut child_idx = 0;
+
+                for reagent in reagents {
+                    self.print_woven_reagent(&child_prefix, reagent, child_idx == total_children - 1);
+                    child_idx += 1;
+                }
+                for stmt in statements {
+                    self.print_woven_stmt(&child_prefix, stmt, child_idx == total_children - 1);
+                    child_idx += 1;
                 }
             },
             WovenDecl::Sign { name, marks, sign_symbol: _ } => {
@@ -439,7 +451,7 @@ impl AstPrinter {
                 let child_prefix = Self::next_prefix(prefix, is_last);
                 let len = marks.len();
                 for (i, mark) in marks.iter().enumerate() {
-                    self.write(&child_prefix, i == len - 1, &format!("Mark: {:?}", mark));
+                    self.print_woven_mark(&child_prefix, mark, i == len - 1);
                 }
             },
             WovenDecl::Attune { sign, spells } => {
@@ -487,9 +499,9 @@ impl AstPrinter {
             } => {
                 self.write(prefix, is_last, "Fate");
                 let next = Self::next_prefix(prefix, is_last);
-                self.write(&next, else_branch.is_none(), "condition:");
+                self.write(&next, false, "condition:");
                 self.print_woven_expr(
-                    &Self::next_prefix(&next, else_branch.is_none()),
+                    &Self::next_prefix(&next, false),
                     condition,
                     true,
                 );

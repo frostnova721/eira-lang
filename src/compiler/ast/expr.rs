@@ -198,7 +198,7 @@ pub enum WovenExpr {
         weave: Weave,
     },
     Cursed {
-        span: (usize, usize),
+        span: Option<(usize, usize)>,
     }
 }
 
@@ -261,7 +261,7 @@ impl WovenExpr {
             WovenExpr::NativeCast { callee, .. } => callee.clone(),
             WovenExpr::BoundSpell { token, .. } => token.clone(),
             WovenExpr::SafeCast { callee, .. } => callee.clone(),
-            WovenExpr::Cursed { span } => Token::cursed(),
+            WovenExpr::Cursed { .. } => Token::cursed(),
         }
     }
 }

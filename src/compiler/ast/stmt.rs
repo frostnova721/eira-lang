@@ -39,7 +39,7 @@ pub enum Stmt {
     },
     Declaration(Box<Decl>),
      Cursed {
-        span: (usize, usize),
+        span: Option<(usize, usize)>,
     }
 }
 
@@ -78,6 +78,6 @@ pub enum WovenStmt {
     Declaration(Box<crate::compiler::ast::decl::WovenDecl>),
 
      Cursed {
-        span: (usize, usize),
+        span: Option<(usize, usize)>,
     }
 }

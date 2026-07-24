@@ -65,4 +65,19 @@ impl Augury {
         };
         self.omens.push(diagnostic);
     }
+
+    pub fn list_curses(&self) -> Vec<String> {
+        self.curses
+            .iter()
+            .map(|c| {
+                format!(
+                    "curse: {}\nat [{}:{}:{}]\n",
+                    c.message,
+                    c.location.file.display(),
+                    c.location.line,
+                    c.location.column,
+                )
+            })
+            .collect()
+    }
 }

@@ -18,6 +18,8 @@ fn main() {
         print_bytecode: false,
     };
 
+    let mut stop_after_compile = false;
+
     let mut i = 0;
 
     loop {
@@ -45,6 +47,8 @@ fn main() {
                 compiler_options.print_instructions = true;
             } else if *arg == "pbc".to_owned() {
                 compiler_options.print_bytecode = true;
+            } else if *arg == "no-run".to_owned() {
+               stop_after_compile = true;
             }
             args.remove(i);
         } else {
@@ -76,8 +80,12 @@ fn main() {
     let compiled = compiler.compile_to_bytecode();
 
     if compiled.is_err() {
-        eprintln!("The eira was cursed during the compilation of the scroll.");
+        eprintln!("Oh no! Eira was cursed during the compilation of the scroll!\n");
         eprintln!("{}", compiled.err().unwrap().msg);
+        return;
+    }
+
+    if stop_after_compile {
         return;
     }
 

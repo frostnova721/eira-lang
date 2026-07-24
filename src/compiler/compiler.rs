@@ -75,6 +75,12 @@ impl Compiler {
             print_woven_ast(&woven_ast, self.options.print_woven_ast.unwrap());
         }
 
+        if self.augury.is_cursed() {
+            return Err(CompileError {
+                msg: self.augury.list_curses().join("\n"),
+            });
+        }
+
         let instructions = self.gen_instructions(woven_ast)?;
 
         Ok(instructions)

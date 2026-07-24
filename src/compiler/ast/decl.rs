@@ -48,7 +48,7 @@ pub enum Decl {
     Statement { stmt: Box<Stmt>, token: Token },
 
     Cursed {
-        span: (usize, usize),
+        span: Option<(usize, usize)>,
     }
 }
 
@@ -84,6 +84,6 @@ pub enum WovenDecl {
     Statement { stmt: Box<WovenStmt>, token: Token },
 
      Cursed {
-        span: (usize, usize),
+        span: Option<(usize, usize)>,
     }
 }

@@ -28,13 +28,14 @@ impl WeaveAnalyzer<'_> {
         // allow spell shadowing from outer scopes
         let existing = self.symbol_table.resolve_in_current_scope(&name.lexeme);
         if existing.is_some() {
-            return self.error(
+            self.error(
                 &format!(
                     "The spell '{}' already exists in the current scope!",
                     name.lexeme
                 ),
                 name,
             );
+            return Ok(WovenDecl::Cursed { span: None });
         }
 
         // set public visibility by default
@@ -98,42 +99,48 @@ impl WeaveAnalyzer<'_> {
             let method_name = format!("{}:{}", sign_lexeme, name_lexeme);
 
             {
-                let Some(s) = self.symbol_table.resolve(sign_lexeme) else {
-                    return self.error(
+                let Some(s) = self.symbol_table.resolve(sign_lexeme).cloned() else {
+                    self.error(
                         &format!(
                             "No symbol found across the eira realms with the name '{}'.",
                             sign_lexeme
                         ),
                         sign.clone(),
                     );
+                    return Ok(WovenDecl::Cursed { span: None });
                 };
 
-                let mut kind = s.kind.borrow_mut();
+                let attune_result: Result<(), String> = {
+                    let mut kind = s.kind.borrow_mut();
 
-                match &mut *kind {
-                    SymbolKind::Sign(si) => {
-                        if si.attunements.contains_key(&name.lexeme) {
-                            return self.error(&format!("The sign '{}' is already attuned to a spell named '{}', Try renaming the spell.",sign_lexeme, name_lexeme),
-                                    sign.clone(),);
+                    match &mut *kind {
+                        SymbolKind::Sign(si) => {
+                            if si.attunements.contains_key(&name.lexeme) {
+                                Err(format!(
+                                    "The sign '{}' is already attuned to a spell named '{}', Try renaming the spell.",
+                                    sign_lexeme, name_lexeme
+                                ))
+                            } else {
+                                let attuned = AttunedSpell {
+                                    method_name: method_name.clone(),
+                                    visibility: visibility.clone(),
+                                    is_static: false,
+                                };
+
+                                si.attunements.insert(name_lexeme.clone(), attuned);
+                                Ok(())
+                            }
                         }
-
-                        let attuned = AttunedSpell {
-                            method_name: method_name.clone(),
-                            visibility: visibility.clone(),
-                            is_static: false,
-                        };
-
-                        si.attunements.insert(name_lexeme.clone(), attuned);
+                        _ => Err(format!(
+                            "'{}' is not a sign. Attunement can only be done on signs.",
+                            sign_lexeme
+                        )),
                     }
-                    _ => {
-                        return self.error(
-                            &format!(
-                                "'{}' is not a sign. Attunement can only be done on signs.",
-                                sign_lexeme
-                            ),
-                            sign.clone(),
-                        );
-                    }
+                };
+
+                if let Err(msg) = attune_result {
+                    self.error(&msg, sign.clone());
+                    return Ok(WovenDecl::Cursed { span: None });
                 }
             }
 
@@ -200,24 +207,28 @@ impl WeaveAnalyzer<'_> {
 
         let captured_vals = std::mem::replace(&mut self.current_upvalues, upvals_saved);
         let Some(s) = self.symbol_table.resolve(&spell_name) else {
-            return self.error(
+            self.error(
                 &format!("Could not find '{}' across the realms of eira!", spell_name),
                 name,
             );
+            return Ok(WovenDecl::Cursed { span: None });
         };
-        let _ = {
+        let symbol_name = s.name.clone();
+        let is_spell = {
             let mut kind = s.kind.borrow_mut();
-
-            let spell_info = match &mut *kind {
-                SymbolKind::Spell(i) => i,
-                _ => {
-                    return self.error(&format!("The symbol '{}' is not a spell", s.name), name);
+            match &mut *kind {
+                SymbolKind::Spell(i) => {
+                    i.upvalues = captured_vals.clone();
+                    true
                 }
-            };
-            spell_info.upvalues = captured_vals.clone();
-
-            spell_info.clone()
+                _ => false,
+            }
         };
+
+        if !is_spell {
+            self.error(&format!("The symbol '{}' is not a spell", symbol_name), name);
+            return Ok(WovenDecl::Cursed { span: None });
+        }
 
         self.symbol_table.end_scope();
 
