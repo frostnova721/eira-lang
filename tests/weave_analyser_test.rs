@@ -1,14 +1,9 @@
 #[cfg(test)]
 mod weave_analyser_test {
     use eira::{
-        Parser, Scanner,
-        compiler::{
-            WovenExpr, WovenStmt,
-            ast::decl::WovenDecl,
-            strand::{ADDITIVE_STRAND, CONDITIONAL_STRAND, MULTIPLICATIVE_STRAND},
-            weave_analyser::WeaveAnalyzerContext,
-        },
-        weave_analyser::WeaveAnalyzer,
+        Parser, Scanner, compiler::{
+            WovenExpr, WovenStmt, ast::decl::WovenDecl, diagnostics::Augury, strand::{ADDITIVE_STRAND, CONDITIONAL_STRAND, MULTIPLICATIVE_STRAND}, weave_analyser::WeaveAnalyzerContext,
+        }, weave_analyser::WeaveAnalyzer,
     };
 
     fn analyze_helper(source: &str) -> Result<Vec<WovenDecl>, String> {
@@ -18,8 +13,9 @@ mod weave_analyser_test {
         let ast = parser
             .parse()
             .map_err(|e| format!("Parse error: {:?}", e))?;
+        let mut augury = Augury::new();
         let mut context = WeaveAnalyzerContext::new("weave_test.eira".to_string(), None, false);
-        let mut wa = WeaveAnalyzer::new(&mut context);
+        let mut wa = WeaveAnalyzer::new(&mut context, &mut augury);
         wa.analyze(ast).map_err(|e| format!("{}", e.msg))
     }
 

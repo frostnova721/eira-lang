@@ -1,5 +1,3 @@
-// use crate::frontend::code_gen::StrandBehaviour;
-
 /// Addition / Subtraction behaviour
 pub const ADDITIVE_STRAND: u64 = 1 << 0;
 pub const SUBTRACTIVE_STRAND: u64 = 1 << 1;

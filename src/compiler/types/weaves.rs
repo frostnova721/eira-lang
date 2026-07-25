@@ -22,7 +22,7 @@ pub enum Weave {
 
 impl Weave {
     pub fn can_sub_weave(&self) -> bool {
-        matches!(
+        return matches!(
             self,
             Weave::Spell { .. } | Weave::Deck(_, _) | Weave::Maybe(_)
         )
@@ -63,7 +63,7 @@ impl Weave {
                 } else {
                     ""
                 };
-                format!("Deck<{}{}>", inner.get_name(), str)
+                return format!("Deck<{}{}>", inner.get_name(), str)
             }
             Weave::Maybe(base) => format!("Maybe<{}>", base.get_name()),
             Weave::Module(name) => format!("Module<{}>", name),
@@ -71,32 +71,6 @@ impl Weave {
     }
 }
 
-// #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-// pub struct Weave {
-//     /// The base tapestry (without sub-weaves)
-//     pub base_tapestry: Tapestry,
-
-//     /// The tapestry of the current weave
-//     pub tapestry: Tapestry,
-
-//     /// Whether this weave can have sub-weaves
-//     pub can_sub_weave: bool,
-
-//     /// The name of the weave
-//     pub name: String,
-// }
-
-// pub fn gen_weave_map() -> HashMap<String, Weave> {
-//     let mut weaves_map: HashMap<String, Weave> = HashMap::new();
-//     for i in get_weave_arr() {
-//         weaves_map.insert(i.get_name(), i);
-//     }
-//     weaves_map
-// }
-
-// fn get_weave_arr() -> [Weave; 7] {
-//     Weave::iter
-// }
 
 #[derive(Debug, Clone)]
 pub struct WeaverError(pub String);
