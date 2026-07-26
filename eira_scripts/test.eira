@@ -1,3 +1,1 @@
-mark x = 3;
-mark y: Num = x = "1";
-chant y;
+chant "hello!";

@@ -142,6 +142,8 @@ impl WeaveAnalyzer<'_> {
                     self.error(&msg, sign.clone());
                     return Ok(WovenDecl::Cursed { span: None });
                 }
+
+                self.symbol_table.modify_symbol(s);
             }
 
             self.symbol_table.define_variable(

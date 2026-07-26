@@ -71,7 +71,7 @@ impl Augury {
             .iter()
             .map(|c| {
                 format!(
-                    "curse: {}\nat [{}:{}:{}]\n",
+                    "curse: {}\nat [\x1b[4m{}:{}:{}\x1b[0m]\n",
                     c.message,
                     c.location.file.display(),
                     c.location.line,
