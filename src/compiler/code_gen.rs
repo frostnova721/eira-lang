@@ -266,7 +266,7 @@ impl CodeGen {
                 path: _,
             } => self.gen_tether_instructions(statements),
             WovenDecl::Statement { stmt, token: _ } => self.gen_from_stmt(*stmt),
-            WovenDecl::Cursed { span } => todo!(),
+            WovenDecl::Cursed { .. } => todo!(),
         }
     }
 
@@ -293,7 +293,7 @@ impl CodeGen {
             WovenStmt::Flow { token: _ } => self.gen_flow_instructions(),
             WovenStmt::Release { token: _, expr } => self.gen_release_instructions(expr),
             WovenStmt::Declaration(decl) => self.gen_decl(*decl),
-            WovenStmt::Cursed { span } => todo!(),
+            WovenStmt::Cursed { .. } => todo!(),
         }
     }
 
@@ -406,7 +406,7 @@ impl CodeGen {
                 weave,
                 spell_symbol,
             } => self.gen_safe_cast_instruction(reagents, callee, weave, spell_symbol),
-            WovenExpr::Cursed { span } => todo!(),
+            WovenExpr::Cursed { .. } => todo!(),
         }
     }
 
@@ -464,7 +464,7 @@ impl CodeGen {
 
         self.patch_jump(jmp_idx)?;
 
-        Ok(self.get_last_allocated_register())
+        Ok(final_dest)
     }
 
     // Generates cast instruction from already evaluated reagent registers and a spell register.
@@ -602,7 +602,7 @@ impl CodeGen {
         self.instructions
             .push(Instruction::AssertSafe { r1: operand_reg });
 
-        Ok(self.get_last_allocated_register())
+        Ok(operand_reg)
     }
 
     fn gen_safe_access_instruction(

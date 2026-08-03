@@ -3,7 +3,7 @@ use crate::{Token, compiler::{Expr, WovenExpr, weaves::Weave}, weave_analyser::{
 impl WeaveAnalyzer<'_> {
     pub(crate) fn analyze_extract_expr(
         &mut self,
-        expected_weave: Option<&Weave>,
+        _expected_weave: Option<&Weave>,
         deck: Expr,
         index: Expr,
         token: Token,

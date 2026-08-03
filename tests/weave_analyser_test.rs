@@ -182,6 +182,19 @@ mod weave_analyser_test {
     }
 
     #[test]
+    fn native_spell_cast_is_analyzed_ok() {
+        let src = r#"
+            chant cast floor with 2.7;
+        "#;
+        let stmts = analyze_helper(src).expect("native spell cast ok");
+        let expr = first_expr(&stmts);
+        match expr {
+            WovenExpr::NativeCast { .. } => {}
+            other => panic!("Expected NativeCast, got {:?}", other),
+        }
+    }
+
+    #[test]
     fn runtime_spell_from_cast_result_ok() {
         let src = r#"
             spell outer():: Spell<Num> {

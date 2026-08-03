@@ -1,11 +1,15 @@
-use crate::{Token, compiler::{WovenExpr, weaves::Weave}, weave_analyser::WeaveAnalyzer};
+use crate::{
+    Token,
+    compiler::{WovenExpr, weaves::Weave},
+    weave_analyser::{WeaveAnalyzer, WeaveResult},
+};
 
 impl WeaveAnalyzer<'_> {
     pub(crate) fn analyze_variable_expr(
         &mut self,
         expected_weave: Option<&Weave>,
         name: Token,
-    ) -> crate::weave_analyser::WeaveResult<WovenExpr> {
+    ) -> WeaveResult<WovenExpr> {
         if let Some(symbol) = self.symbol_table.resolve(&name.lexeme).cloned() {
             //The symbol(variable) has been found
             self.resolve_n_add_upvalue(&symbol)?;

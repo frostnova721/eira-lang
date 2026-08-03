@@ -5,7 +5,7 @@ use crate::{
 impl WeaveAnalyzer<'_> {
     pub(crate) fn analyze_draw_expr(
         &mut self,
-        expected_weave: Option<&Weave>,
+        _expected_weave: Option<&Weave>,
         marks: Vec<EtchedMark>,
         callee: Token,
     ) -> WeaveResult<WovenExpr> {

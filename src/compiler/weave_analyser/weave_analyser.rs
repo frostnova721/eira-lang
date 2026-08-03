@@ -61,6 +61,7 @@ pub struct WeaveAnalyzer<'a> {
 impl<'a> WeaveAnalyzer<'a> {
     pub fn new(context: &'a mut WeaveAnalyzerContext, augury: &'a mut Augury) -> Self {
         let st = SymbolTable::new();
+        
         WeaveAnalyzer {
             context,
             augury,
@@ -89,6 +90,7 @@ impl<'a> WeaveAnalyzer<'a> {
         // Err(WeaveError::new(msg, token))
     }
 
+    #[allow(dead_code)]
     pub(super) fn warn(&mut self, msg: &str, token: Token) {
         let source = SourceLocation {
             file: PathBuf::from(self.context.source_path.clone()),

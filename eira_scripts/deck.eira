@@ -17,8 +17,11 @@ while i < len {
     i = i+1;
 }
 
-// you can push to the array with index as len
-nums[len] = 69;
+// you can push to the array with push spell!
+cast nums.push with 69;
+
+// Alternately, you can push via index with
+// nums[len] = 69;
 
 // if the math is correct, 6th element (at index 5) is 69
 chant nums[5];

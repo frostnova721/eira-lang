@@ -26,7 +26,7 @@ impl<'a> WeaveAnalyzer<'a> {
             SymbolKind::Sign(_) => true,
             _ => false,
         };
-
+        
         if !is_sign {
             self.error(
                 &format!("The symbol '{}' is not a sign.", sign.lexeme),

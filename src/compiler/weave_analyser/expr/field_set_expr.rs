@@ -7,7 +7,7 @@ use crate::{
 impl WeaveAnalyzer<'_> {
     pub(crate) fn analyze_field_set_expr(
         &mut self,
-        expected_weave: Option<&Weave>,
+        _expected_weave: Option<&Weave>,
         material: Expr,
         property: Token,
         value: Expr,

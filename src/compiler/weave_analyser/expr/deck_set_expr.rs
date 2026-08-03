@@ -7,7 +7,7 @@ use crate::{
 impl WeaveAnalyzer<'_> {
     pub(crate) fn analyze_deck_set_expr(
         &mut self,
-        expected_weave: Option<&Weave>,
+        _expected_weave: Option<&Weave>,
         deck: Expr,
         index: Expr,
         value: Expr,

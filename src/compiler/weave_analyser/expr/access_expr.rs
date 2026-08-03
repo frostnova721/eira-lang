@@ -1,11 +1,21 @@
+use std::cell::RefCell;
+
 use crate::{
-    compiler::{Expr, WovenExpr, token_type::TokenType, types::Visibility, weaves::Weave}, weave_analyser::{WeaveAnalyzer, WeaveResult},
+    compiler::{
+        Expr, WovenExpr,
+        symbol_table::{Symbol, SymbolKind},
+        token_type::TokenType,
+        types::Visibility,
+        weaves::Weave,
+    },
+    values::native_spell::NativeSpell,
+    weave_analyser::{WeaveAnalyzer, WeaveResult},
 };
 
 impl WeaveAnalyzer<'_> {
     pub(crate) fn analyze_access_expr(
         &mut self,
-        expected_weave: Option<&Weave>,
+        _expected_weave: Option<&Weave>,
         expr: Expr,
     ) -> WeaveResult<WovenExpr> {
         let (is_safe_access, material, property) = match expr {
@@ -85,20 +95,21 @@ impl WeaveAnalyzer<'_> {
             // };
         }
 
-        let sign_name = match (is_safe_access, w_material.weave()) {
-            (false, Weave::Sign(s)) => s,
+        let (target, is_primitive) = match (is_safe_access, w_material.weave()) {
+            (false, Weave::Sign(s)) => (s, false),
             (true, Weave::Maybe(inner)) => {
                 if let Weave::Sign(s) = *inner {
-                    s
+                    (s, false)
                 } else {
-                    self.error(
-                        &format!(
-                            "Only signs can be accessed with '.' operator! Got {}.",
-                            inner.get_name()
-                        ),
-                        property,
-                    );
-                    return Ok(WovenExpr::Cursed { span: None });
+                    (inner.get_base_name(), true)
+                    // self.error(
+                    //     &format!(
+                    //         "Only signs can be accessed with '.' operator! Got {}.",
+                    //         inner.get_name()
+                    //     ),
+                    //     property,
+                    // );
+                    // return Ok(WovenExpr::Cursed { span: None });
                 }
             }
             (true, _) => {
@@ -110,19 +121,70 @@ impl WeaveAnalyzer<'_> {
             }
 
             (false, w) => {
+                (w.get_base_name(), true)
+                // self.error(
+                //     &format!(
+                //         "Only signs can be accessed with '.' operator! Got {}.",
+                //         w.get_name()
+                //     ),
+                //     property,
+                // );
+                // return Ok(WovenExpr::Cursed { span: None });
+            }
+        };
+
+        if is_primitive {
+            let global_name = format!("core:{}:{}", target, property.lexeme);
+
+            let Ok(spell) = NativeSpell::resolve_methods(&global_name, w_material.weave()) else {
                 self.error(
                     &format!(
-                        "Only signs can be accessed with '.' operator! Got {}.",
-                        w.get_name()
+                        "The seal or spell '{}' is not defined for '{}' weave!",
+                        property.lexeme, target
                     ),
                     property,
                 );
                 return Ok(WovenExpr::Cursed { span: None });
-            }
-        };
+            };
+
+            let spell_info = match NativeSpell::get_spell_info(spell) {
+                Ok(info) => info,
+                Err(_) => {
+                    self.error(
+                        &format!(
+                            "The seal or spell '{}' is not defined for '{}' weave!",
+                            property.lexeme, target
+                        ),
+                        property,
+                    );
+
+                    return Ok(WovenExpr::Cursed { span: None });
+                }
+            };
+
+            let spell_sym = Symbol {
+                name: global_name.clone(),
+                weave: Weave::Spell {
+                    release: Box::new(spell_info.release_weave.clone()),
+                },
+                depth: 0,
+                kind: RefCell::new(SymbolKind::Spell(spell_info.clone())),
+                slot_idx: 0,
+                parent: None,
+                visibility: Visibility::Public,
+            };
+
+            return Ok(WovenExpr::BoundSpell {
+                is_safe: is_safe_access,
+                material: Box::new(w_material),
+                spell_symbol: spell_sym.clone(),
+                token: property.clone(),
+                weave: spell_sym.weave.clone(),
+            });
+        }
 
         // wether the material passed is the defined name of sign
-        let is_declared_symbol = sign_name == w_material.token().lexeme.as_str();
+        let is_declared_symbol = target == w_material.token().lexeme.as_str();
         // let w_material = self.analyze_expression(*material, None)?;
         // // it should be a variable expression
         // let sign_name = match w_material.weave() {
@@ -133,11 +195,11 @@ impl WeaveAnalyzer<'_> {
         //     }
         // };
 
-        let Some(sign_symbol) = self.symbol_table.resolve(&sign_name) else {
+        let Some(sign_symbol) = self.symbol_table.resolve(&target) else {
             self.error(
                 &format!(
                     "The sign '{}' was not found across the eira realms!",
-                    sign_name
+                    target
                 ),
                 property,
             );
@@ -199,7 +261,7 @@ impl WeaveAnalyzer<'_> {
                 self.error(
                                 &format!(
                                     "The spell '{}' attuned to sign '{}' is a secret and cannot be casted here!",
-                                    attunement.method_name, sign_name,
+                                    attunement.method_name, target,
                                 ),
                                 property,
                             );
@@ -212,7 +274,7 @@ impl WeaveAnalyzer<'_> {
                     self.error(
                         &format!(
                             "The spell '{}' was not found for sign '{}'!",
-                            attunement.method_name, sign_name
+                            attunement.method_name, target
                         ),
                         property,
                     );
@@ -232,7 +294,7 @@ impl WeaveAnalyzer<'_> {
         self.error(
             &format!(
                 "The mark or spell '{}' is not defined for '{}'",
-                property.lexeme, sign_name
+                property.lexeme, target
             ),
             property,
         );

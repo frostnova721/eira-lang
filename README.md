@@ -21,7 +21,7 @@ Eira is aimed to be:
 - [x] Arrays (deck)
 - [x] Native Functions
 - [x] Struct methods (attunements)
-- [ ] Imports
+- [x] Imports
 - [ ] Classes (tome)
 - [ ] Error Handling
 

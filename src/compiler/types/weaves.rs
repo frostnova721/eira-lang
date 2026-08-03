@@ -69,6 +69,20 @@ impl Weave {
             Weave::Module(name) => format!("Module<{}>", name),
         }
     }
+
+    pub fn get_base_name(&self) -> String {
+        match self {
+            Weave::Num => "Num".to_string(),
+            Weave::Text => "Text".to_string(),
+            Weave::Truth => "Truth".to_string(),
+            Weave::Empty => "Empty".to_string(),
+            Weave::Spell { .. } => "Spell".to_string(),
+            Weave::Sign(_) => "Sign".to_string(),
+            Weave::Deck(_, _) => "Deck".to_string(),
+            Weave::Maybe(_) => "Maybe".to_string(),
+            Weave::Module(_) => "Module".to_string(),
+        }
+    }
 }
 
 
