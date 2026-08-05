@@ -309,8 +309,22 @@ impl WeaveAnalyzer<'_> {
 
         let mut final_reagents: Vec<WovenExpr> = vec![];
 
-        for r in reagents {
-            final_reagents.push(self.analyze_expression(r, None)?);
+        for (i, r) in reagents.into_iter().enumerate() {
+            let expected_reagent = &spell_info.reagents[i];
+            let w_r = self.analyze_expression(r, Some(&expected_reagent.weave))?;
+            if w_r.weave() != expected_reagent.weave {
+                self.error(
+                    &format!(
+                        "The reagent #{} was expected to be {}, but got {}",
+                        i + 1,
+                        expected_reagent.weave.get_name(),
+                        w_r.weave().get_name()
+                    ),
+                    token.clone(),
+                );
+                return Ok(WovenExpr::Cursed { span: None });
+            }
+            final_reagents.push(w_r);
         }
 
         // let Some(spell_symbol) = self.symbol_table.resolve(&spell_info.name) else {

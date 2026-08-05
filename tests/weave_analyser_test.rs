@@ -16,7 +16,16 @@ mod weave_analyser_test {
         let mut augury = Augury::new();
         let mut context = WeaveAnalyzerContext::new("weave_test.eira".to_string(), None, false);
         let mut wa = WeaveAnalyzer::new(&mut context, &mut augury);
-        wa.analyze(ast).map_err(|e| format!("{}", e.msg))
+        let decls = wa.analyze(ast).map_err(|e| format!("{}", e.msg))?;
+        if augury.is_cursed() {
+            return Err(augury
+                .curses
+                .iter()
+                .map(|c| c.message.clone())
+                .collect::<Vec<_>>()
+                .join("\n"));
+        }
+        Ok(decls)
     }
 
     fn first_expr(stmts: &Vec<WovenDecl>) -> &WovenExpr {
@@ -138,7 +147,7 @@ mod weave_analyser_test {
             chant cast g; // missing arg
         "#;
         let err = analyze_helper(src).err().expect("should error");
-        assert!(err.contains("expected 1 reagents"));
+        assert!(err.contains("expected 1 reagent"));
     }
 
     #[test]
