@@ -161,6 +161,36 @@ impl Parser {
         }
     }
 
+    pub(super) fn quick_cast(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
+        let spell = lhs;
+        let token = self.previous.clone();
+        let mut reagents: Vec<Expr> = vec![];
+        // Parse the reagent expressions
+
+        if !self.match_token(TokenType::ParenRight) {
+            loop {
+                reagents.push(self.expression()?);
+                if self.match_token(TokenType::Comma) {
+                    continue;
+                } else {
+                    // End of reagent list when next token isn't a comma!
+                    break;
+                }
+            }
+
+            self.consume(
+            TokenType::ParenRight,
+            &format!("Expected the ')' after {}'s reagents", token.lexeme),
+        );
+        }
+
+        Ok(Expr::Cast {
+            reagents,
+            callee: Box::new(spell),
+            token,
+        })
+    }
+
     pub(super) fn cast(&mut self, _can_assign: bool) -> ParseResult<Expr> {
         //self.consume(TokenType::Identifier, "Expected a spell name to cast.");
         let spell = self.expression()?;

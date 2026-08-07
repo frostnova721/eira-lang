@@ -439,7 +439,7 @@ impl Parser {
             },
             TokenType::ParenLeft => ParseRule {
                 prefix: Some(Self::grouping),
-                infix: None,
+                infix: Some(Self::quick_cast),
                 precedence: Precedence::Call,
             },
             TokenType::Percent => ParseRule {

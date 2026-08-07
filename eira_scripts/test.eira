@@ -1,1 +1,23 @@
+spell gello(a: Text) {
+    chant a;
+}
 
+sign Plushie {
+    name: Text,
+}
+
+attune Plushie {
+    spell is_it_cute(duh: Text):: Text {
+        release "Fuck @duh";
+    }
+}
+
+bind michie = ~Plushie with {
+    name: "michie",
+};
+
+
+
+gello("meow");
+
+chant michie.is_it_cute("Yeah").to_upper();
