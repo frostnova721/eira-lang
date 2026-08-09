@@ -18,3 +18,8 @@ mark hero_sword = ~Sword with {
 
 cast hero_sword.cut;
 cast hero_sword.material;
+
+
+// quick casts
+hero_sword.cut();
+hero_sword.material();

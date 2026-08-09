@@ -46,3 +46,13 @@ bind did_it_rain = cast candy_rain with 4;
 // casting without reagents
 cast invisible_rain;
 ```
+
+alternatively, you can use the **quick casts**. The syntax for it is same as you call functions 
+in other languages...
+
+```eira
+bind sweeet = candy_rain(3);
+```
+
+NB: Quick casts was made so that you dont get into bloat code like "(cast (cast gamer).play).score"
+situations.. As a great wizard (or witch..), thou shall use the normal casts for non chained castings!
