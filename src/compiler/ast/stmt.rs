@@ -1,4 +1,4 @@
-use crate::compiler::{Expr, WovenExpr, ast::decl::Decl, scanner::Token};
+use crate::compiler::{Expr, WovenExpr, ast::decl::Decl, scanner::Token, symbol_table::Symbol};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
@@ -38,9 +38,14 @@ pub enum Stmt {
         token: Token,
     },
     Declaration(Box<Decl>),
-     Cursed {
+    Cursed {
         span: Option<(usize, usize)>,
-    }
+    },
+    Cycle {
+        iterable: Expr,  // a range or a deck or anything with ITERABLE strand
+        variable: Token, // a variable
+        body: Box<Stmt>, // should be a block statement
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -77,7 +82,12 @@ pub enum WovenStmt {
     },
     Declaration(Box<crate::compiler::ast::decl::WovenDecl>),
 
-     Cursed {
+    Cursed {
         span: Option<(usize, usize)>,
-    }
+    },
+    Cycle {
+        iterator: WovenExpr,
+        variable: Token,      // a variable
+        body: Box<WovenStmt>, // should be a block statement
+    },
 }

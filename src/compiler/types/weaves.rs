@@ -17,6 +17,7 @@ pub enum Weave {
     Deck(Box<Weave>, Option<usize>),
     Maybe(Box<Weave>),
     Module(String),
+    Range,
     Empty,
 }
 
@@ -46,6 +47,7 @@ impl Weave {
             Weave::Deck(_, _) => Tapestry::new(INDEXIVE_STRAND | ITERABLE_STRAND),
             Weave::Maybe(_) => Tapestry::new(MAYBE_STRAND | EQUATABLE_STRAND),
             Weave::Module(_) => Tapestry::new(NO_STRAND),
+            Weave::Range => Tapestry::new(ITERABLE_STRAND | ORDINAL_STRAND),
         }
     }
 
@@ -67,6 +69,7 @@ impl Weave {
             }
             Weave::Maybe(base) => format!("Maybe<{}>", base.get_name()),
             Weave::Module(name) => format!("Module<{}>", name),
+            Weave::Range => "Range".to_string(),
         }
     }
 
@@ -81,6 +84,7 @@ impl Weave {
             Weave::Deck(_, _) => "Deck".to_string(),
             Weave::Maybe(_) => "Maybe".to_string(),
             Weave::Module(_) => "Module".to_string(),
+            Weave::Range => "Range".to_string(),
         }
     }
 }

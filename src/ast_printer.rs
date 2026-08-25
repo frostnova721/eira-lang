@@ -243,6 +243,14 @@ impl AstPrinter {
             Stmt::Cursed { span } => {
                 self.write(prefix, is_last, &format!("Cursed: {:?}", span));
             },
+            Stmt::Cycle { iterable, variable, body } => {
+                self.write(prefix, is_last, &format!("Cycle: {}", variable.lexeme));
+                let next = Self::next_prefix(prefix, is_last);
+                self.write(&next, false, "iterable:");
+                self.print_expr(&Self::next_prefix(&next, false), iterable, true);
+                self.write(&next, true, "body:");
+                self.print_stmt(&Self::next_prefix(&next, true), body, true);
+            },
         }
     }
 
@@ -367,6 +375,12 @@ impl AstPrinter {
             }
             Expr::Cursed { span } => {
                 self.write(prefix, is_last, &format!("Cursed: {:?}", span));
+            },
+            Expr::Range { start, end, token } => {
+                self.write(prefix, is_last, &format!("Range: {}", token.lexeme));
+                let next = Self::next_prefix(prefix, is_last);
+                self.print_expr(&next, start, false);
+                self.print_expr(&next, end, true);
             },
         }
     }
@@ -552,6 +566,14 @@ impl AstPrinter {
             }
             WovenStmt::Cursed { span } => {
                 self.write(prefix, is_last, &format!("Cursed: {:?}", span));
+            },
+            WovenStmt::Cycle { iterator, variable, body } => {
+                self.write(prefix, is_last, &format!("Cycle: {}", variable.lexeme));
+                let next = Self::next_prefix(prefix, is_last);
+                self.write(&next, false, "iterable:");
+                self.print_woven_expr(&Self::next_prefix(&next, false), iterator, true);
+                self.write(&next, true, "body:");
+                self.print_woven_stmt(&Self::next_prefix(&next, true), body, true);
             },
         }
     }
@@ -855,6 +877,13 @@ impl AstPrinter {
             }
             WovenExpr::Cursed { span } => {
                 self.write(prefix, is_last, &format!("Cursed: {:?}", span));
+            },
+            WovenExpr::Range { start, end, token, weave } => {
+                let tap = self.tapestry_info(&weave.get_tapestry());
+                self.write(prefix, is_last, &format!("Range: {}{}", token.lexeme, tap));
+                let next = Self::next_prefix(prefix, is_last);
+                self.print_woven_expr(&next, start, false);
+                self.print_woven_expr(&next, end, true);
             },
         }
     }

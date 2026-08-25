@@ -112,6 +112,13 @@ impl Parser {
         token_type == self.current.token_type
     }
 
+    pub(super) fn check_next(&self, token_type: TokenType) -> bool {
+        if self.current_pos + 1 >= self.tokens.len() {
+            return false;
+        }
+        token_type == self.tokens[self.current_pos + 1].token_type
+    }
+
     pub(super) fn error_at(&mut self, msg: &str, pos: Token) {
         if self.panic {
             // return;
@@ -229,10 +236,12 @@ impl Parser {
                 self.throw_error("Access modifiers can just not be applied to everything!");
             }
 
-            res = self.statement().map(|stmt| crate::compiler::ast::decl::Decl::Statement {
-                stmt: Box::new(stmt),
-                token: self.previous.clone(),
-            });
+            res = self
+                .statement()
+                .map(|stmt| crate::compiler::ast::decl::Decl::Statement {
+                    stmt: Box::new(stmt),
+                    token: self.previous.clone(),
+                });
         }
 
         match res {
@@ -263,6 +272,8 @@ impl Parser {
             self.release_statement()
         } else if self.match_token(TokenType::Vanish) {
             self.vanish_statement()
+        } else if self.check(TokenType::Identifier) && self.check_next(TokenType::TildeTilde) {
+            self.cycle_statement()
         } else {
             self.expression_statement()
         }
@@ -375,6 +386,11 @@ impl Parser {
             TokenType::Dot => ParseRule {
                 prefix: None,
                 infix: Some(Self::access),
+                precedence: Precedence::Call,
+            },
+            TokenType::DotDot => ParseRule {
+                prefix: None,
+                infix: Some(Self::range),
                 precedence: Precedence::Call,
             },
             TokenType::Ego => ParseRule {

@@ -56,6 +56,7 @@ pub enum TokenType {
     Slash,
     Percent, // arithematic
     Dot,     // .
+    DotDot,  // ..
     Comma,   // ,
     ParenLeft,
     ParenRight,
@@ -68,6 +69,7 @@ pub enum TokenType {
     Or,
     OrOr,       // |
     Tilde,      // ~
+    TildeTilde,  // ~~
     Underscore, // _
 
     Identifier,

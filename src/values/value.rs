@@ -20,6 +20,7 @@ pub enum Value {
     SignSchema(Rc<SignSchema>),
     Deck(Rc<DeckObject>),
     NativeSpell(NativeSpell),
+    Range(f64, f64),
     Emptiness,
 }
 
@@ -36,6 +37,7 @@ impl Value {
             Self::SignSchema(_) => ValueType::Sign,
             Self::Deck(_) => ValueType::Deck,
             Self::NativeSpell(_) => ValueType::NativeSpell,
+            Self::Range(_, _) => ValueType::Range,
         }
     }
 
@@ -155,6 +157,10 @@ impl Hash for Value {
             Self::SignSchema(s) => s.hash(state),
             Self::Deck(d) => d.items.borrow().hash(state),
             Self::NativeSpell(_) => {}
+            Self::Range(a, b) => {
+                a.to_bits().hash(state);
+                b.to_bits().hash(state)
+            }
         }
     }
 }
@@ -193,6 +199,7 @@ pub fn print_value(value: Value) {
         Value::SignSchema(schema) => println!("SignSchema '{}'", schema.name.clone()),
         Value::Deck(deck) => println!("Deck '{:?}'", deck.items.borrow()),
         Value::NativeSpell(ns) => println!("NativeSpell '{:?}'", ns),
+        Value::Range(a, b) => println!("{}->{}", a, b),
     }
 }
 
@@ -212,5 +219,6 @@ pub enum ValueType {
     SignSchema,
     Deck,
     NativeSpell,
+    Range,
     Emptiness,
 }

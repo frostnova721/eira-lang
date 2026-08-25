@@ -367,4 +367,14 @@ impl Parser {
             operator: self.previous.clone(),
         })
     }
+
+    pub(super) fn range(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
+        let op_tkn = self.previous.clone();
+        let end_expr = self.expression()?;
+        Ok(Expr::Range {
+            start: Box::new(lhs),
+            end: Box::new(end_expr),
+            token: op_tkn,
+        })
+    }
 }

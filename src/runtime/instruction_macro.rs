@@ -199,4 +199,6 @@ define_instructions! {
 
     // nat_spell_reg is the const_index which stores the name of the native spell
     NativeCast(37, 6) { dest: u8, nat_spell: u16, reg_start: u8, args_count: u8 },
+
+    CreateRange(38, 4) { dest: u8, start_reg: u8, end_reg: u8 },
 }

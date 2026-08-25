@@ -81,10 +81,14 @@ pub enum Expr {
         operand: Box<Expr>,
         operator: Token,
     },
-
-     Cursed {
+    Cursed {
         span: (usize, usize),
-    }
+    },
+    Range {
+        start: Box<Expr>,
+        end: Box<Expr>,
+        token: Token,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -199,7 +203,13 @@ pub enum WovenExpr {
     },
     Cursed {
         span: Option<(usize, usize)>,
-    }
+    },
+    Range {
+        start: Box<WovenExpr>,
+        end: Box<WovenExpr>,
+        token: Token,
+        weave: Weave,
+    },
 }
 
 impl WovenExpr {
@@ -224,6 +234,7 @@ impl WovenExpr {
             WovenExpr::NativeCast { weave, .. } => weave.clone(),
             WovenExpr::BoundSpell { weave, .. } => weave.clone(),
             WovenExpr::SafeCast { weave, .. } => weave.clone(),
+            WovenExpr::Range {  weave, .. } => weave.clone(),
             WovenExpr::Cursed { .. } => Weave::Empty,
         }
     }
@@ -262,6 +273,7 @@ impl WovenExpr {
             WovenExpr::BoundSpell { token, .. } => token.clone(),
             WovenExpr::SafeCast { callee, .. } => callee.clone(),
             WovenExpr::Cursed { .. } => Token::cursed(),
+            WovenExpr::Range { token, .. } => token.clone(),
         }
     }
 }

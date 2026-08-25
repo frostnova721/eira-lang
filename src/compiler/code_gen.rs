@@ -294,6 +294,7 @@ impl CodeGen {
             WovenStmt::Release { token: _, expr } => self.gen_release_instructions(expr),
             WovenStmt::Declaration(decl) => self.gen_decl(*decl),
             WovenStmt::Cursed { .. } => todo!(),
+            WovenStmt::Cycle { iterator, variable, body } => todo!(),
         }
     }
 
@@ -407,7 +408,34 @@ impl CodeGen {
                 spell_symbol,
             } => self.gen_safe_cast_instruction(reagents, callee, weave, spell_symbol),
             WovenExpr::Cursed { .. } => todo!(),
+            WovenExpr::Range {
+                start,
+                end,
+                token,
+                weave,
+            } => self.gen_range_instruction(start, end, token, weave),
         }
+    }
+
+    fn gen_range_instruction(
+        &mut self,
+        start: Box<WovenExpr>,
+        end: Box<WovenExpr>,
+        _token: Token,
+        _weave: Weave,
+    ) -> GenResult<u8> {
+        let start_reg = self.gen_from_expr(*start)?;
+        let end_reg = self.gen_from_expr(*end)?;
+
+        let dest = self.get_next_register()?;
+
+        self.instructions.push(Instruction::CreateRange {
+            dest,
+            start_reg,
+            end_reg,
+        });
+
+        Ok(dest)
     }
 
     fn gen_bound_spell_instruction(

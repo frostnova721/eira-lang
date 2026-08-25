@@ -67,6 +67,29 @@ impl Parser {
         })
     }
 
+    pub(super) fn cycle_statement(&mut self) -> ParseResult<Stmt> {
+        self.consume(
+            TokenType::Identifier,
+            "Expected a name for the element of the cycle.",
+        );
+
+        let variable = self.previous.clone();
+
+        self.consume(
+            TokenType::TildeTilde,
+            "Expected '~~' after the cycle element.",
+        );
+
+        // gets the iterable expr
+        let iterable = self.expression()?;
+
+        Ok(Stmt::Cycle {
+            variable: variable,
+            body: Box::new(self.block()?),
+            iterable: iterable,
+        })
+    }
+
     pub(super) fn fate_statement(&mut self) -> ParseResult<Stmt> {
         let condition = self.expression()?;
         self.consume(TokenType::BraceLeft, "Expected '{' at start of fate block.");

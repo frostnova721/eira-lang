@@ -409,7 +409,9 @@ impl<'a> Scanner<'a> {
             ':' if self.match_char(':') => self.make_token(TokenType::ColonColon),
             ':' => self.make_token(TokenType::Colon),
 
+            '.' if self.match_char('.') => self.make_token(TokenType::DotDot),
             '.' => self.make_token(TokenType::Dot),
+
             ',' => self.make_token(TokenType::Comma),
 
             '+' => self.make_token(TokenType::Plus),
@@ -430,6 +432,7 @@ impl<'a> Scanner<'a> {
             '<' if self.match_char('=') => self.make_token(TokenType::LessEqual),
             '<' => self.make_token(TokenType::Less),
 
+            '~' if self.match_char('~') => self.make_token(TokenType::TildeTilde),
             '~' => self.make_token(TokenType::Tilde),
 
             '?' if self.match_char('.') => self.make_token(TokenType::QuestionDot),

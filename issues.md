@@ -1,7 +1,7 @@
 # Issues
 ## List the issues and details here!
 
-- ### Bytecode Indexing issue when release is used in a particular way [UNPATCHED]
+- ### Bytecode Indexing issue when release is used in a particular way [PATCHED]
     ```
     spell isPrime(a: Num) {
         fate a <= 1 {

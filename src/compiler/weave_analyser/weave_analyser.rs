@@ -61,7 +61,7 @@ pub struct WeaveAnalyzer<'a> {
 impl<'a> WeaveAnalyzer<'a> {
     pub fn new(context: &'a mut WeaveAnalyzerContext, augury: &'a mut Augury) -> Self {
         let st = SymbolTable::new();
-        
+
         WeaveAnalyzer {
             context,
             augury,
@@ -244,6 +244,11 @@ impl<'a> WeaveAnalyzer<'a> {
             Stmt::Release { token, expr } => self.analyze_release_stmt(token, expr),
 
             Stmt::Vanish { target, token } => self.analyze_vanish_stmt(token, target),
+            Stmt::Cycle {
+                iterable,
+                variable,
+                body,
+            } => self.analyze_cycle_stmt(variable, iterable, *body),
             Stmt::Cursed { .. } => unreachable!(),
         }
     }
@@ -338,6 +343,28 @@ impl<'a> WeaveAnalyzer<'a> {
                     operand: Box::new(w_operand),
                     operator,
                     weave: weave,
+                })
+            }
+            Expr::Range { start, end, token } => {
+                let w_start = self.analyze_expression(*start, Some(&Weave::Num))?;
+                let w_end = self.analyze_expression(*end, Some(&Weave::Num))?;
+
+                // Just to make sure...
+                if matches!(w_start.weave(), Weave::Num) && matches!(w_end.weave(), Weave::Num) {
+                    // valid range
+                } else {
+                    self.error(
+                        "Range bounds must be of Num Weave!",
+                        token.clone(),
+                    );
+                    return Ok(WovenExpr::Cursed { span: None });
+                }
+
+                Ok(WovenExpr::Range {
+                    start: Box::new(w_start),
+                    end: Box::new(w_end),
+                    weave: Weave::Range,
+                    token,
                 })
             }
             Expr::Cursed { .. } => todo!(),

@@ -638,6 +638,25 @@ impl EiraVM {
                             return InterpretResult::RuntimeError;
                         }
                     }
+                },
+
+                OpCode::CreateRange => {
+                    let dest = frame!().read_byte();
+                    let start_reg = frame!().read_byte();
+                    let end_reg = frame!().read_byte();
+
+                    let start_val = get_register!(base, start_reg).clone();
+                    let end_val = get_register!(base, end_reg).clone();
+
+                    match (start_val, end_val) {
+                        (Value::Number(start), Value::Number(end)) => {
+                            set_register!(base, dest, Value::Range(start, end));
+                        }
+                        _ => {
+                            self.runtime_error("CreateRange: Both start and end values must be numbers.");
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
                 }
             }
         }
