@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::values::sign::{SignObject, SignSchema};
+use crate::values::{iterator::{IteratorObject, IteratorState}, sign::{SignObject, SignSchema}};
 use crate::values::spell::{ClosureObject, SpellObject};
 use crate::values::{deck::DeckObject, native_spell::NativeSpell};
 
@@ -21,6 +21,7 @@ pub enum Value {
     Deck(Rc<DeckObject>),
     NativeSpell(NativeSpell),
     Range(f64, f64),
+    Iterator(Rc<RefCell<IteratorObject>>),
     Emptiness,
 }
 
@@ -38,6 +39,7 @@ impl Value {
             Self::Deck(_) => ValueType::Deck,
             Self::NativeSpell(_) => ValueType::NativeSpell,
             Self::Range(_, _) => ValueType::Range,
+            Self::Iterator(_) => ValueType::Iterator,
         }
     }
 
@@ -121,6 +123,7 @@ impl Value {
             (Self::String(a), Self::String(b)) => a == b,
             (Self::SignSchema(a), Self::SignSchema(b)) => a == b,
             (Self::Deck(a), Self::Deck(b)) => a == b,
+            (Self::Iterator(a), Self::Iterator(b)) => a == b,
             _ => false,
         }
     }
@@ -135,6 +138,7 @@ impl PartialEq for Value {
             (Self::Bool(a), Self::Bool(b)) => a == b,
             (Self::Emptiness, Self::Emptiness) => true,
             // Closures are unique runtime objects and should not be considered equal
+            (Self::Iterator(a), Self::Iterator(b)) => a == b,
             _ => false,
         }
     }
@@ -161,6 +165,7 @@ impl Hash for Value {
                 a.to_bits().hash(state);
                 b.to_bits().hash(state)
             }
+            Self::Iterator(_) => {} // not a compile time const
         }
     }
 }
@@ -200,6 +205,17 @@ pub fn print_value(value: Value) {
         Value::Deck(deck) => println!("Deck '{:?}'", deck.items.borrow()),
         Value::NativeSpell(ns) => println!("NativeSpell '{:?}'", ns),
         Value::Range(a, b) => println!("{}->{}", a, b),
+        Value::Iterator(iter) => {
+            let iter = iter.borrow();
+            match &iter.state {
+               IteratorState::Range { current, end } => {
+                    println!("Iterator: {} -> {}", current, end)
+                }
+               IteratorState::Deck { deck, index } => {
+                    println!("Iterator: {:?} at index {}", deck.items.borrow(), index)
+                }
+            }
+        }
     }
 }
 
@@ -220,5 +236,6 @@ pub enum ValueType {
     Deck,
     NativeSpell,
     Range,
+    Iterator,
     Emptiness,
 }

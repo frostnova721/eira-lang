@@ -1,16 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    SpellObject,
-    compiler::compiler::CompiledCode,
-    runtime::OpCode,
-    values::{
-        Value,
-        deck::DeckObject,
-        native_spell::dispatch,
-        print_value,
-        sign::SignObject,
-        spell::{ClosureObject, UpValue},
+    SpellObject, compiler::compiler::CompiledCode, runtime::OpCode, values::{
+        Value, deck::DeckObject, iterator::{IteratorObject, IteratorState}, native_spell::dispatch, print_value, sign::SignObject, spell::{ClosureObject, UpValue},
     },
 };
 
@@ -638,7 +630,7 @@ impl EiraVM {
                             return InterpretResult::RuntimeError;
                         }
                     }
-                },
+                }
 
                 OpCode::CreateRange => {
                     let dest = frame!().read_byte();
@@ -653,7 +645,110 @@ impl EiraVM {
                             set_register!(base, dest, Value::Range(start, end));
                         }
                         _ => {
-                            self.runtime_error("CreateRange: Both start and end values must be numbers.");
+                            self.runtime_error(
+                                "CreateRange: Both start and end values must be numbers.",
+                            );
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+
+                OpCode::GetRangeStart => {
+                    let dest = frame!().read_byte();
+                    let range_reg = frame!().read_byte();
+
+                    let range_val = get_register!(base, range_reg).clone();
+
+                    match range_val {
+                        Value::Range(start, _) => {
+                            set_register!(base, dest, Value::Number(start));
+                        }
+                        _ => {
+                            self.runtime_error("GetRangeStart: Value is not a Range.");
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+                OpCode::GetRangeEnd => {
+                    let dest = frame!().read_byte();
+                    let range_reg = frame!().read_byte();
+
+                    let range_val = get_register!(base, range_reg).clone();
+
+                    match range_val {
+                        Value::Range(_, end) => {
+                            set_register!(base, dest, Value::Number(end));
+                        }
+                        _ => {
+                            self.runtime_error("GetRangeEnd: Value is not a Range.");
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+                OpCode::GetIterator => {
+                    let dest = frame!().read_byte();
+                    let iterable_reg = frame!().read_byte();
+
+                    let iterable_val = get_register!(base, iterable_reg).clone();
+
+                    let iter = match iterable_val {
+                        Value::Range(start, end) => {
+                             IteratorObject {
+                                state: IteratorState::Range {
+                                    current: start,
+                                    end,
+                                },
+                            }
+                        },
+                        Value::Deck(d) => {
+                            IteratorObject {
+                                state: IteratorState::Deck { deck: d, index: 0 },
+                            }
+                        },
+                        _ => {
+                            self.runtime_error("GetIterator: Iterator for Value is not defined (not a Range or Deck).");
+                            return InterpretResult::RuntimeError;
+                        }
+                    };
+
+                    set_register!(base, dest, Value::Iterator(Rc::new(RefCell::new(iter))));
+                }
+
+                OpCode::IterNext => {
+                    let dest = frame!().read_byte();
+                    let iterator_reg = frame!().read_byte();
+                    let jump_offset = frame!().read_u16();
+
+                    let iterator_val = get_register!(base, iterator_reg).clone();
+
+                    match iterator_val {
+                        Value::Iterator(iter) => {
+                            let mut iter_mut = iter.borrow_mut();
+                            match &mut iter_mut.state {
+                                IteratorState::Range { current, end } => {
+                                    if *current <= *end {
+                                        set_register!(base, dest, Value::Number(*current));
+                                        *current += 1.0;
+                                    } else {
+                                        // End of iteration
+                                        frame!().ip += jump_offset as usize;
+                                    }
+                                }
+                                IteratorState::Deck { deck, index } => {
+                                    let items = deck.items.borrow();
+                                    if *index < items.len() {
+                                        let val = items[*index].clone();
+                                        set_register!(base, dest, val);
+                                        *index += 1;
+                                    } else {
+                                        // End of iteration
+                                        frame!().ip += jump_offset as usize;
+                                    }
+                                }
+                            }
+                        }
+                        _ => {
+                            self.runtime_error("IterNext: Value is not an Iterator.");
                             return InterpretResult::RuntimeError;
                         }
                     }

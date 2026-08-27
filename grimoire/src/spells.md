@@ -54,5 +54,5 @@ in other languages...
 bind sweeet = candy_rain(3);
 ```
 
-NB: Quick casts was made so that you dont get into bloat code like "(cast (cast gamer).play).score"
+NB: Quick casts was made so that you dont get into bloat code like _"(cast (cast gamer).play).score"_
 situations.. As a great wizard (or witch..), thou shall use the normal casts for non chained castings!

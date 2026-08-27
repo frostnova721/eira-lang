@@ -5,5 +5,6 @@ pub mod spell;
 pub mod value;
 
 pub mod native_spells;
+pub mod iterator;
 
 pub use value::{Value, print_value};

@@ -86,8 +86,8 @@ pub enum WovenStmt {
         span: Option<(usize, usize)>,
     },
     Cycle {
-        iterator: WovenExpr,
-        variable: Token,      // a variable
+        variable: Symbol,      // a variable
+        iterable: WovenExpr,
         body: Box<WovenStmt>, // should be a block statement
     },
 }

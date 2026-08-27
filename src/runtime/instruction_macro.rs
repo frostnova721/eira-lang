@@ -201,4 +201,9 @@ define_instructions! {
     NativeCast(37, 6) { dest: u8, nat_spell: u16, reg_start: u8, args_count: u8 },
 
     CreateRange(38, 4) { dest: u8, start_reg: u8, end_reg: u8 },
+    GetRangeStart(39, 3) { dest: u8, range_reg: u8 },
+    GetRangeEnd(40, 3) { dest: u8, range_reg: u8 },
+
+    GetIterator(41, 3) { dest: u8, iterable_reg: u8 },
+    IterNext(42, 5) { dest: u8, iterator_reg: u8, jump_offset: u16 },
 }

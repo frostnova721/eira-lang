@@ -83,6 +83,8 @@ impl Parser {
         // gets the iterable expr
         let iterable = self.expression()?;
 
+        self.consume(TokenType::BraceLeft, "Expected '{' at start of cycle body.");
+
         Ok(Stmt::Cycle {
             variable: variable,
             body: Box::new(self.block()?),

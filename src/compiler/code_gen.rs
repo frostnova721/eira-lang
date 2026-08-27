@@ -164,6 +164,7 @@ impl CodeGen {
             Instruction::JumpIfFalse { offset: o, .. } => *o = offset as u16,
             Instruction::Jump { offset: o } => *o = offset as u16,
             Instruction::JumpIfTrue { offset: o, .. } => *o = offset as u16,
+            Instruction::IterNext { jump_offset: o, .. } => *o = offset as u16,
             _ => {
                 return self.error(&format!(
                     "Hmmm... this error shouldnt be thrown! If you are encountering this, congrats! I see a good future in you.Error: Jump patch failed.\
@@ -294,7 +295,11 @@ impl CodeGen {
             WovenStmt::Release { token: _, expr } => self.gen_release_instructions(expr),
             WovenStmt::Declaration(decl) => self.gen_decl(*decl),
             WovenStmt::Cursed { .. } => todo!(),
-            WovenStmt::Cycle { iterator, variable, body } => todo!(),
+            WovenStmt::Cycle {
+                variable,
+                iterable,
+                body,
+            } => self.gen_cycle_instructions(variable, iterable, *body),
         }
     }
 
@@ -415,6 +420,37 @@ impl CodeGen {
                 weave,
             } => self.gen_range_instruction(start, end, token, weave),
         }
+    }
+
+    fn gen_cycle_instructions(
+        &mut self,
+        variable: Symbol,
+        iterable: WovenExpr,
+        body: WovenStmt,
+    ) -> GenResult<u8> {
+        let iter_reg = self.gen_from_expr(iterable)?;
+        self.instructions.push(Instruction::GetIterator {
+            dest: iter_reg,
+            iterable_reg: iter_reg,
+        });
+
+        let start = self.instructions.len();
+        // let exit = self.write_jump(Instruction::Jump { offset: 0xffff });
+
+        let var_reg = variable.slot_idx as u8;
+        let exit = self.write_jump(Instruction::IterNext {
+            dest: var_reg,
+            iterator_reg: iter_reg,
+            jump_offset: 0xFFFF,
+        });
+
+        self.gen_from_stmt(body)?;
+
+        self.write_loop(start)?;
+
+        self.patch_jump(exit)?;
+
+        Ok(self.register_index - 1)
     }
 
     fn gen_range_instruction(
