@@ -8,6 +8,7 @@ use crate::{
 
 type Result<T> = std::result::Result<T, CompileError>;
 
+#[derive(Debug)]
 pub struct CompileError {
     pub msg: String,
 }
@@ -29,6 +30,7 @@ pub struct Compiler {
     // pub
 }
 
+#[derive(Debug)]
 pub struct CompiledCode {
     pub bytecode: Vec<u8>,
     pub instructions: Vec<Instruction>,
@@ -51,8 +53,12 @@ impl Compiler {
         }
     }
 
-    pub fn compile(&mut self) -> Result<CompiledCode> {
-        let tokens = self.scan()?;
+    fn compile(&mut self, string_source: Option<&str>) -> Result<CompiledCode> {
+        let tokens = if let Some(source) = string_source {
+            self.scan_from_string(source)
+        } else {
+            self.scan()
+        }?;
 
         if self.options.print_tokens {
             println!("Tokens:");
@@ -86,8 +92,8 @@ impl Compiler {
         Ok(instructions)
     }
 
-    pub fn compile_to_bytecode(&mut self) -> Result<CompiledCode> {
-        let mut compiled_code = self.compile()?;
+    pub fn compile_to_bytecode_from_string(&mut self, source: &str) -> Result<CompiledCode> {
+        let mut compiled_code = self.compile(Some(source))?;
         compiled_code.bytecode = self.gen_bytecode(&compiled_code.instructions);
 
         if self.options.print_bytecode {
@@ -95,6 +101,21 @@ impl Compiler {
         }
 
         Ok(compiled_code)
+    }
+
+    pub fn compile_to_bytecode(&mut self) -> Result<CompiledCode> {
+        let mut compiled_code = self.compile(None)?;
+        compiled_code.bytecode = self.gen_bytecode(&compiled_code.instructions);
+
+        if self.options.print_bytecode {
+            print_byte_code(&compiled_code.bytecode);
+        }
+
+        Ok(compiled_code)
+    }
+
+    fn scan_from_string(&self, source: &str) -> Result<Vec<Token>> {
+        Ok(Scanner::init(source).tokenize())
     }
 
     fn scan(&self) -> Result<Vec<Token>> {

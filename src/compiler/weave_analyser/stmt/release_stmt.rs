@@ -1,5 +1,7 @@
 use crate::{
-    Token, compiler::{Expr, WovenStmt, symbol_table::SymbolKind, weaves::Weave}, weave_analyser::{Realm, WeaveAnalyzer, WeaveResult},
+    Token,
+    compiler::{Expr, WovenStmt, symbol_table::SymbolKind, weaves::Weave},
+    weave_analyser::{Realm, WeaveAnalyzer, WeaveResult},
 };
 
 impl WeaveAnalyzer<'_> {
@@ -61,13 +63,8 @@ impl WeaveAnalyzer<'_> {
         if let Some(e) = expr {
             let w_expr = self.analyze_expression(e, Some(&expected_weave))?;
 
-            // Try to get the weave from the symbol first (for variables with composite weaves)
-            // Otherwise fall back to tapestry lookup
-            let actual_weave = if let Some(symbol) = w_expr.symbol() {
-                symbol.weave.clone()
-            } else {
-                w_expr.weave()
-            };
+            // Validate the expression's result weave, including composite weaves.
+            let actual_weave = w_expr.weave();
 
             // Exact tapestry check (spells should return the exact weave)
             match &expected_weave {

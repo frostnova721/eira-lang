@@ -6,6 +6,7 @@ pub mod decl;
 pub mod expr;
 pub mod stmt;
 pub mod weave_analyser;
+pub mod control_flow;
 
 pub struct WeaveAnalyzerContext {
     // The path of the source file being analyzed

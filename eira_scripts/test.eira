@@ -1,3 +1,6 @@
-x ~~ ['a','b','c','d'] {
-    chant x;
+spell magnitude(n: Num):: Num {
+    fate n < 0 {
+        release -n;
+    }
+    // This path reaches the end without a Num.
 }

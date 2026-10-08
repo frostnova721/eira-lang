@@ -1,8 +1,17 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    SpellObject, compiler::compiler::CompiledCode, runtime::OpCode, values::{
-        Value, deck::DeckObject, iterator::{IteratorObject, IteratorState}, native_spell::dispatch, print_value, sign::SignObject, spell::{ClosureObject, UpValue},
+    SpellObject,
+    compiler::compiler::CompiledCode,
+    runtime::OpCode,
+    values::{
+        Value,
+        deck::DeckObject,
+        iterator::{IteratorObject, IteratorState},
+        native_spell::dispatch,
+        print_value,
+        sign::SignObject,
+        spell::{ClosureObject, UpValue},
     },
 };
 
@@ -10,6 +19,14 @@ pub enum InterpretResult {
     CompileError,
     RuntimeError,
     InterpretOk,
+    Returned(Value),
+}
+
+#[derive(Debug)]
+pub enum ReturnTarget {
+    Module,
+    Register { base: usize, reg: u8 },
+    Host,
 }
 
 #[derive(Debug)]
@@ -17,9 +34,9 @@ struct CallFrame {
     ip: usize,
     closure: Rc<ClosureObject>,
     // slot_start: usize,
-    return_reg: u8,
+    return_target: ReturnTarget,
     reg_base: usize,
-    caller_reg_base: usize,
+    // caller_reg_base: usize,
 
     // Track which registers in this frame are upvalues and where they point in parent
     upvalue_mappings: Vec<(usize, usize)>, // (local_reg, parent_stack_idx)
@@ -60,6 +77,7 @@ impl CallFrame {
 
 pub struct EiraVM {
     frames: Vec<CallFrame>,
+    initialized: bool,
 
     globals: HashMap<String, Value>,
     pub stack: Vec<Value>,
@@ -71,6 +89,7 @@ impl EiraVM {
             globals: HashMap::new(),
             stack: Vec::with_capacity(256),
             frames: Vec::with_capacity(256), // initally
+            initialized: false,
         };
 
         let closure = ClosureObject {
@@ -88,9 +107,9 @@ impl EiraVM {
             closure: Rc::new(closure),
             ip: 0,
             // slot_start: 0,
-            return_reg: 0,
+            return_target: ReturnTarget::Module,
             reg_base: 0,
-            caller_reg_base: 0,
+            // caller_reg_base: 0,
             upvalue_mappings: vec![],
         };
 
@@ -111,7 +130,68 @@ impl EiraVM {
         // }
     }
 
+    /// Invoke a function from external code with spell name and its arguments.
+    pub fn cast(&mut self, spell: &str, args: Vec<Value>) -> Result<Value, String> {
+        if !self.initialized {
+            return Err("Run module initialization before invoking a spell.".into());
+        }
+
+        if !self.frames.is_empty() {
+            return Err("The VM is already executing or has unfinished frames.".into());
+        }
+
+        let closure = match self.globals.get(spell) {
+            Some(Value::Closure(closure)) => Rc::clone(closure),
+            _ => return Err(format!("Spell '{spell}' not found or is not a closure.")),
+        };
+
+        let arity = closure.spell.arity as usize;
+        if args.len() != arity {
+            return Err(format!(
+                "Expected {arity} arguments, but got {}.",
+                args.len()
+            ));
+        }
+
+        let stack_base = self.stack.len();
+        let frame_depth = self.frames.len();
+
+        // Match the register layout used by OpCode::Cast.
+        for capture in &closure.upvalues {
+            self.stack.push(capture.closed.borrow().clone());
+        }
+        self.stack.extend(args);
+
+        self.frames.push(CallFrame {
+            ip: 0,
+            closure,
+            reg_base: stack_base,
+            return_target: ReturnTarget::Host,
+            upvalue_mappings: vec![],
+        });
+
+        let outcome = self.start();
+
+        // Clean up temporary invocation state, including on runtime errors.
+        // This does not undo mutations to globals or shared objects.
+        self.frames.truncate(frame_depth);
+        self.stack.truncate(stack_base);
+
+        match outcome {
+            InterpretResult::Returned(value) => Ok(value),
+            InterpretResult::RuntimeError => Err("Runtime error occurred.".into()),
+            InterpretResult::CompileError => Err("Compile error occurred.".into()),
+            InterpretResult::InterpretOk => {
+                Err("Invocation ended without returning to the host.".into())
+            }
+        }
+    }
+
     pub fn start(&mut self) -> InterpretResult {
+        if self.frames.is_empty() {
+            return InterpretResult::InterpretOk;
+        }
+
         macro_rules! set_register {
             ($base:expr, $index:expr, $value:expr) => {{
                 let idx = $base + $index as usize;
@@ -336,7 +416,11 @@ impl EiraVM {
                     let offset = frame!().read_u16();
                     frame!().ip -= offset as usize;
                 }
-                OpCode::Halt => break,
+                OpCode::Halt => {
+                    self.frames.pop();
+                    self.initialized = true;
+                    break;
+                },
                 OpCode::Release => {
                     let ret_reg = frame!().read_byte();
                     let ret_idx = frame!().reg_base + ret_reg as usize;
@@ -357,11 +441,23 @@ impl EiraVM {
 
                     self.stack.truncate(finished.reg_base);
 
-                    let dest_idx = finished.caller_reg_base + finished.return_reg as usize;
-                    if dest_idx >= self.stack.len() {
-                        self.stack.resize(dest_idx + 1, Value::Emptiness);
+                    match finished.return_target {
+                        ReturnTarget::Register { base, reg } => {
+                            let dest_idx = base + reg as usize;
+
+                            if dest_idx >= self.stack.len() {
+                                self.stack.resize(dest_idx + 1, Value::Emptiness);
+                            }
+
+                            self.stack[dest_idx] = ret_val;
+                        }
+                        ReturnTarget::Host => {
+                            return InterpretResult::Returned(ret_val);
+                        }
+                        ReturnTarget::Module => {
+                            return InterpretResult::InterpretOk;
+                        }
                     }
-                    self.stack[dest_idx] = ret_val;
                 }
                 OpCode::Cast => {
                     let dest = frame!().read_byte();
@@ -412,9 +508,12 @@ impl EiraVM {
                         ip: 0,
                         closure: spell,
                         // slot_start: frame_slot_start,
-                        return_reg: dest,
+                        return_target: ReturnTarget::Register {
+                            base: frame!().reg_base,
+                            reg: dest,
+                        },
                         reg_base: frame_slot_start, // Unified: registers start at same place as slots (params are reg 0..arity)
-                        caller_reg_base: frame!().reg_base,
+                        // caller_reg_base: frame!().reg_base,
                         upvalue_mappings,
                     };
                     self.frames.push(new_frame);
@@ -692,18 +791,14 @@ impl EiraVM {
                     let iterable_val = get_register!(base, iterable_reg).clone();
 
                     let iter = match iterable_val {
-                        Value::Range(start, end) => {
-                             IteratorObject {
-                                state: IteratorState::Range {
-                                    current: start,
-                                    end,
-                                },
-                            }
+                        Value::Range(start, end) => IteratorObject {
+                            state: IteratorState::Range {
+                                current: start,
+                                end,
+                            },
                         },
-                        Value::Deck(d) => {
-                            IteratorObject {
-                                state: IteratorState::Deck { deck: d, index: 0 },
-                            }
+                        Value::Deck(d) => IteratorObject {
+                            state: IteratorState::Deck { deck: d, index: 0 },
                         },
                         _ => {
                             self.runtime_error("GetIterator: Iterator for Value is not defined (not a Range or Deck).");
