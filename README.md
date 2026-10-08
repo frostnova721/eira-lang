@@ -2,123 +2,250 @@
 
 A Programming language with some MAGIC!
 
-## Core Features
+Functions? **Spells!** Structs? **Signs!** Types? We call those **weaves** around here.
+Eira is a language written in Rust, with its own compiler and bytecode VM doing the
+magic behind the curtains.
 
-Eira is aimed to be:
+Still early days, btw! The spells are taking shape, but syntax can change and a few
+curses remain. If all the stars align (and the bugs don't bite), Eira will evolve
+into a beautiful, usable language built by an amateur programmer!
 
-- Typesafe
-- Portable
-- Decent syntax with some magical twist!
+## Summoning Eira (Building)
 
-## Progress (Will be updated)
+First, gather your reagents: Rust and Cargo with support for Rust edition 2024.
+Then, from the repository root, cast:
 
-- [x] Mutable and Immutable Variables (access, modification)
-- [x] Scopes (Realms in Eira)
-- [x] Control flow (using fate (if), divert (else))
-- [x] Iteration (using while)
-- [x] Function and Closures (spells!)
-- [x] Structs (signs! declaration, object creation done)
-- [x] Arrays (deck)
-- [x] Native Functions
-- [x] Struct methods (attunements)
-- [x] Imports
-- [ ] Classes (tome)
-- [ ] Error Handling
+```sh
+cargo build --locked
+cargo run --locked -- eira_scripts/factorial.eira
+```
 
-## Current State
+The factorial spell chants `120`. Got a scroll of your own? Save it as `hello.eira`:
 
-> state: Going Smooth!
+```sh
+cargo run --locked -- ./hello.eira
+```
 
-- count to 10mil in ~380ms (in my pc btw!)
+For a little more speed, summon a release build:
 
-    for comparison, js: ~39ms (v8 JIT hits different), dart: ~480ms (with 'dart run --snapshot=main.jit' command, java: ~337ms), for obvious reasons, im not comparing with the AOT compiled codes! (tests done by me btw)
+```sh
+cargo run --locked --release -- eira_scripts/factorial.eira
+```
 
-- trying to design a mid type-like system!
+Provide a source path when running from the repository root. With no source argument,
+Eira looks for an `essence.toml` project configuration and uses its entry point;
+the repository root does not contain one.
 
-- Created a Maybe\<W> system, similar to the Option\<T> in rust.
-
-## Eira's Own Weave System
-
-Alright! Thought quite a while and came up with a weave system, as an alternative to the type system! (its 99% similar, but who cares!)
-
-For intro, Weaves are made from strands, a set of them. And the strands are the basic behaviours of the operands.
-
-for example....
-
-presence of Additive strand on a Weave would mean that the weave can be undergone '+' or '-' operation with the same weave!
-
-For starters, Eira will be providing 3 Weaves (as of now, will be increased once language evolves from the early stages), namely: NumWeave, TextWeave and TruthWeave. Representing the Numbers, String and Boolean!
-
-and for strands, check the code (too lazy to type em all)!
-
-## 🚧 Status
-
-Eira is under active development by [@frostnova721](https://github.com/frostnova721). With an expected use for scripting too but mainly focused on general usage.
-
-If all the stars align (and the bugs don't bite), Eira will evolve into a beautiful, usable language built by a amateur programmer!
+There you go. You are a mage now!!
 
 ## Demo Syntax? Okay
 
-```Eira
+```eira
+// A little mana and a greeting for our mage
+mark mana: Num = 3;
+bind greeting = "Hello, mage!";
+chant greeting;
 
-// imports!
-channel 'magic_forest/secret_knowledge';
-
-// Like structs, acts as types
-sign Magic {
-    type: Num,
-    offensive: Truth,
+while mana > 0 {
+    chant mana;
+    mana = mana - 1;
 }
 
-// Add methods to a sign
-attune Magic {
-    // Methods are called like class methods, e.g., fireMagic.nullify()
-    spell nullify() {
-        chant this + " got nullified!";
+spell double(n: Num):: Num {
+    release n * 2;
+}
+
+chant cast double with 21;
+
+sign Sword {
+    material: Text,
+}
+
+attune Sword {
+    spell describe() {
+        chant ego.material;
     }
 }
 
-// Classes = tomes
-tome SuperSecretMagicTome {
+mark sword = ~Sword with {
+    material: "Phoenix Steel",
+};
+cast sword.describe;
 
-    // Mutable values
-    mark mana = 1;
+bind numbers: Deck<Num> = [1, 2, 3];
+numbers[0] = 10;
+chant numbers[0];
+```
 
-    // Immutable values
-    bind rank = "Noobie sorcerer";
+`bind` prevents reassignment of the binding; it does not make a deck's contents
+immutable. `ego` refers to the receiver inside an attunement method.
 
-    // Compile time constants
-    seal dragons = 0;
+More scrolls await in [eira_scripts](eira_scripts): recursion, signs, attunements,
+and decks. The deck example deliberately overflows its capacity at the end. That
+curse is part of the demonstration!
 
-    // Public functions [forge = public]
-    forge spell fireBall():: Magic {
-        chant "pooof .... BOOOM!";
-        release ~Magic { type: 01, offensive: true }
-    }
+## Taking the runes for a spin (Iterator loops)
 
-    // Private functions [secret = private]
-    secret spell summon():: Magic {
-        chant "something rose up!.... A DEMON????!!!";
-        release ~Magic { type: 05, offensive: false }
-    }
+No index bookkeeping for this ritual! A **cycle** binds each value to the name
+before `~~`, then casts the body once for each value:
+
+```eira
+// Let each rune have its turn to chant!
+rune ~~ ["ember", "frost", "storm"] {
+    chant rune;
+}
+
+// Both ends of the range join the ritual.
+step ~~ 1..3 {
+    chant step;
 }
 ```
 
-ehm ehm.... subject to changes btw! (this demo will be changed accordingly)
+This chants `ember`, `frost`, `storm`, then `1`, `2`, `3`, each on its own line.
+Decks are visited in order. Ranges include both endpoints and advance by one;
+an empty deck or a range whose start exceeds its end runs the body zero times.
+The cycle variable belongs to the loop's scope. Cycles currently accept decks
+and ranges.
 
-professional readme upon close to completion of the basic features!
+Cast the complete [iterator scroll](eira_scripts/iterators.eira) with:
 
-## Building
+```sh
+cargo run --locked -- eira_scripts/iterators.eira
+```
 
-Incase you want to test this language out, follow the steps
+## Spells we have mastered (Progress)
 
-- Clone the repository
-- Write your code in tests/test.eira file
-- Run `cargo run`
+- Mutable (`mark`) and immutable (`bind`) bindings, with scopes and weave annotations.
+- Numbers, text, truth values, arithmetic, comparisons, and text concatenation.
+- Branches with `fate` / `divert`; loops with `while`, `sever` (break), and `flow` (continue).
+- Iterator cycles with `item ~~ deck` or `item ~~ start..end`.
+- Spells, arguments, return values through `release`, recursion, and captured variables.
+- Signs, field access and mutation, and methods declared with `attune`.
+- Dynamic decks (`Deck<Num>`) and decks with a fixed capacity (`Deck<Num, 5>`).
+- Partial imports through `tether`, including file paths and namespaces.
+- Compilation diagnostics collected through `Augury`.
 
-    or provide the path to a custom ".eira" file as first argument if script is in a different directory (cargo run -- path_to_eira_file)
+Still in the spellbook's unwritten pages: classes (`tome`), language-level error
+handling, and external package dependencies. Native spells now have a registry and methods on numbers, text, and decks.
+`Maybe<W>` support is still experimental.
 
-There you go. You are a mage now!!
+## Eira's Own Weave System
+
+Alright! Eira has a weave system, our magical twist on a type system. Weaves are
+built from strands, which describe the behaviours a value supports. Familiar idea,
+a little extra magic. Who says types can't have some personality?
+
+And we've got more than just numbers, strings, and booleans in this spellbook:
+
+| Weave | Meaning |
+| --- | --- |
+| `Num` | Numbers |
+| `Text` | Text values |
+| `Truth` | Boolean values: `true` and `false` |
+| `Sign` | User-defined structures; use the declared sign's name, such as `Sword`, in annotations |
+| `Spell<W>` | A spell whose release (return) weave is `W`; for example, `Spell<Num>` |
+| `Deck<W>` | A dynamic deck containing values of weave `W` |
+| `Deck<W, N>` | A deck with element weave `W` and a fixed capacity of `N` |
+| `Maybe<W>` | A value that may contain `W` or be empty |
+| `Range` | An inclusive numeric range, written `start..end`, that cycles can traverse |
+| `Empty` | The absence of a value; also the default release weave for spells |
+| `Module` | The compiler's representation of an imported namespace, introduced through `tether` |
+
+`W` stands for an inner weave, and `N` is a numeric capacity. `Deck<W>` and
+`Deck<W, N>` are two forms of the same deck weave. Module weaves are created by
+import analysis rather than written as a `Module` annotation.
+
+Strands describe capabilities used during semantic analysis. Numbers carry
+arithmetic, ordering, and equality strands; text carries concatenation, indexing,
+and equality strands; truth values carry conditional and equality strands. Spells
+carry the callable strand, decks carry indexing and iterable strands, and
+`Maybe<W>` carries presence and equality strands. Ranges carry iterable and
+ordering strands. Signs, modules, and `Empty`
+currently have no strands assigned.
+
+The weave analyzer makes sure the strands line up and the names resolve before
+we start generating instructions. For the full enchantment, peek into
+[weaves.rs](src/compiler/types/weaves.rs).
+
+How does a scroll become something the VM can cast? Through these stages:
+
+```text
+Source → Scanner → Parser → Weave analyzer → Code generation → Assembler → Bytecode VM
+```
+
+The [grimoire](grimoire/src/SUMMARY.md) has more notes on the design. A few pages
+may be dusty; the tests and runnable scrolls are the best references for what
+actually works today.
+
+## Tethering scrolls (Imports)
+
+A file can export a spell with `forge`. For example, `library.eira`:
+
+```eira
+forge spell answer():: Num {
+    release 42;
+}
+```
+
+A sibling `main.eira` can import it into a namespace:
+
+```eira
+tether "library.eira" bind lib;
+chant cast lib.answer;
+```
+
+Use `./main.eira` or an absolute source path when running this example. Passing just
+`main.eira` currently causes sibling imports to resolve from the filesystem root.
+Imported files permit declarations at the top level, but not executable statements
+such as `chant`. Named project imports and external dependencies remain incomplete.
+
+## Peeking behind the magic (Compiler inspection)
+
+Pass options after Cargo's `--`, alongside the source path:
+
+```sh
+cargo run --locked -- eira_scripts/factorial.eira --no-run --pinst
+```
+
+| Option | Purpose |
+| --- | --- |
+| `--no-run` | Compile without executing |
+| `--ptkn` | Print tokens |
+| `--past=N` | Print the parsed AST at verbosity `N` |
+| `--pwast=N` | Print the analyzed AST at verbosity `N` |
+| `--pinst` | Print instructions |
+| `--pbc` | Print bytecode |
+
+## Making sure the spells hold (Tests)
+
+```sh
+cargo test --locked
+```
+
+Current tally: **68 passing tests and 3 ignored regression tests**. Three known curses
+have their own reproducers waiting for a fix; they aren't counted as victories!
+The suite covers
+scanning, parsing, weave analysis, compilation diagnostics, and program execution.
+Tests are split by responsibility, with shared temporary-file setup.
+
+See [tests/README.md](tests/README.md) for the layout, focused test commands, and
+instructions for running the known regression cases.
+
+## Known curses (Limitations)
+
+- Nested iterator cycles can overwrite the outer iteration value and crash the VM;
+  a regression test records the expected behavior.
+
+- Returned closures can inherit the enclosing spell's argument metadata, causing
+  valid calls to be rejected. A regression test captures this case.
+- Bare CLI filenames break sibling import resolution, as described above.
+- Compilation and runtime errors currently return exit status `0`; automation must
+  inspect diagnostics rather than relying on exit status alone.
+- The build currently emits warnings, and some implementation paths remain unfinished.
+
+One old curse seems broken: the conditional-return crash in [issues.md](issues.md)
+no longer reproduces in the current regression test. The old issue note still needs
+catching up with the spellbook.
 
 ## License
 

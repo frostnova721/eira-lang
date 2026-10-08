@@ -1,0 +1,9 @@
+// Let each rune have its turn to chant!
+rune ~~ ["ember", "frost", "storm"] {
+    chant rune;
+}
+
+// Both ends of the range join the ritual.
+step ~~ 1..3 {
+    chant step;
+}

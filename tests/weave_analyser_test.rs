@@ -1,9 +1,15 @@
 #[cfg(test)]
 mod weave_analyser_test {
     use eira::{
-        Parser, Scanner, compiler::{
-            WovenExpr, WovenStmt, ast::decl::WovenDecl, diagnostics::Augury, strand::{ADDITIVE_STRAND, CONDITIONAL_STRAND, MULTIPLICATIVE_STRAND}, weave_analyser::WeaveAnalyzerContext,
-        }, weave_analyser::WeaveAnalyzer,
+        Parser, Scanner,
+        compiler::{
+            WovenExpr, WovenStmt,
+            ast::decl::WovenDecl,
+            diagnostics::Augury,
+            strand::{ADDITIVE_STRAND, CONDITIONAL_STRAND},
+            weave_analyser::WeaveAnalyzerContext,
+        },
+        weave_analyser::WeaveAnalyzer,
     };
 
     fn analyze_helper(source: &str) -> Result<Vec<WovenDecl>, String> {
@@ -16,16 +22,12 @@ mod weave_analyser_test {
         let mut augury = Augury::new();
         let mut context = WeaveAnalyzerContext::new("weave_test.eira".to_string(), None, false);
         let mut wa = WeaveAnalyzer::new(&mut context, &mut augury);
-        let decls = wa.analyze(ast).map_err(|e| format!("{}", e.msg))?;
+        let woven = wa.analyze(ast).map_err(|e| e.msg)?;
         if augury.is_cursed() {
-            return Err(augury
-                .curses
-                .iter()
-                .map(|c| c.message.clone())
-                .collect::<Vec<_>>()
-                .join("\n"));
+            Err(augury.list_curses().join("\n"))
+        } else {
+            Ok(woven)
         }
-        Ok(decls)
     }
 
     fn first_expr(stmts: &Vec<WovenDecl>) -> &WovenExpr {
@@ -69,11 +71,7 @@ mod weave_analyser_test {
         let stmts = analyze_helper(src).expect("weave analyze ok");
         let expr = first_expr(&stmts);
         if let WovenExpr::Unary { weave, .. } = expr {
-            // result of -1 should be numeric; check it supports multiplicative strand set on literal number
-            assert!(
-                weave.get_tapestry().has_strand(MULTIPLICATIVE_STRAND)
-                    || weave.get_tapestry().0 != 0
-            );
+            assert_eq!(*weave, eira::compiler::weaves::Weave::Num);
         } else {
             panic!("Expected Unary expr");
         }
@@ -99,8 +97,7 @@ mod weave_analyser_test {
             WovenDecl::Statement { stmt, token: _ } => match **stmt {
                 WovenStmt::Chant { ref expression } => match expression {
                     WovenExpr::Variable { weave, .. } => {
-                        // at least not empty
-                        assert!(weave.get_tapestry().0 != 0);
+                        assert_eq!(*weave, eira::compiler::weaves::Weave::Num);
                     }
                     _ => panic!("Expected variable in chant"),
                 },
@@ -133,8 +130,7 @@ mod weave_analyser_test {
         let stmts = analyze_helper(src).expect("analyze ok");
         let expr = first_expr(&stmts);
         if let WovenExpr::Cast { weave, .. } = expr {
-            // numeric results should be usable in multiplicative/additive contexts; just check not empty
-            assert!(weave.get_tapestry().0 != 0);
+            assert_eq!(*weave, eira::compiler::weaves::Weave::Num);
         } else {
             panic!("Expected Cast in chant");
         }
@@ -147,7 +143,7 @@ mod weave_analyser_test {
             chant cast g; // missing arg
         "#;
         let err = analyze_helper(src).err().expect("should error");
-        assert!(err.contains("expected 1 reagent"));
+        assert!(err.contains("expected 1 reagent(s)"));
     }
 
     #[test]
@@ -293,8 +289,8 @@ mod weave_analyser_test {
     }
 
     #[test]
-    fn upvalue_capture_tracking() {
-        // This tests that upvalue metadata is set during analysis
+    fn nested_spell_can_resolve_captured_variable() {
+        // Execution of captured variables is covered in runtime_test.rs.
         let src = r#"
             spell outer() {
                 mark x = 10;
