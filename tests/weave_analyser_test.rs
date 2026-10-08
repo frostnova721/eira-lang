@@ -30,6 +30,86 @@ mod weave_analyser_test {
         }
     }
 
+    #[test]
+    fn return_paths_reject_missing_conditional_return() {
+        let err = analyze_helper(
+            r#"
+            spell magnitude(n: Num):: Num {
+                fate n < 0 { release -n; }
+            }
+            "#,
+        ).expect_err("the nonnegative path reaches the end");
+
+        assert!(err.contains("spell 'magnitude'"), "{err}");
+        assert!(err.contains("can reach its end without releasing"), "{err}");
+    }
+
+    #[test]
+    fn return_paths_accept_return_after_conditional() {
+        analyze_helper(
+            r#"
+            spell magnitude(n: Num):: Num {
+                fate n < 0 { release -n; }
+                release n;
+            }
+            "#,
+        ).expect("the remaining path reaches the final return");
+    }
+
+    #[test]
+    fn return_paths_accept_both_branches_returning() {
+        analyze_helper(
+            r#"
+            spell magnitude(n: Num):: Num {
+                fate n < 0 { release -n; }
+                divert { release n; }
+            }
+            "#,
+        ).expect("neither branch falls through");
+    }
+
+    #[test]
+    fn return_paths_reject_return_only_inside_loop() {
+        let err = analyze_helper(
+            r#"
+            spell example(n: Num):: Num {
+                while n > 0 { release n; }
+            }
+            "#,
+        ).expect_err("the loop may execute zero times");
+
+        assert!(err.contains("can reach its end without releasing"), "{err}");
+    }
+
+    #[test]
+    fn return_paths_do_not_count_nested_spell_returns() {
+        let err = analyze_helper(
+            r#"
+            spell outer():: Num {
+                spell inner():: Num { release 1; }
+            }
+            "#,
+        ).expect_err("declaring inner does not return from outer");
+
+        assert!(err.contains("spell 'outer'"), "{err}");
+        assert!(err.contains("can reach its end without releasing"), "{err}");
+        assert!(!err.contains("spell 'inner'"), "{err}");
+    }
+
+    #[test]
+    fn return_paths_reject_empty_nonempty_result_spell() {
+        let err = analyze_helper("spell missing():: Num {}")
+            .expect_err("an empty body cannot return Num");
+
+        assert!(err.contains("can reach its end without releasing"), "{err}");
+    }
+
+    #[test]
+    fn return_paths_allow_empty_result_fallthrough() {
+        analyze_helper("spell noop() {}")
+            .expect("an empty-result spell can finish without release");
+    }
+
     fn first_expr(stmts: &Vec<WovenDecl>) -> &WovenExpr {
         // Prefer the first Chant or ExprStmt found
         for stmt in stmts {

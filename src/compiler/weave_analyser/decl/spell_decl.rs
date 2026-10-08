@@ -9,6 +9,7 @@ use crate::{
         reagents::{Reagent, WovenReagent},
         symbol_table::SymbolKind,
         types::Visibility,
+        weave_analyser::control_flow::exits,
         weaves::Weave,
     },
     values::{sign::AttunedSpell, spell::SpellInfo},
@@ -228,7 +229,10 @@ impl WeaveAnalyzer<'_> {
         };
 
         if !is_spell {
-            self.error(&format!("The symbol '{}' is not a spell", symbol_name), name);
+            self.error(
+                &format!("The symbol '{}' is not a spell", symbol_name),
+                name,
+            );
             return Ok(WovenDecl::Cursed { span: None });
         }
 
@@ -236,6 +240,17 @@ impl WeaveAnalyzer<'_> {
 
         // Restore base_depth
         self.spell_base_depth = saved_spell_base_depth;
+
+        if ret_weave != Weave::Empty && exits(&woven_body).fallthrough {
+            self.error(
+                &format!(
+                    "The spell '{}' can reach its end without releasing a '{}' weave.",
+                    name.lexeme,
+                    ret_weave.get_name(),
+                ),
+                name.clone(),
+            );
+        }
 
         // overwrite the spell with updated information
         let symbol = self
