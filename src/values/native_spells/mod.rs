@@ -1,4 +1,5 @@
 pub mod deck;
+pub mod vault;
 pub mod io;
 pub mod math;
 pub mod num;
@@ -32,6 +33,7 @@ pub struct StandaloneSpellDef {
 pub fn find_method(target_weave_name: &str, method_name: &str) -> Option<&'static NativeMethodDef> {
     let methods: &[NativeMethodDef] = match target_weave_name {
         "Deck" => deck::DECK_METHODS,
+        "Vault" => vault::VAULT_METHODS,
         "Text" => text::TEXT_METHODS,
         "Num" => num::NUM_METHODS,
         _ => return None,

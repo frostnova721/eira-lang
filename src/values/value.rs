@@ -19,6 +19,7 @@ pub enum Value {
     Sign(Rc<RefCell<SignObject>>),
     SignSchema(Rc<SignSchema>),
     Deck(Rc<DeckObject>),
+    Vault(Rc<crate::values::vault::VaultObject>),
     NativeSpell(NativeSpell),
     Range(f64, f64),
     Iterator(Rc<RefCell<IteratorObject>>),
@@ -37,6 +38,7 @@ impl Value {
             Self::Sign(_) => ValueType::Sign,
             Self::SignSchema(_) => ValueType::Sign,
             Self::Deck(_) => ValueType::Deck,
+            Self::Vault(_) => ValueType::Vault,
             Self::NativeSpell(_) => ValueType::NativeSpell,
             Self::Range(_, _) => ValueType::Range,
             Self::Iterator(_) => ValueType::Iterator,
@@ -120,6 +122,7 @@ impl Value {
         match (self, other) {
             (Self::Number(a), Self::Number(b)) => a == b,
             (Self::Bool(a), Self::Bool(b)) => a == b,
+            (Self::Vault(a), Self::Vault(b)) => Rc::ptr_eq(a, b),
             (Self::String(a), Self::String(b)) => a == b,
             (Self::SignSchema(a), Self::SignSchema(b)) => a == b,
             (Self::Deck(a), Self::Deck(b)) => a == b,
@@ -136,6 +139,7 @@ impl PartialEq for Value {
             (Self::Number(a), Self::Number(b)) => a.to_bits() == b.to_bits(),
             (Self::String(a), Self::String(b)) => a == b,
             (Self::Bool(a), Self::Bool(b)) => a == b,
+            (Self::Vault(a), Self::Vault(b)) => Rc::ptr_eq(a, b),
             (Self::Emptiness, Self::Emptiness) => true,
             // Closures are unique runtime objects and should not be considered equal
             (Self::Iterator(a), Self::Iterator(b)) => a == b,
@@ -160,6 +164,7 @@ impl Hash for Value {
             Self::Sign(_) => {}    // not a compile time const
             Self::SignSchema(s) => s.hash(state),
             Self::Deck(d) => d.items.borrow().hash(state),
+            Self::Vault(v) => Rc::as_ptr(v).hash(state),
             Self::NativeSpell(_) => {}
             Self::Range(a, b) => {
                 a.to_bits().hash(state);
@@ -203,6 +208,7 @@ pub fn print_value(value: Value) {
         }
         Value::SignSchema(schema) => println!("SignSchema '{}'", schema.name.clone()),
         Value::Deck(deck) => println!("Deck '{:?}'", deck.items.borrow()),
+        Value::Vault(v) => println!("Vault ({} entries)", v.len()),
         Value::NativeSpell(ns) => println!("NativeSpell '{:?}'", ns),
         Value::Range(a, b) => println!("{}->{}", a, b),
         Value::Iterator(iter) => {
@@ -234,6 +240,7 @@ pub enum ValueType {
     Sign,
     SignSchema,
     Deck,
+    Vault,
     NativeSpell,
     Range,
     Iterator,

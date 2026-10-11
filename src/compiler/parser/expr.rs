@@ -280,6 +280,20 @@ impl Parser {
 
     pub(super) fn variable(&mut self, _can_assign: bool) -> ParseResult<Expr> {
         let var_name = self.previous.clone();
+        if var_name.lexeme == "vault" && self.match_token(TokenType::BraceLeft) {
+            let mut entries = Vec::new();
+            if !self.check(TokenType::BraceRight) {
+                loop {
+                    let key = self.expression()?;
+                    self.consume(TokenType::Colon, "Expected ':' between Vault key and value.");
+                    let value = self.expression()?;
+                    entries.push((key, value));
+                    if !self.match_token(TokenType::Comma) || self.check(TokenType::BraceRight) { break; }
+                }
+            }
+            self.consume(TokenType::BraceRight, "Expected '}' after Vault entries.");
+            return Ok(Expr::Vault { entries, token: var_name });
+        }
 
         // if a '=' is found after the variable name, it should be a assignment
         if self.match_token(TokenType::Equal) {
@@ -323,15 +337,15 @@ impl Parser {
         })
     }
 
-    pub(super) fn extract(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
+    pub(super) fn index(&mut self, lhs: Expr, _can_assign: bool) -> ParseResult<Expr> {
         let index_expr = self.expression()?;
         self.consume(
             TokenType::SquareRight,
-            "Expected ']' after deck access expression.",
+            "Expected ']' after indexed access expression.",
         );
 
-        Ok(Expr::Extract {
-            deck: Box::new(lhs),
+        Ok(Expr::Index {
+            collection: Box::new(lhs),
             index: Box::new(index_expr),
             token: self.previous.clone(),
         })

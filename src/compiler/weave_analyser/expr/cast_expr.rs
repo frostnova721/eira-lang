@@ -107,6 +107,10 @@ impl WeaveAnalyzer<'_> {
                 }
             }
 
+            if reagents.len() + 1 != spell_info.reagents.len() {
+                self.error("Incorrect method argument count.", token.clone());
+                return Ok(WovenExpr::Cursed { span: None });
+            }
             let mut final_reagents = vec![*material.clone()];
 
             for (i, r) in reagents.iter().enumerate() {
@@ -114,6 +118,10 @@ impl WeaveAnalyzer<'_> {
                     r.clone(),
                     Some(&spell_info.reagents.get(i+1).unwrap().weave),
                 )?;
+                if w_r.weave() != spell_info.reagents[i + 1].weave {
+                    self.error("Method argument has the wrong weave.", token.clone());
+                    return Ok(WovenExpr::Cursed { span: None });
+                }
                 final_reagents.push(w_r);
             }
 

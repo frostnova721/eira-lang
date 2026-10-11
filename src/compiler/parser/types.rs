@@ -20,6 +20,7 @@ pub struct ParsedWeave {
     pub base: Token,
     pub inner: Option<Box<ParsedWeave>>,
     pub capacity: Option<usize>,
+    pub value: Option<Box<ParsedWeave>>,
 }
 
 pub enum Precedence {

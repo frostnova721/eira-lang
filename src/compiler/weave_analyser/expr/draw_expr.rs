@@ -55,7 +55,7 @@ impl WeaveAnalyzer<'_> {
                         token: token,
                         weave: Weave::Empty,
                     },
-                    _ => self.analyze_expression(mark.expr, None)?,
+                    _ => self.analyze_expression(mark.expr, if matches!(field, Weave::Vault(..)) { Some(field) } else { None })?,
                 };
 
                 let mark_weave = mark_val.weave();

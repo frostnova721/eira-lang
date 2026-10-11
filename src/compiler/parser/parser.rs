@@ -145,18 +145,29 @@ impl Parser {
         let weave = self.previous.clone();
         let mut inner: Option<Box<ParsedWeave>> = None;
         let mut capacity: Option<usize> = None;
+        let mut value = None;
 
         if self.match_token(TokenType::Less) {
             inner = Some(Box::new(self.parse_weave(
                 "Expected a weave name to bind with the weave after the '<'!",
             )?));
 
+            if weave.lexeme == "Vault" {
+                self.consume(TokenType::Comma, "Expected key and value types in Vault<K, V>.");
+                value = Some(Box::new(self.parse_weave("Expected Vault value type.")?));
+            }
+
             if self.match_token(TokenType::Comma) {
                 self.consume(
                     TokenType::Number,
                     "Expected a capacity for the weave after ','!",
                 );
-                capacity = Some(self.previous.lexeme.parse::<usize>().unwrap());
+                capacity = Some(self.previous.lexeme.parse::<usize>()
+                    .map_err(|_| {
+                        let message = "Capacity must be a nonnegative integer fitting usize.";
+                        self.throw_error(message);
+                        ParseError(message.into())
+                    })?);
             }
 
             self.consume(
@@ -165,6 +176,7 @@ impl Parser {
             );
         }
         Ok(ParsedWeave {
+            value,
             base: weave,
             inner: inner,
             capacity: capacity,
@@ -329,13 +341,13 @@ impl Parser {
                                 value: Box::new(value),
                             });
                         }
-                        Expr::Extract {
-                            deck,
+                        Expr::Index {
+                            collection,
                             index,
                             token: _,
                         } => {
-                            return Ok(Expr::DeckSet {
-                                deck,
+                            return Ok(Expr::IndexSet {
+                                collection,
                                 index,
                                 value: Box::new(value),
                                 token: equals,
@@ -485,7 +497,7 @@ impl Parser {
             },
             TokenType::SquareLeft => ParseRule {
                 prefix: Some(Self::deck),
-                infix: Some(Self::extract),
+                infix: Some(Self::index),
                 precedence: Precedence::Call,
             },
             TokenType::Star => ParseRule {

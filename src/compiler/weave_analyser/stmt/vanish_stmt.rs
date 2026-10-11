@@ -66,13 +66,13 @@ impl WeaveAnalyzer<'_> {
                 weave,
                 symbol,
             },
-            WovenExpr::Extract {
-                deck,
+            WovenExpr::Index {
+                collection,
                 index,
                 token,
                 weave,
-            } => WovenExpr::DeckSet {
-                deck,
+            } => WovenExpr::IndexSet {
+                collection,
                 index,
                 value: Box::new(empty_literal),
                 token,

@@ -9,6 +9,7 @@ use crate::compiler::{
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Weave {
+    Vault(Box<Weave>, Box<Weave>, Option<usize>),
     Num,
     Text,
     Truth,
@@ -31,6 +32,7 @@ impl Weave {
 
     pub fn get_tapestry(&self) -> Tapestry {
         match self {
+            Weave::Vault(..) => Tapestry::new(INDEXIVE_STRAND),
             Weave::Num => Tapestry::new(
                 ADDITIVE_STRAND
                     | SUBTRACTIVE_STRAND
@@ -53,6 +55,7 @@ impl Weave {
 
     pub fn get_name(&self) -> String {
         match self {
+            Weave::Vault(key, value, limit) => format!("Vault<{}, {}{}>", key.get_name(), value.get_name(), limit.map(|n| format!(", {n}")).unwrap_or_default()),
             Weave::Num => "Num".to_string(),
             Weave::Text => "Text".to_string(),
             Weave::Truth => "Truth".to_string(),
@@ -75,6 +78,7 @@ impl Weave {
 
     pub fn get_base_name(&self) -> String {
         match self {
+            Weave::Vault(..) => "Vault".to_string(),
             Weave::Num => "Num".to_string(),
             Weave::Text => "Text".to_string(),
             Weave::Truth => "Truth".to_string(),

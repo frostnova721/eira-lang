@@ -24,7 +24,7 @@ impl WeaveAnalyzer<'_> {
                         }
                     };
 
-                    let woven_expr = self.analyze_expression(value, None)?;
+                    let woven_expr = self.analyze_expression(value, Some(&resolved.weave))?;
                     let weave = woven_expr.weave();
 
                     if let Some(expected_weave) = expected_weave {

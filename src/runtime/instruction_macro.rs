@@ -206,4 +206,7 @@ define_instructions! {
 
     GetIterator(41, 3) { dest: u8, iterable_reg: u8 },
     IterNext(42, 5) { dest: u8, iterator_reg: u8, jump_offset: u16 },
+    NewVault(43, 6) { dest: u8, limit: u16, hint: u16 },
+    VaultSet(44, 4) { vault: u8, key: u8, value: u8 },
+    VaultGet(45, 4) { dest: u8, vault: u8, key: u8 },
 }

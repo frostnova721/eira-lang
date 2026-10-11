@@ -92,7 +92,12 @@ impl WeaveAnalyzer<'_> {
             symbol: symbol,
         };
 
-        let w_value = self.analyze_expression(value, None)?;
+        let expected = property_weave.clone();
+        let w_value = self.analyze_expression(value, if matches!(expected, Weave::Vault(..)) { Some(&expected) } else { None })?;
+        if matches!(expected, Weave::Vault(..)) && w_value.weave() != expected {
+            self.error("Vault field assignment has the wrong weave.", property);
+            return Ok(WovenExpr::Cursed { span: None });
+        }
         Ok(WovenExpr::FieldSet {
             material: Box::new(w_material_expr),
             property,

@@ -358,20 +358,35 @@ impl CodeGen {
                 field_name_idx,
                 weave,
             } => self.gen_access_instruction(*material, property, field_name_idx, weave),
+            WovenExpr::Vault { entries, weave, .. } => {
+                let Weave::Vault(_, _, limit) = weave else { unreachable!() };
+                let dest = self.get_next_register()?;
+                let limit = self.add_constant(Value::Number(limit.map(|n| n as f64).unwrap_or(-1.0)))?;
+                let Ok(hint) = u16::try_from(entries.len()) else { return self.error("Too many Vault literal entries."); };
+                self.instructions.push(Instruction::NewVault { dest, limit, hint });
+                for (key, value) in entries {
+                    let temporary_start = self.register_index;
+                    let key = self.gen_snapshot(key)?;
+                    let value = self.gen_from_expr(value)?;
+                    self.instructions.push(Instruction::VaultSet { vault: dest, key, value });
+                    self.register_index = temporary_start;
+                }
+                Ok(dest)
+            }
             WovenExpr::Deck { elements, weave } => self.gen_deck_instruction(elements, weave),
-            WovenExpr::Extract {
-                deck,
+            WovenExpr::Index {
+                collection,
                 index,
                 token,
                 weave,
-            } => self.gen_extract_instruction(*deck, *index, token, weave),
-            WovenExpr::DeckSet {
-                deck,
+            } => self.gen_index_instruction(*collection, *index, token, weave),
+            WovenExpr::IndexSet {
+                collection,
                 index,
                 value,
                 token,
                 weave,
-            } => self.gen_deck_set_instruction(*deck, *index, *value, token, weave),
+            } => self.gen_index_set_instruction(*collection, *index, *value, token, weave),
             WovenExpr::FieldSet {
                 material,
                 property,
@@ -723,42 +738,63 @@ impl CodeGen {
         Ok(self.register_index)
     }
 
-    fn gen_deck_set_instruction(
+    /// Preserve a local/upvalue before evaluating later expressions with side effects.
+    /// Fresh temporaries already own their value and need no extra Move.
+    fn gen_snapshot(&mut self, expression: WovenExpr) -> GenResult<u8> {
+        let temporary_start = self.register_index;
+        let source = self.gen_from_expr(expression)?;
+        if source >= temporary_start { return Ok(source); }
+        let dest = self.get_next_register()?;
+        self.instructions.push(Instruction::Move { dest, source: source as u16 });
+        Ok(dest)
+    }
+
+    fn gen_index_set_instruction(
         &mut self,
-        deck: WovenExpr,
+        collection: WovenExpr,
         index: WovenExpr,
         value: WovenExpr,
         _token: Token,
         _weave: Weave,
     ) -> GenResult<u8> {
-        let deck_reg = self.gen_from_expr(deck)?;
-        let idx = self.gen_from_expr(index)?;
+        let is_vault = matches!(collection.weave(), Weave::Vault(..));
+        let collection_reg = if is_vault { self.gen_snapshot(collection)? } else { self.gen_from_expr(collection)? };
+        let idx = if is_vault { self.gen_snapshot(index)? } else { self.gen_from_expr(index)? };
         let val = self.gen_from_expr(value)?;
 
+        if is_vault {
+            self.instructions.push(Instruction::VaultSet { vault: collection_reg, key: idx, value: val });
+            return Ok(val);
+        }
         self.instructions.push(Instruction::AddToDeck {
-            deck: deck_reg,
+            deck: collection_reg,
             position: idx,
             value: val,
         });
 
-        Ok(deck_reg)
+        Ok(collection_reg)
     }
 
-    fn gen_extract_instruction(
+    fn gen_index_instruction(
         &mut self,
-        deck: WovenExpr,
+        collection: WovenExpr,
         index: WovenExpr,
         _token: Token,
         _weave: Weave,
     ) -> GenResult<u8> {
-        let deck_reg = self.gen_from_expr(deck)?;
+        let is_vault = matches!(collection.weave(), Weave::Vault(..));
+        let collection_reg = if is_vault { self.gen_snapshot(collection)? } else { self.gen_from_expr(collection)? };
         let index_reg = self.gen_from_expr(index)?;
 
         let dest = self.get_next_register()?;
 
+        if is_vault {
+            self.instructions.push(Instruction::VaultGet { dest, vault: collection_reg, key: index_reg });
+            return Ok(dest);
+        }
         self.instructions.push(Instruction::ExtractFromDeck {
             dest,
-            deck: deck_reg,
+            deck: collection_reg,
             index: index_reg,
         });
 

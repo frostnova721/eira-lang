@@ -54,7 +54,8 @@ impl WeaveAnalyzer<'_> {
         }
 
         for element in &elements {
-            let w_element = self.analyze_expression(element.clone(), None)?;
+            let context = prev_elem_weave.as_ref().filter(|w| matches!(w, Weave::Vault(..)));
+            let w_element = self.analyze_expression(element.clone(), context)?;
             let elem_weave = w_element.weave();
             if let Some(prev_weave) = prev_elem_weave {
                 if elem_weave != prev_weave {

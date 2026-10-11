@@ -285,18 +285,19 @@ impl<'a> WeaveAnalyzer<'a> {
             Expr::Access { .. } | Expr::SafeAccess { .. } => {
                 self.analyze_access_expr(expected_weave, expr)
             }
+            Expr::Vault { entries, token } => self.analyze_vault_expr(expected_weave, entries, token),
             Expr::Deck { elements, token } => {
                 self.analyze_deck_expr(expected_weave, elements, token)
             }
-            Expr::Extract { deck, index, token } => {
-                self.analyze_extract_expr(expected_weave, *deck, *index, token)
+            Expr::Index { collection, index, token } => {
+                self.analyze_index_expr(expected_weave, *collection, *index, token)
             }
-            Expr::DeckSet {
-                deck,
+            Expr::IndexSet {
+                collection,
                 index,
                 value,
                 token,
-            } => self.analyze_deck_set_expr(expected_weave, *deck, *index, *value, token),
+            } => self.analyze_index_set_expr(expected_weave, *collection, *index, *value, token),
             Expr::FieldSet {
                 material,
                 property,
@@ -372,6 +373,24 @@ impl<'a> WeaveAnalyzer<'a> {
     }
 
     pub(super) fn analyze_parsed_weave(&mut self, parsed_weave: ParsedWeave) -> WeaveResult<Weave> {
+        if parsed_weave.base.lexeme == "Vault" {
+            let token = parsed_weave.base.clone();
+            let (Some(key), Some(value)) = (parsed_weave.inner, parsed_weave.value) else {
+                return Err(WeaveError { msg: "Vault requires key and value types: Vault<K, V>.".into(), token });
+            };
+            let key = self.analyze_parsed_weave(*key)?;
+            let value = self.analyze_parsed_weave(*value)?;
+            if !matches!(key, Weave::Num | Weave::Text | Weave::Truth) {
+                return Err(WeaveError { msg: "Vault keys must be Num, Text, or Truth.".into(), token });
+            }
+            if matches!(value, Weave::Maybe(_) | Weave::Empty) {
+                return Err(WeaveError { msg: "Vault values cannot be Maybe or Empty until nested optional values are supported.".into(), token });
+            }
+            if parsed_weave.capacity.is_some_and(|n| n > u32::MAX as usize) {
+                return Err(WeaveError { msg: "Vault capacity exceeds 4294967295 entries.".into(), token });
+            }
+            return Ok(Weave::Vault(Box::new(key), Box::new(value), parsed_weave.capacity));
+        }
         let Some(base_weave) = self.get_weave_from_name(&parsed_weave.base.lexeme) else {
             self.error(
                 &format!(

@@ -10,6 +10,7 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    Vault { entries: Vec<(Expr, Expr)>, token: Token },
     Binary {
         left: Box<Expr>,
         right: Box<Expr>,
@@ -50,13 +51,13 @@ pub enum Expr {
         elements: Vec<Expr>,
         token: Token,
     },
-    Extract {
-        deck: Box<Expr>,
+    Index {
+        collection: Box<Expr>,
         index: Box<Expr>,
         token: Token,
     },
-    DeckSet {
-        deck: Box<Expr>,
+    IndexSet {
+        collection: Box<Expr>,
         index: Box<Expr>,
         value: Box<Expr>,
         token: Token,
@@ -93,6 +94,7 @@ pub enum Expr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum WovenExpr {
+    Vault { entries: Vec<(WovenExpr, WovenExpr)>, weave: Weave, token: Token },
     Binary {
         left: Box<WovenExpr>,
         right: Box<WovenExpr>,
@@ -146,14 +148,14 @@ pub enum WovenExpr {
         elements: Vec<WovenExpr>,
         weave: Weave,
     },
-    Extract {
-        deck: Box<WovenExpr>,
+    Index {
+        collection: Box<WovenExpr>,
         index: Box<WovenExpr>,
         token: Token,
         weave: Weave,
     },
-    DeckSet {
-        deck: Box<WovenExpr>,
+    IndexSet {
+        collection: Box<WovenExpr>,
         index: Box<WovenExpr>,
         value: Box<WovenExpr>,
         token: Token,
@@ -215,6 +217,7 @@ pub enum WovenExpr {
 impl WovenExpr {
     pub fn weave(&self) -> Weave {
         match self {
+            WovenExpr::Vault { weave, .. } => weave.clone(),
             WovenExpr::Binary { weave, .. } => weave.clone(),
             WovenExpr::Grouping { weave, .. } => weave.clone(),
             WovenExpr::Literal { weave, .. } => weave.clone(),
@@ -225,8 +228,8 @@ impl WovenExpr {
             WovenExpr::Draw { weave, .. } => weave.clone(),
             WovenExpr::Access { weave, .. } => weave.clone(),
             WovenExpr::Deck { elements: _, weave } => weave.clone(),
-            WovenExpr::Extract { weave, .. } => weave.clone(),
-            WovenExpr::DeckSet { weave, .. } => weave.clone(),
+            WovenExpr::Index { weave, .. } => weave.clone(),
+            WovenExpr::IndexSet { weave, .. } => weave.clone(),
             WovenExpr::FieldSet { weave, .. } => weave.clone(),
             WovenExpr::Manifests { weave, .. } => weave.clone(),
             WovenExpr::SafeAccess { weave, .. } => weave.clone(),
@@ -253,6 +256,7 @@ impl WovenExpr {
 
     pub fn token(&self) -> Token {
         match self {
+            WovenExpr::Vault { token, .. } => token.clone(),
             WovenExpr::Binary { operator, .. } => operator.clone(),
             WovenExpr::Grouping { .. } => Token::dummy(),
             WovenExpr::Literal { token, .. } => token.clone(),
@@ -263,8 +267,8 @@ impl WovenExpr {
             WovenExpr::Draw { callee, .. } => callee.clone(),
             WovenExpr::Access { property, .. } => property.clone(),
             WovenExpr::Deck { .. } => Token::dummy(),
-            WovenExpr::Extract { token, .. } => token.clone(),
-            WovenExpr::DeckSet { token, .. } => token.clone(),
+            WovenExpr::Index { token, .. } => token.clone(),
+            WovenExpr::IndexSet { token, .. } => token.clone(),
             WovenExpr::FieldSet { property, .. } => property.clone(),
             WovenExpr::Manifests { token, .. } => token.clone(),
             WovenExpr::SafeAccess { property, .. } => property.clone(),

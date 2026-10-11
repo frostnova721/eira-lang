@@ -1,4 +1,5 @@
 pub mod deck;
+pub mod vault;
 pub mod native_spell;
 pub mod sign;
 pub mod spell;

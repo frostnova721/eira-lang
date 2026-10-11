@@ -689,6 +689,35 @@ impl EiraVM {
                         }
                     }
                 }
+                OpCode::NewVault => {
+                    let dest = frame!().read_byte();
+                    let limit = frame!().read_constant().extract_number().unwrap();
+                    let hint = frame!().read_u16() as usize;
+                    let limit = if limit < 0.0 { None } else { Some(limit as usize) };
+                    match crate::values::vault::VaultObject::new(limit, hint) {
+                        Ok(v) => set_register!(base, dest, Value::Vault(Rc::new(v))),
+                        Err(e) => { self.runtime_error(&e); return InterpretResult::RuntimeError; }
+                    }
+                }
+                OpCode::VaultSet => {
+                    let (object, key, value) = frame!().read_three_bytes();
+                    let result = match get_register!(base, object) {
+                        Value::Vault(v) => v.insert(get_register!(base, key), get_register!(base, value).clone()),
+                        _ => Err("Expected Vault for indexed assignment.".into()),
+                    };
+                    if let Err(e) = result { self.runtime_error(&e); return InterpretResult::RuntimeError; }
+                }
+                OpCode::VaultGet => {
+                    let (dest, object, key) = frame!().read_three_bytes();
+                    let result = match get_register!(base, object) {
+                        Value::Vault(v) => v.get(get_register!(base, key)),
+                        _ => Err("Expected Vault for indexed lookup.".into()),
+                    };
+                    match result {
+                        Ok(value) => set_register!(base, dest, value),
+                        Err(e) => { self.runtime_error(&e); return InterpretResult::RuntimeError; }
+                    }
+                }
                 OpCode::IsEmptiness => {
                     let dest = frame!().read_byte();
                     let r1 = frame!().read_byte();

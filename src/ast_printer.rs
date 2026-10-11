@@ -309,6 +309,7 @@ impl AstPrinter {
                 self.write(prefix, is_last, &format!("Access: .{}", property.lexeme));
                 self.print_expr(&Self::next_prefix(prefix, is_last), material, true);
             }
+            Expr::Vault { entries, .. } => self.write(prefix, is_last, &format!("Vault {:?}", entries)),
             Expr::Deck { elements, token: _ } => {
                 self.write(prefix, is_last, "Deck");
                 let next = Self::next_prefix(prefix, is_last);
@@ -321,25 +322,25 @@ impl AstPrinter {
                     }
                 }
             }
-            Expr::Extract {
-                deck,
+            Expr::Index {
+                collection,
                 index,
                 token: _,
             } => {
-                self.write(prefix, is_last, "Extract");
+                self.write(prefix, is_last, "Index");
                 let next = Self::next_prefix(prefix, is_last);
-                self.print_expr(&next, deck, false);
+                self.print_expr(&next, collection, false);
                 self.print_expr(&next, index, true);
             }
-            Expr::DeckSet {
-                deck,
+            Expr::IndexSet {
+                collection,
                 index,
                 value,
                 token: _,
             } => {
-                self.write(prefix, is_last, "DeckSet");
+                self.write(prefix, is_last, "IndexSet");
                 let next = Self::next_prefix(prefix, is_last);
-                self.print_expr(&next, deck, false);
+                self.print_expr(&next, collection, false);
                 self.print_expr(&next, index, false);
                 self.print_expr(&next, value, true);
             }
@@ -721,6 +722,7 @@ impl AstPrinter {
                 );
                 self.print_woven_expr(&Self::next_prefix(prefix, is_last), material, true);
             }
+            WovenExpr::Vault { entries, weave, .. } => self.write(prefix, is_last, &format!("Vault {} {:?}", weave.get_name(), entries)),
             WovenExpr::Deck { elements, weave } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
                 self.write(prefix, is_last, &format!("Deck{}", tap));
@@ -734,29 +736,29 @@ impl AstPrinter {
                     }
                 }
             }
-            WovenExpr::Extract {
-                deck,
+            WovenExpr::Index {
+                collection,
                 index,
                 token: _,
                 weave,
             } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
-                self.write(prefix, is_last, &format!("Extract{}", tap));
+                self.write(prefix, is_last, &format!("Index{}", tap));
                 let next = Self::next_prefix(prefix, is_last);
-                self.print_woven_expr(&next, deck, false);
+                self.print_woven_expr(&next, collection, false);
                 self.print_woven_expr(&next, index, true);
             }
-            WovenExpr::DeckSet {
-                deck,
+            WovenExpr::IndexSet {
+                collection,
                 index,
                 value,
                 token: _,
                 weave,
             } => {
                 let tap = self.tapestry_info(&weave.get_tapestry());
-                self.write(prefix, is_last, &format!("DeckSet{}", tap));
+                self.write(prefix, is_last, &format!("IndexSet{}", tap));
                 let next = Self::next_prefix(prefix, is_last);
-                self.print_woven_expr(&next, deck, false);
+                self.print_woven_expr(&next, collection, false);
                 self.print_woven_expr(&next, index, false);
                 self.print_woven_expr(&next, value, true);
             }

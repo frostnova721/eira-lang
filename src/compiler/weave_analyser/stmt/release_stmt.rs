@@ -69,7 +69,7 @@ impl WeaveAnalyzer<'_> {
             // Exact tapestry check (spells should return the exact weave)
             match &expected_weave {
                 Weave::Maybe(inner) => {
-                    if actual_weave == Weave::Empty || actual_weave == **inner {
+                    if actual_weave == expected_weave || actual_weave == Weave::Empty || actual_weave == **inner {
                         // valid release
                     } else {
                         self.error(

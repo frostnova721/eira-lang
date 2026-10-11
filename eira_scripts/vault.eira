@@ -1,0 +1,12 @@
+mark inventory: Vault<Text, Num, 3> = vault {
+    "moonstone": 3,
+    "ember": 8,
+};
+inventory["moonstone"] = 4;
+inventory.insert("frost", 2);
+chant inventory["moonstone"];
+chant inventory.contains("ember");
+chant inventory.size();
+chant inventory.remove("ember");
+inventory["storm"] = 6;
+chant inventory.keys();
