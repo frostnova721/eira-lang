@@ -6,4 +6,5 @@ Welcome to the world of **Eira Programming Language**!
 [Variables](variables.md) <br>
 [Weaves](weaves.md)<br>
 [Spells](spells.md)<br>
+[Native spell internals](native-spells.md)<br>
 [Signs](signs.md)<br>[Vaults (maps)](vaults.md)<br>

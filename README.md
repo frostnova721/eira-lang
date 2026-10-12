@@ -115,7 +115,8 @@ cargo run --locked -- eira_scripts/iterators.eira
 
 ## Converting text to numbers
 
-The native spell `parseNum` takes one `Text` argument and returns a `Num`:
+Got a number trapped inside some text? Cast `parseNum`! This native spell takes
+one `Text` reagent and releases a `Num`. No tethering needed.
 
 ```eira
 mark amount: Num = cast parseNum with "42.5";
@@ -123,10 +124,12 @@ chant amount + 1; // 43.5
 chant parseNum("-12"); // Quick casts work too.
 ```
 
-It trims surrounding whitespace and parses the entire string as a floating-point
-number, supporting signs, decimals, and scientific notation (such as `"1.5e2"`).
-It also accepts `NaN` and infinity (`"inf"` or `"infinity"`). Empty strings and
-invalid text such as `"12abc"` cause a runtime error.
+Spaces around the number are fine. Signs, decimals and scientific notation
+(like `"1.5e2"`) work too. But the whole text must be a number! Empty text or
+something like `"12abc"` will cause a runtime error and stop the scroll.
+
+For more examples and the floating-point details, peek into the
+[native spells page](grimoire/src/spells.md#native-spells).
 
 ## Spells we have mastered (Progress)
 
