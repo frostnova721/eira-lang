@@ -113,6 +113,21 @@ Cast the complete [iterator scroll](eira_scripts/iterators.eira) with:
 cargo run --locked -- eira_scripts/iterators.eira
 ```
 
+## Converting text to numbers
+
+The native spell `parseNum` takes one `Text` argument and returns a `Num`:
+
+```eira
+mark amount: Num = cast parseNum with "42.5";
+chant amount + 1; // 43.5
+chant parseNum("-12"); // Quick casts work too.
+```
+
+It trims surrounding whitespace and parses the entire string as a floating-point
+number, supporting signs, decimals, and scientific notation (such as `"1.5e2"`).
+It also accepts `NaN` and infinity (`"inf"` or `"infinity"`). Empty strings and
+invalid text such as `"12abc"` cause a runtime error.
+
 ## Spells we have mastered (Progress)
 
 - Mutable (`mark`) and immutable (`bind`) bindings, with scopes and weave annotations.

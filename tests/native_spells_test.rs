@@ -100,6 +100,13 @@ mod native_spells_test {
 
     #[test]
     fn test_standalone_spells_resolution() {
+        let parse_num = NativeSpell::resolve("parseNum").unwrap();
+        let info = NativeSpell::get_spell_info(parse_num).unwrap();
+        assert_eq!(info.name, "parseNum");
+        assert_eq!(info.reagents.len(), 1);
+        assert_eq!(info.reagents[0].weave, Weave::Text);
+        assert_eq!(info.release_weave, Weave::Num);
+
         let floor = NativeSpell::resolve("floor").unwrap();
         let info = NativeSpell::get_spell_info(floor).unwrap();
         assert_eq!(info.name, "floor");
@@ -114,6 +121,17 @@ mod native_spells_test {
         let info = NativeSpell::get_spell_info(listen).unwrap();
         assert_eq!(info.name, "listen");
         assert_eq!(info.reagents.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_num_rejects_wrong_arguments() {
+        for source in [
+            "cast parseNum;",
+            "cast parseNum with 42;",
+            "parseNum(\"1\", \"2\");",
+        ] {
+            assert!(analyze_helper(source).is_err(), "{source}");
+        }
     }
 
     #[test]

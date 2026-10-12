@@ -43,6 +43,11 @@ pub fn find_method(target_weave_name: &str, method_name: &str) -> Option<&'stati
 
 pub static STANDALONE_SPELLS: &[StandaloneSpellDef] = &[
     StandaloneSpellDef {
+        name: "parseNum",
+        spell_info: math::parse_num_info,
+        handler: math::parse_num_handler,
+    },
+    StandaloneSpellDef {
         name: "listen",
         spell_info: io::listen_info,
         handler: io::listen_handler,

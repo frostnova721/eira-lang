@@ -1,6 +1,4 @@
-spell magnitude(n: Num):: Num {
-    fate n < 0 {
-        release -n;
-    }
-    // This path reaches the end without a Num.
-}
+
+
+bind a:Num = parseNum(ask("Enter the number :"));
+chant a+69;

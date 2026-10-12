@@ -28,6 +28,34 @@ fn assert_output(source: &str, expected: &str) {
 }
 
 #[test]
+fn parse_num_converts_text_to_numbers() {
+    assert_output(
+        r#"
+        mark n: Num = cast parseNum with "42";
+        chant n + 1;
+        chant parseNum("-12.5");
+        chant parseNum("  +3.25  ");
+        chant parseNum("1.5e2");
+        chant parseNum("0");
+        "#,
+        "43\n-12.5\n3.25\n150\n0\n",
+    );
+}
+
+#[test]
+fn parse_num_invalid_text_stops_execution() {
+    for input in ["", "   ", "hello", "12abc", "1.2.3"] {
+        let project = SourceProject::new(&format!(
+            "chant parseNum({input:?}); chant \"unreachable\";"
+        ));
+        let (stdout, stderr) = run(&project, &[]);
+        let diagnostic = format!("{stdout}{stderr}");
+        assert!(diagnostic.contains("parseNum could not convert"), "{diagnostic}");
+        assert!(!diagnostic.contains("unreachable"), "{diagnostic}");
+    }
+}
+
+#[test]
 fn arithmetic_precedence_text_and_truth() {
     assert_output(
         "chant 2 + 3 * 4; chant (2 + 3) * 4; chant -5; chant 7 % 3; chant 9 / 3; chant \"hello\" + \" world\"; chant !false; chant 3 <= 3;",
