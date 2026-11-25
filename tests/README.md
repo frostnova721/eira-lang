@@ -20,9 +20,11 @@ Run one group with, for example, `cargo test --locked --test runtime_test`.
 Runtime success tests check exact stdout and empty stderr because the CLI currently
 returns exit status zero even on language errors. Tests do not rely on benchmark timings.
 
-Three runtime regressions are explicitly ignored until their implementation is fixed:
+Runtime error tests check stderr for the message and its `file:line:col` trace.
+`external_cast_test.rs` checks the `RuntimeError` returned to a host.
 
-- Nested cycles overwrite the outer iteration value and can panic in the VM.
+Two runtime regressions are explicitly ignored until their implementation is fixed:
+
 - Returning a closure from a spell with parameters carries the outer spell's
   argument metadata into later calls of the closure.
 - Passing a bare source filename to the CLI resolves sibling imports from `/`

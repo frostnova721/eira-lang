@@ -226,10 +226,124 @@ fn cycle_accepts_bound_deck_and_accumulates_values() {
 }
 
 #[test]
-#[ignore = "Known bug: nested cycles overwrite the outer iteration value and panic in the VM"]
 fn nested_cycles_visit_every_pair() {
     assert_output(
         "a ~~ 1..2 { b ~~ [3, 4] { chant a * 10 + b; } }",
         "13\n14\n23\n24\n",
     );
+}
+
+#[test]
+fn registers_are_reused_across_statements() {
+    // Each statement used to keep its temporaries forever, overflowing 255 registers.
+    let source: String = (1..=300).map(|n| format!("chant {n};\n")).collect();
+    let expected: String = (1..=300).map(|n| format!("{n}\n")).collect();
+    assert_output(&source, &expected);
+
+    let source = format!(
+        "spell many() {{ mark total = 0; {} chant total; }} cast many;",
+        "total = total + 1;\n".repeat(300)
+    );
+    assert_output(&source, "300\n");
+}
+
+#[test]
+fn spell_body_local_does_not_clobber_parameter() {
+    assert_output(
+        "spell f(a: Num, b: Num) { mark c = 5; mark d = 6; chant a; chant b; chant c + d; } cast f with 1, 2;",
+        "1\n2\n11\n",
+    );
+}
+
+#[test]
+fn nested_block_locals_keep_their_own_registers() {
+    assert_output(
+        "{ mark x = 1; { mark y = 2; chant x; chant y; } chant x; }",
+        "1\n2\n1\n",
+    );
+}
+
+#[test]
+fn cycle_does_not_overwrite_iterated_local() {
+    assert_output(
+        "{ bind d: Deck<Num> = [1, 2]; x ~~ d { chant x; } chant d[0]; }",
+        "1\n2\n1\n",
+    );
+}
+
+#[test]
+fn branches_containing_decks_and_signs_jump_correctly() {
+    // NewDeck and NewSign declared the wrong byte size, so jumps over them landed mid-instruction.
+    assert_output(
+        r#"
+        sign Point { x: Num, }
+        mark i = 0;
+        while i < 2 {
+            fate i == 0 {
+                bind e: Deck<Num> = [5];
+                bind p = ~Point with { x: 7, };
+                chant e[0] + p.x;
+            }
+            i = i + 1;
+        }
+        chant "done";
+        "#,
+        "12\ndone\n",
+    );
+}
+
+#[test]
+fn closure_captures_local_of_spell_with_upvalues() {
+    // `middle` keeps its own capture in register 0, so `b` is not at its slot index.
+    assert_output(
+        r#"
+        spell outer() {
+            mark a = 1;
+            spell middle() {
+                chant a;
+                mark b = 20;
+                spell inner() { chant b; }
+                cast inner;
+            }
+            cast middle;
+        }
+        cast outer;
+        "#,
+        "1\n20\n",
+    );
+}
+
+#[test]
+fn runtime_error_reports_location_and_trace() {
+    let project = SourceProject::new(
+        "spell inner(xs: Deck<Num>):: Num {\n    release xs[5];\n}\nchant cast inner with [1, 2];\nchant \"unreachable\";\n",
+    );
+    let (stdout, stderr) = run(&project, &[]);
+    assert!(!stdout.contains("unreachable"), "{stdout}");
+    assert!(stderr.contains("Index out of bounds"), "{stderr}");
+    assert!(stderr.contains("main.eira:2:"), "{stderr}");
+    assert!(stderr.contains("(spell 'inner')"), "{stderr}");
+    assert!(stderr.contains("main.eira:4:"), "{stderr}");
+}
+
+#[test]
+fn negative_and_fractional_deck_indexes_are_errors() {
+    for index in ["-1", "1.5"] {
+        let project = SourceProject::new(&format!(
+            "bind d: Deck<Num> = [1, 2, 3]; chant d[{index}]; chant \"unreachable\";"
+        ));
+        let (stdout, stderr) = run(&project, &[]);
+        assert!(stderr.contains("whole, non-negative"), "{stderr}");
+        assert!(!stdout.contains("unreachable"), "{stdout}");
+    }
+}
+
+#[test]
+fn runaway_recursion_is_a_runtime_error() {
+    let project = SourceProject::new(
+        "spell forever(n: Num):: Num { release cast forever with n + 1; } chant cast forever with 0;",
+    );
+    let (_, stderr) = run(&project, &[]);
+    assert!(stderr.contains("Stack overflow"), "{stderr}");
+    assert!(stderr.contains("more times"), "{stderr}");
 }

@@ -4,6 +4,7 @@ use eira::{
     EiraVM,
     compiler::compiler::{Compiler, CompilerOptions},
     project::config::Project,
+    runtime::vm::InterpretResult,
 };
 
 fn main() {
@@ -89,5 +90,7 @@ fn main() {
         return;
     }
 
-    EiraVM::init(compiled.ok().unwrap()).start();
+    if let InterpretResult::RuntimeError(error) = EiraVM::init(compiled.ok().unwrap()).start() {
+        eprintln!("Oh no! The VM broke down.\nError: {}", error);
+    }
 }

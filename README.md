@@ -240,7 +240,7 @@ cargo run --locked -- eira_scripts/factorial.eira --no-run --pinst
 cargo test --locked
 ```
 
-Current tally: **68 passing tests and 3 ignored regression tests**. Three known curses
+Current tally: **105 passing tests and 2 ignored regression tests**. Two known curses
 have their own reproducers waiting for a fix; they aren't counted as victories!
 The suite covers
 scanning, parsing, weave analysis, compilation diagnostics, and program execution.
@@ -250,9 +250,6 @@ See [tests/README.md](tests/README.md) for the layout, focused test commands, an
 instructions for running the known regression cases.
 
 ## Known curses (Limitations)
-
-- Nested iterator cycles can overwrite the outer iteration value and crash the VM;
-  a regression test records the expected behavior.
 
 - Returned closures can inherit the enclosing spell's argument metadata, causing
   valid calls to be rejected. A regression test captures this case.

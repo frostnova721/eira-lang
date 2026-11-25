@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::{
     CodeGen, Parser, Value, assembler::Assembler, compiler::{
         diagnostics::Augury, scanner::{Scanner, Token}, scroll_reader::ScrollReader, weave_analyser::WeaveAnalyzerContext,
-    }, print_ast, print_byte_code, print_woven_ast, project::config::Project, runtime::Instruction, weave_analyser::WeaveAnalyzer,
+    }, print_ast, print_byte_code, print_woven_ast, project::config::Project, runtime::Instruction, values::spell::LineTable, weave_analyser::WeaveAnalyzer,
 };
 
 type Result<T> = std::result::Result<T, CompileError>;
@@ -35,6 +35,8 @@ pub struct CompiledCode {
     pub bytecode: Vec<u8>,
     pub instructions: Vec<Instruction>,
     pub constants: Vec<Value>,
+    /// Source locations for the top-level bytecode.
+    pub lines: LineTable,
 }
 
 pub enum CompileState {
@@ -180,7 +182,8 @@ impl Compiler {
             woven_ast,
             self.options.print_instructions,
             self.options.print_bytecode,
-        );
+        )
+        .with_source_name(&self.source_path);
         match cg.summon_instructions() {
             Err(gen_error) => {
                 // println!("CodeGen Error: {}", gen_error.msg);
@@ -192,6 +195,7 @@ impl Compiler {
                 bytecode: vec![],
                 instructions,
                 constants: cg.get_constants(),
+                lines: cg.get_line_table(),
             }),
         }
     }

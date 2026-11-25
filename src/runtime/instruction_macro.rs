@@ -6,6 +6,14 @@ macro_rules! define_instructions {
             }
         ),* $(,)?
     ) => {
+        // Jump offsets are computed from the declared sizes, so they must match the encoding.
+        $(
+            const _: () = assert!(
+                $size == 1 $( + define_instructions!(@size $ty) )*,
+                concat!("Declared size of ", stringify!($instr_name), " does not match its fields")
+            );
+        )*
+
         // Generate OpCode enum
         #[repr(u8)]
         #[derive(Debug, Clone, Copy, PartialEq, Eq, num_enum::IntoPrimitive, num_enum::TryFromPrimitive)]
@@ -100,6 +108,10 @@ macro_rules! define_instructions {
     (@type u8) => { u8 };
     (@type u16) => { u16 };
 
+    // Encoded size of a field
+    (@size u8) => { 1 };
+    (@size u16) => { 2 };
+
     // Helper: Format instruction string
     (@format_instr $name:expr,) => {
         $name.to_string()
@@ -178,7 +190,7 @@ define_instructions! {
     Halt(26, 1) {},
 
     // Sign Stuff. schema_reg is the register which has the schema
-    NewSign(27,4) { dest: u8, schema_reg: u8 },
+    NewSign(27, 3) { dest: u8, schema_reg: u8 },
 
     // Set a field to a sign. [field_name] is the string constant's index in the const pool
     // The [val_reg] is the register where the value for the field is stored
@@ -188,7 +200,7 @@ define_instructions! {
     SafeGetField(30, 5) { dest: u8, sign_reg: u8, field_name: u16 },
 
     // Deck operations.
-    NewDeck(31, 6) { dest: u8, start_reg: u8, count: u8 },
+    NewDeck(31, 4) { dest: u8, start_reg: u8, count: u8 },
     NewFixedDeck(32, 6) { dest: u8, start_reg: u8, count: u8, capacity: u16 },
     AddToDeck(33, 4) { deck: u8, position: u8, value: u8 },
     ExtractFromDeck(34, 4) { dest: u8, deck: u8, index: u8 },

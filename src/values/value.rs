@@ -200,8 +200,14 @@ pub fn print_value(value: Value) {
         Value::Emptiness => println!("Emptiness"),
         Value::Number(value) => println!("{}", value),
         Value::String(value) => println!("{}", value),
-        Value::Closure(closure) => println!("Spell '{}'", closure.spell.name.clone().unwrap()),
-        Value::Spell(spell) => println!("Spell '{}'", spell.name.clone().unwrap()),
+        Value::Closure(closure) => println!(
+            "Spell '{}'",
+            closure.spell.name.as_deref().unwrap_or("<anonymous>")
+        ),
+        Value::Spell(spell) => println!(
+            "Spell '{}'",
+            spell.name.as_deref().unwrap_or("<anonymous>")
+        ),
         Value::Sign(sign) => {
             let sign = sign.borrow();
             println!("Sign '{}' {:?}", sign.schema.name.clone(), sign.marks)

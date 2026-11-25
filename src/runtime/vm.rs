@@ -3,7 +3,10 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use crate::{
     SpellObject,
     compiler::compiler::CompiledCode,
-    runtime::OpCode,
+    runtime::{
+        OpCode,
+        error::{RuntimeError, RuntimeLocation, TraceFrame},
+    },
     values::{
         Value,
         deck::DeckObject,
@@ -15,9 +18,12 @@ use crate::{
     },
 };
 
+/// Nested casts allowed before the VM reports a stack overflow.
+pub const MAX_FRAMES: usize = 10_000;
+
 pub enum InterpretResult {
     CompileError,
-    RuntimeError,
+    RuntimeError(RuntimeError),
     InterpretOk,
     Returned(Value),
 }
@@ -42,6 +48,8 @@ struct CallFrame {
     upvalue_mappings: Vec<(usize, usize)>, // (local_reg, parent_stack_idx)
 }
 
+// Operand reads trust the bytecode layout produced by the compiler. The dispatch
+// loop checks that each instruction starts inside the bytecode.
 impl CallFrame {
     #[inline(always)]
     pub fn read_byte(&mut self) -> u8 {
@@ -73,6 +81,32 @@ impl CallFrame {
         let ind = self.read_u16();
         &self.closure.spell.constants[ind as usize]
     }
+
+    /// Source location of the instruction this frame is executing (or, for a caller
+    /// frame, the cast it is waiting on). `ip` is always past the opcode byte.
+    fn location(&self) -> Option<RuntimeLocation> {
+        self.closure
+            .spell
+            .lines
+            .lookup(self.ip.saturating_sub(1))
+            .map(|entry| RuntimeLocation {
+                file: entry.file.to_string(),
+                line: entry.line,
+                column: entry.column,
+            })
+    }
+}
+
+/// Converts a deck index value to a position, rejecting negative or fractional numbers.
+fn to_index(value: &Value) -> Result<usize, String> {
+    match value {
+        Value::Number(n) if n.is_finite() && *n >= 0.0 && n.fract() == 0.0 => Ok(*n as usize),
+        Value::Number(n) => Err(format!(
+            "Deck index must be a whole, non-negative number. Got {}.",
+            n
+        )),
+        other => Err(format!("Deck index must be a number. Got {:?}.", other)),
+    }
 }
 
 pub struct EiraVM {
@@ -99,6 +133,7 @@ impl EiraVM {
                 constants: compiled_code.constants,
                 name: None,
                 upvalue_count: 0,
+                lines: compiled_code.lines,
             }),
             upvalues: vec![],
         };
@@ -118,39 +153,52 @@ impl EiraVM {
         vm
     }
 
-    fn runtime_error(&mut self, msg: &str) {
-        println!(
-            "Oh no! The VM broke down. \nError: {} at line {}:{}",
-            msg, 0, 0
-        );
-
-        // ignore other instructions.
-        // while self.ip < self.bytecode.len()-1 {
-        //     self.ip += 1;
-        // }
+    /// Builds an error carrying the location of every active frame, innermost first.
+    fn error_here(&self, msg: impl Into<String>) -> RuntimeError {
+        let trace = self
+            .frames
+            .iter()
+            .rev()
+            .map(|frame| TraceFrame {
+                spell: frame.closure.spell.name.clone(),
+                location: frame.location(),
+            })
+            .collect();
+        RuntimeError {
+            message: msg.into(),
+            trace,
+        }
     }
 
     /// Invoke a function from external code with spell name and its arguments.
-    pub fn cast(&mut self, spell: &str, args: Vec<Value>) -> Result<Value, String> {
+    pub fn cast(&mut self, spell: &str, args: Vec<Value>) -> Result<Value, RuntimeError> {
         if !self.initialized {
-            return Err("Run module initialization before invoking a spell.".into());
+            return Err(RuntimeError::new(
+                "Run module initialization before invoking a spell.",
+            ));
         }
 
         if !self.frames.is_empty() {
-            return Err("The VM is already executing or has unfinished frames.".into());
+            return Err(RuntimeError::new(
+                "The VM is already executing or has unfinished frames.",
+            ));
         }
 
         let closure = match self.globals.get(spell) {
             Some(Value::Closure(closure)) => Rc::clone(closure),
-            _ => return Err(format!("Spell '{spell}' not found or is not a closure.")),
+            _ => {
+                return Err(RuntimeError::new(format!(
+                    "Spell '{spell}' not found or is not a closure."
+                )));
+            }
         };
 
         let arity = closure.spell.arity as usize;
         if args.len() != arity {
-            return Err(format!(
+            return Err(RuntimeError::new(format!(
                 "Expected {arity} arguments, but got {}.",
                 args.len()
-            ));
+            )));
         }
 
         let stack_base = self.stack.len();
@@ -179,17 +227,25 @@ impl EiraVM {
 
         match outcome {
             InterpretResult::Returned(value) => Ok(value),
-            InterpretResult::RuntimeError => Err("Runtime error occurred.".into()),
-            InterpretResult::CompileError => Err("Compile error occurred.".into()),
-            InterpretResult::InterpretOk => {
-                Err("Invocation ended without returning to the host.".into())
-            }
+            InterpretResult::RuntimeError(error) => Err(error),
+            InterpretResult::CompileError => Err(RuntimeError::new("Compile error occurred.")),
+            InterpretResult::InterpretOk => Err(RuntimeError::new(
+                "Invocation ended without returning to the host.",
+            )),
         }
     }
 
     pub fn start(&mut self) -> InterpretResult {
         if self.frames.is_empty() {
             return InterpretResult::InterpretOk;
+        }
+
+        // Stops execution with a runtime error at the current instruction.
+        macro_rules! fail {
+            ($($arg:tt)*) => {{
+                let error = self.error_here(format!($($arg)*));
+                return InterpretResult::RuntimeError(error);
+            }};
         }
 
         macro_rules! set_register {
@@ -203,9 +259,19 @@ impl EiraVM {
         }
 
         macro_rules! get_register {
-            ($base:expr, $index:expr) => {{ &self.stack[$base + $index as usize] }};
+            ($base:expr, $index:expr) => {{
+                let idx = $base + $index as usize;
+                if idx >= self.stack.len() {
+                    fail!(
+                        "Register {} was read before being written. This is a compiler bug, please report it.",
+                        $index
+                    );
+                }
+                &self.stack[idx]
+            }};
         }
 
+        // The loop only runs while a frame exists (checked at the top of each iteration).
         macro_rules! frame {
             () => {
                 self.frames.last_mut().unwrap()
@@ -215,16 +281,17 @@ impl EiraVM {
         macro_rules! binary_op {
             ($op:tt) => {{
                 let (dest, r1, r2) = frame!().read_three_bytes();
-                let v1 = get_register!(frame!().reg_base, r1);
-                let v2 = get_register!(frame!().reg_base, r2);
+                let base = frame!().reg_base;
+                let v1 = get_register!(base, r1);
+                let v2 = get_register!(base, r2);
                 match (v1, v2) {
                     (Value::Number(n1), Value::Number(n2)) => {
                         let r = n1 $op n2;
-                        set_register!(frame!().reg_base, dest, Value::from(r));
+                        set_register!(base, dest, Value::from(r));
                     }
                     _ => {
-                        self.runtime_error(&format!("Operands should be 2 numbers! Got {:?} and {:?}", v1, v2));
-                        return InterpretResult::RuntimeError;
+                        let msg = format!("Operands should be 2 numbers! Got {:?} and {:?}", v1, v2);
+                        fail!("{}", msg);
                     }
                 }
             }};
@@ -234,8 +301,18 @@ impl EiraVM {
         // let mut instruction_count: u32 = 0;
 
         loop {
+            if self.frames.is_empty() {
+                return InterpretResult::InterpretOk;
+            }
             let base = frame!().reg_base;
-            let op = OpCode::try_from(frame!().read_byte()).unwrap();
+            if frame!().ip >= frame!().closure.spell.bytecode.len() {
+                fail!("Execution ran past the end of the bytecode. This is a compiler bug, please report it.");
+            }
+            let byte = frame!().read_byte();
+            let op = match OpCode::try_from(byte) {
+                Ok(op) => op,
+                Err(_) => fail!("Invalid opcode {} encountered. The bytecode is corrupted.", byte),
+            };
             // instruction_count += 1;
             match op {
                 OpCode::Add => binary_op!(+),
@@ -247,7 +324,18 @@ impl EiraVM {
                     let (dest, r1, r2) = frame!().read_three_bytes();
                     let v1 = get_register!(base, r1);
                     let v2 = get_register!(base, r2);
-                    let r = v1.extract_string().unwrap() + &v2.extract_string().unwrap();
+                    let r = match (v1, v2) {
+                        (Value::String(a), Value::String(b)) => {
+                            let mut s = String::with_capacity(a.len() + b.len());
+                            s.push_str(a);
+                            s.push_str(b);
+                            s
+                        }
+                        _ => {
+                            let msg = format!("Concatenation needs 2 texts! Got {:?} and {:?}", v1, v2);
+                            fail!("{}", msg);
+                        }
+                    };
                     set_register!(base, dest, Value::String(Rc::new(r)));
                 }
                 OpCode::Equal => {
@@ -274,31 +362,23 @@ impl EiraVM {
                 OpCode::Negate => {
                     let dest = frame!().read_byte();
                     let src_ind = frame!().read_byte();
-                    let source = get_register!(base, src_ind);
-                    match source {
+                    match get_register!(base, src_ind) {
                         Value::Number(n) => {
                             let num = *n;
                             set_register!(base, dest, Value::Number(-num));
                         }
-                        _ => {
-                            self.runtime_error("What???!! Negation needs a number operand.");
-                            return InterpretResult::RuntimeError;
-                        }
+                        _ => fail!("What???!! Negation needs a number operand."),
                     }
                 }
                 OpCode::Not => {
                     let dest = frame!().read_byte();
                     let src_ind = frame!().read_byte();
-                    let source = get_register!(base, src_ind);
-                    match source {
+                    match get_register!(base, src_ind) {
                         Value::Bool(b) => {
                             let boo = *b;
                             set_register!(base, dest, Value::Bool(!boo));
                         }
-                        _ => {
-                            self.runtime_error("What???!! Not needs a boolean operand.");
-                            return InterpretResult::RuntimeError;
-                        }
+                        _ => fail!("What???!! Not needs a boolean operand."),
                     }
                 }
                 OpCode::Constant => {
@@ -307,16 +387,13 @@ impl EiraVM {
                     match cval {
                         Value::Closure(c) => {
                             // Eagerly bind upvalues: capture from current frame into a fresh ClosureObject
-                            let upcount = c.spell.upvalue_count as usize;
-                            let mut new_upvalues: Vec<UpValue> = Vec::with_capacity(upcount);
-                            for i in 0..upcount {
-                                let u = &c.upvalues[i];
-                                let capture_idx = frame!().reg_base + u.index;
-                                let captured = if capture_idx < self.stack.len() {
-                                    self.stack[capture_idx].clone()
-                                } else {
-                                    Value::Emptiness
-                                };
+                            let mut new_upvalues: Vec<UpValue> = Vec::with_capacity(c.upvalues.len());
+                            for u in c.upvalues.iter() {
+                                let captured = self
+                                    .stack
+                                    .get(base + u.index)
+                                    .cloned()
+                                    .unwrap_or(Value::Emptiness);
                                 new_upvalues.push(UpValue {
                                     index: u.index,
                                     depth: u.depth,
@@ -343,38 +420,33 @@ impl EiraVM {
                 OpCode::SetGlobal => {
                     let src_reg_ind = frame!().read_byte();
                     let var_name_value = frame!().read_constant().clone();
-                    let value = get_register!(base, src_reg_ind);
+                    let value = get_register!(base, src_reg_ind).clone();
                     if let Value::String(name) = var_name_value {
-                        self.globals.insert(name.to_string(), value.clone());
+                        self.globals.insert(name.to_string(), value);
                     } else {
-                        self.runtime_error(
-                            "Fatal: A string was expected for the global variable name.",
-                        );
-                        return InterpretResult::RuntimeError;
+                        fail!("Fatal: A string was expected for the global variable name.");
                     }
                 }
                 OpCode::GetGlobal => {
                     let dest_reg = frame!().read_byte();
                     let val = frame!().read_constant().clone();
                     if let Value::String(name) = val {
-                        let global = self.globals.get(&name.to_string());
-                        if let Some(value) = global {
-                            set_register!(base, dest_reg, value.clone());
-                        } else {
-                            self.runtime_error(&format!("The mark '{}' was undefined", name));
+                        match self.globals.get(name.as_str()) {
+                            Some(value) => {
+                                let value = value.clone();
+                                set_register!(base, dest_reg, value);
+                            }
+                            None => fail!("The mark '{}' was undefined", name),
                         }
                     } else {
-                        self.runtime_error(
-                            "Fatal: A string was expected for the global variable name.",
-                        );
-                        return InterpretResult::RuntimeError;
+                        fail!("Fatal: A string was expected for the global variable name.");
                     }
                 }
                 OpCode::Move => {
                     let dest_slot = frame!().read_byte();
                     let src_reg = frame!().read_u16();
                     // Move FROM src_reg TO dest_slot (both are register indices)
-                    let val = get_register!(base, src_reg as u8).clone();
+                    let val = get_register!(base, src_reg).clone();
                     set_register!(base, dest_slot, val);
                 }
                 OpCode::Emptiness => {
@@ -382,18 +454,13 @@ impl EiraVM {
                     set_register!(base, dest_reg, Value::Emptiness);
                 }
                 OpCode::PopStack => {
-                    let mut count = frame!().read_u16();
-                    while count > 0 {
-                        self.stack.pop();
-                        count -= 1;
-                    }
+                    let count = frame!().read_u16() as usize;
+                    let new_len = self.stack.len().saturating_sub(count);
+                    self.stack.truncate(new_len);
                 }
                 OpCode::Jump => {
                     let offset = frame!().read_u16();
-                    // if offset as usize > frame!().closure.spell.bytecode.len() {
-                    //     self.runtime_error("Fatal: Jump offset is out of bounds.");
-                    //     return InterpretResult::RuntimeError;
-                    // }
+                    // An out-of-range target is caught at the top of the loop
                     frame!().ip += offset as usize;
                 }
                 OpCode::JumpIfFalse => {
@@ -414,19 +481,23 @@ impl EiraVM {
                 }
                 OpCode::Loop => {
                     let offset = frame!().read_u16();
-                    frame!().ip -= offset as usize;
+                    match frame!().ip.checked_sub(offset as usize) {
+                        Some(ip) => frame!().ip = ip,
+                        None => fail!("Loop jumped before the start of the bytecode. This is a compiler bug, please report it."),
+                    }
                 }
                 OpCode::Halt => {
                     self.frames.pop();
                     self.initialized = true;
                     break;
-                },
+                }
                 OpCode::Release => {
                     let ret_reg = frame!().read_byte();
-                    let ret_idx = frame!().reg_base + ret_reg as usize;
-                    let ret_val = self.stack[ret_idx].clone();
+                    let ret_val = get_register!(base, ret_reg).clone();
 
-                    let finished = self.frames.pop().unwrap();
+                    let Some(finished) = self.frames.pop() else {
+                        fail!("Release without an active spell.");
+                    };
 
                     // Sync upvalue changes back to parent frame before truncating stack
                     for (local_reg, parent_stack_idx) in &finished.upvalue_mappings {
@@ -434,8 +505,10 @@ impl EiraVM {
                         if local_stack_idx < self.stack.len()
                             && *parent_stack_idx < self.stack.len()
                         {
-                            let val = self.stack[local_stack_idx].clone();
-                            *finished.closure.upvalues[*local_reg].closed.borrow_mut() = val;
+                            if let Some(upvalue) = finished.closure.upvalues.get(*local_reg) {
+                                let val = self.stack[local_stack_idx].clone();
+                                *upvalue.closed.borrow_mut() = val;
+                            }
                         }
                     }
 
@@ -443,13 +516,7 @@ impl EiraVM {
 
                     match finished.return_target {
                         ReturnTarget::Register { base, reg } => {
-                            let dest_idx = base + reg as usize;
-
-                            if dest_idx >= self.stack.len() {
-                                self.stack.resize(dest_idx + 1, Value::Emptiness);
-                            }
-
-                            self.stack[dest_idx] = ret_val;
+                            set_register!(base, reg, ret_val);
                         }
                         ReturnTarget::Host => {
                             return InterpretResult::Returned(ret_val);
@@ -464,54 +531,56 @@ impl EiraVM {
                     let spell_reg = frame!().read_byte();
                     let reg_start = frame!().read_byte();
 
-                    let frame_slot_start = self.stack.len();
-
-                    let callee_idx = frame!().reg_base + spell_reg as usize;
-                    if callee_idx >= self.stack.len() {
-                        self.runtime_error(&format!("Cast: spell register {} (stack index {}) out of bounds (stack size: {})", spell_reg, callee_idx, self.stack.len()));
-                        return InterpretResult::RuntimeError;
+                    if self.frames.len() >= MAX_FRAMES {
+                        fail!(
+                            "Stack overflow: more than {} nested casts. Is a spell recursing forever?",
+                            MAX_FRAMES
+                        );
                     }
-                    let callee_val = self.stack[callee_idx].clone();
-                    let spell = match callee_val {
-                        Value::Closure(c) => c,
-                        _ => {
-                            self.runtime_error(&format!("Attempted to cast a non-spell value: {:?} at register {} (stack[{}])", callee_val, spell_reg, callee_idx));
-                            return InterpretResult::RuntimeError;
+
+                    let spell = match get_register!(base, spell_reg) {
+                        Value::Closure(c) => c.clone(),
+                        other => {
+                            let msg = format!("Attempted to cast a non-spell value: {:?}", other);
+                            fail!("{}", msg);
                         }
                     };
 
                     let arity = spell.spell.arity as usize;
+                    let arg_start = base + reg_start as usize;
+                    if arity > 0 && arg_start + arity > self.stack.len() {
+                        fail!(
+                            "Cast reagents (registers {}..{}) were not set. This is a compiler bug, please report it.",
+                            reg_start,
+                            reg_start as usize + arity
+                        );
+                    }
 
-                    let upvalues_count = spell.spell.upvalue_count as usize;
+                    let frame_slot_start = self.stack.len();
+                    let upvalues_count = spell.upvalues.len();
                     let total = upvalues_count + arity;
 
                     // Grow the stack if needed
-                    if frame_slot_start + total > self.stack.len() {
-                        self.stack
-                            .resize(frame_slot_start + total, Value::Emptiness);
-                    }
+                    self.stack
+                        .resize(frame_slot_start + total, Value::Emptiness);
 
                     // Track upvalue mappings for this frame (unused with eager capture)
                     let upvalue_mappings = Vec::new();
                     // Populate upvalue registers from eagerly captured values
-                    for i in 0..upvalues_count {
-                        let v = spell.upvalues[i].closed.borrow().clone();
-                        self.stack[frame_slot_start + i] = v;
+                    for (i, upvalue) in spell.upvalues.iter().enumerate() {
+                        self.stack[frame_slot_start + i] = upvalue.closed.borrow().clone();
                     }
 
                     for i in 0..arity {
                         self.stack[frame_slot_start + upvalues_count + i] =
-                            self.stack[frame!().reg_base + (reg_start as usize) + i].clone();
+                            self.stack[arg_start + i].clone();
                     }
 
                     let new_frame = CallFrame {
                         ip: 0,
                         closure: spell,
                         // slot_start: frame_slot_start,
-                        return_target: ReturnTarget::Register {
-                            base: frame!().reg_base,
-                            reg: dest,
-                        },
+                        return_target: ReturnTarget::Register { base, reg: dest },
                         reg_base: frame_slot_start, // Unified: registers start at same place as slots (params are reg 0..arity)
                         // caller_reg_base: frame!().reg_base,
                         upvalue_mappings,
@@ -521,14 +590,11 @@ impl EiraVM {
                 OpCode::NewSign => {
                     let dest = frame!().read_byte();
                     let value = frame!().read_byte();
-                    let schema = match get_register!(base, value).clone() {
-                        Value::SignSchema(sc) => sc,
-                        _ => {
-                            self.runtime_error(&format!(
-                                "The constant {:?} in the constant table is not a sign!",
-                                value
-                            ));
-                            return InterpretResult::RuntimeError;
+                    let schema = match get_register!(base, value) {
+                        Value::SignSchema(sc) => sc.clone(),
+                        other => {
+                            let msg = format!("Expected a sign schema to draw from, got {:?}.", other);
+                            fail!("{}", msg);
                         }
                     };
 
@@ -542,11 +608,13 @@ impl EiraVM {
 
                     let val = get_register!(base, val_reg).clone();
 
-                    let sign_idx = base + sign_reg as usize;
-                    if let Value::Sign(s) = &self.stack[sign_idx] {
-                        let _ = s.borrow_mut().set_field(field_name_idx as usize, val);
-                    } else {
-                        return InterpretResult::RuntimeError;
+                    let result = match get_register!(base, sign_reg) {
+                        Value::Sign(s) => s.borrow_mut().set_field(field_name_idx as usize, val),
+                        Value::Emptiness => Err("Cannot set a field on an empty value.".to_string()),
+                        other => Err(format!("SET_FIELD needs a 'Sign' value, got {:?}.", other)),
+                    };
+                    if let Err(e) = result {
+                        fail!("{}", e);
                     }
                 }
                 OpCode::GetField => {
@@ -554,14 +622,14 @@ impl EiraVM {
                     let sign_reg = frame!().read_byte();
                     let field_name = frame!().read_u16();
 
-                    let sign = get_register!(base, sign_reg);
-                    match sign {
-                        Value::Sign(s) => {
-                            let val = s.borrow().get_field(field_name as usize);
-                            set_register!(base, dest, val);
-                        }
-                        _ => self
-                            .runtime_error("GET_FIELD Operation was used with a non 'Sign' value"),
+                    let val = match get_register!(base, sign_reg) {
+                        Value::Sign(s) => s.borrow().get_field(field_name as usize),
+                        Value::Emptiness => fail!("Cannot read a field of an empty value."),
+                        _ => fail!("GET_FIELD Operation was used with a non 'Sign' value"),
+                    };
+                    match val {
+                        Some(val) => set_register!(base, dest, val),
+                        None => fail!("Field index {} out of bounds.", field_name),
                     }
                 }
                 OpCode::SafeGetField => {
@@ -569,30 +637,24 @@ impl EiraVM {
                     let sign_reg = frame!().read_byte();
                     let field_name = frame!().read_u16();
 
-                    let sign = get_register!(base, sign_reg);
-                    match sign {
-                        Value::Emptiness => {
-                            set_register!(base, dest, Value::Emptiness);
-                        }
-                        Value::Sign(s) => {
-                            let val = s.borrow().get_field(field_name as usize);
-                            set_register!(base, dest, val);
-                        }
-                        _ => self.runtime_error(
-                            "SAFE_GET_FIELD Operation was used with a non 'Sign' value",
-                        ),
+                    let val = match get_register!(base, sign_reg) {
+                        Value::Emptiness => Some(Value::Emptiness),
+                        Value::Sign(s) => s.borrow().get_field(field_name as usize),
+                        _ => fail!("SAFE_GET_FIELD Operation was used with a non 'Sign' value"),
+                    };
+                    match val {
+                        Some(val) => set_register!(base, dest, val),
+                        None => fail!("Field index {} out of bounds.", field_name),
                     }
                 }
                 OpCode::NewDeck => {
                     let reg = frame!().read_byte();
-                    let start = frame!().read_byte();
-                    let count = frame!().read_byte();
+                    let start = frame!().read_byte() as usize;
+                    let count = frame!().read_byte() as usize;
 
-                    let mut values: Vec<Value> = vec![];
-
+                    let mut values: Vec<Value> = Vec::with_capacity(count);
                     for i in start..start + count {
-                        let val = get_register!(base, i).clone();
-                        values.push(val);
+                        values.push(get_register!(base, i).clone());
                     }
 
                     set_register!(
@@ -603,15 +665,13 @@ impl EiraVM {
                 }
                 OpCode::NewFixedDeck => {
                     let reg = frame!().read_byte();
-                    let start = frame!().read_byte();
-                    let count = frame!().read_byte();
+                    let start = frame!().read_byte() as usize;
+                    let count = frame!().read_byte() as usize;
                     let capacity = frame!().read_u16() as usize;
 
-                    let mut values: Vec<Value> = Vec::with_capacity(capacity);
-
+                    let mut values: Vec<Value> = Vec::with_capacity(capacity.max(count));
                     for i in start..start + count {
-                        let val = get_register!(base, i).clone();
-                        values.push(val);
+                        values.push(get_register!(base, i).clone());
                     }
 
                     set_register!(
@@ -623,41 +683,32 @@ impl EiraVM {
                 OpCode::AddToDeck => {
                     let deck_reg = frame!().read_byte();
                     let position = frame!().read_byte();
-                    let val = get_register!(base, frame!().read_byte()).clone();
-                    let idx = get_register!(base, position).extract_number().unwrap() as usize;
+                    let value_reg = frame!().read_byte();
+                    let val = get_register!(base, value_reg).clone();
+                    let idx = match to_index(get_register!(base, position)) {
+                        Ok(idx) => idx,
+                        Err(e) => fail!("{}", e),
+                    };
 
-                    let deck_val = get_register!(base, deck_reg).clone();
+                    let d = match get_register!(base, deck_reg) {
+                        Value::Deck(d) => d.clone(),
+                        _ => fail!("Value is not a Deck to perform 'ADD_TO_DECK Operation'"),
+                    };
 
-                    match deck_val {
-                        Value::Deck(d) => {
-                            let len = d.items.borrow().len();
+                    let len = d.items.borrow().len();
 
-                            if let Some(cap) = d.capacity {
-                                if idx >= cap {
-                                    self.runtime_error(
-                                    &format!("Index out of bounds while adding element to a deck. Tried to add at {} while deck capacity is {}.", idx, cap),
-                                );
-                                    return InterpretResult::RuntimeError;
-                                }
-                            }
-
-                            if idx > len {
-                                self.runtime_error(
-                                    &format!("Index out of bounds while adding element to a deck. Tried to add at {} while deck size is {}.", idx, len),
-                                );
-                                return InterpretResult::RuntimeError;
-                            } else if idx == len {
-                                d.items.borrow_mut().push(val);
-                            } else {
-                                d.items.borrow_mut()[idx] = val;
-                            }
+                    if let Some(cap) = d.capacity {
+                        if idx >= cap {
+                            fail!("Index out of bounds while adding element to a deck. Tried to add at {} while deck capacity is {}.", idx, cap);
                         }
-                        _ => {
-                            self.runtime_error(
-                                "Value is not a Deck to perform 'ADD_TO_DECK Operation'",
-                            );
-                            return InterpretResult::RuntimeError;
-                        }
+                    }
+
+                    if idx > len {
+                        fail!("Index out of bounds while adding element to a deck. Tried to add at {} while deck size is {}.", idx, len);
+                    } else if idx == len {
+                        d.items.borrow_mut().push(val);
+                    } else {
+                        d.items.borrow_mut()[idx] = val;
                     }
                 }
 
@@ -666,71 +717,73 @@ impl EiraVM {
                     let deck_reg = frame!().read_byte();
                     let index = frame!().read_byte();
 
-                    let deck_val = get_register!(base, deck_reg).clone();
+                    let idx = match to_index(get_register!(base, index)) {
+                        Ok(idx) => idx,
+                        Err(e) => fail!("{}", e),
+                    };
+                    let d = match get_register!(base, deck_reg) {
+                        Value::Deck(d) => d.clone(),
+                        _ => fail!("Value is not a Deck to perform 'EXTRACT_FROM_DECK' Operation'"),
+                    };
 
-                    let idx = get_register!(base, index).clone().extract_number().unwrap() as usize;
-                    match deck_val {
-                        Value::Deck(d) => {
-                            if idx < d.items.borrow().len() {
-                                let val = d.items.borrow()[idx].clone();
-                                set_register!(base, dest, val);
-                            } else {
-                                self.runtime_error(
-                                    &format!("Index out of bounds while extracting element from a deck. Tried to access {} while deck size is {}.", idx,d.items.borrow().len()),
-                                );
-                                return InterpretResult::RuntimeError;
-                            }
-                        }
-                        _ => {
-                            self.runtime_error(
-                                "Value is not a Deck to perform 'EXTRACT_FROM_DECK' Operation'",
-                            );
-                            return InterpretResult::RuntimeError;
-                        }
+                    let item = d.items.borrow().get(idx).cloned();
+                    match item {
+                        Some(val) => set_register!(base, dest, val),
+                        None => fail!(
+                            "Index out of bounds while extracting element from a deck. Tried to access {} while deck size is {}.",
+                            idx,
+                            d.items.borrow().len()
+                        ),
                     }
                 }
                 OpCode::NewVault => {
                     let dest = frame!().read_byte();
-                    let limit = frame!().read_constant().extract_number().unwrap();
+                    let limit = frame!().read_constant().extract_number();
                     let hint = frame!().read_u16() as usize;
+                    let Some(limit) = limit else {
+                        fail!("Vault capacity constant is not a number. This is a compiler bug, please report it.");
+                    };
                     let limit = if limit < 0.0 { None } else { Some(limit as usize) };
                     match crate::values::vault::VaultObject::new(limit, hint) {
                         Ok(v) => set_register!(base, dest, Value::Vault(Rc::new(v))),
-                        Err(e) => { self.runtime_error(&e); return InterpretResult::RuntimeError; }
+                        Err(e) => fail!("{}", e),
                     }
                 }
                 OpCode::VaultSet => {
                     let (object, key, value) = frame!().read_three_bytes();
+                    let key = get_register!(base, key).clone();
+                    let value = get_register!(base, value).clone();
                     let result = match get_register!(base, object) {
-                        Value::Vault(v) => v.insert(get_register!(base, key), get_register!(base, value).clone()),
+                        Value::Vault(v) => v.insert(&key, value),
                         _ => Err("Expected Vault for indexed assignment.".into()),
                     };
-                    if let Err(e) = result { self.runtime_error(&e); return InterpretResult::RuntimeError; }
+                    if let Err(e) = result {
+                        fail!("{}", e);
+                    }
                 }
                 OpCode::VaultGet => {
                     let (dest, object, key) = frame!().read_three_bytes();
+                    let key = get_register!(base, key).clone();
                     let result = match get_register!(base, object) {
-                        Value::Vault(v) => v.get(get_register!(base, key)),
+                        Value::Vault(v) => v.get(&key),
                         _ => Err("Expected Vault for indexed lookup.".into()),
                     };
                     match result {
                         Ok(value) => set_register!(base, dest, value),
-                        Err(e) => { self.runtime_error(&e); return InterpretResult::RuntimeError; }
+                        Err(e) => fail!("{}", e),
                     }
                 }
                 OpCode::IsEmptiness => {
                     let dest = frame!().read_byte();
                     let r1 = frame!().read_byte();
 
-                    let val = get_register!(base, r1).clone();
-                    set_register!(base, dest, Value::Bool(val.is_emptiness()));
+                    let is_empty = get_register!(base, r1).is_emptiness();
+                    set_register!(base, dest, Value::Bool(is_empty));
                 }
                 OpCode::AssertSafe => {
                     let r1 = frame!().read_byte();
-                    let val = get_register!(base, r1).clone();
-                    if val.is_emptiness() {
-                        self.runtime_error("Safe Assertion failed: value is empty.");
-                        return InterpretResult::RuntimeError;
+                    if get_register!(base, r1).is_emptiness() {
+                        fail!("Safe Assertion failed: value is empty.");
                     }
                 }
 
@@ -738,25 +791,25 @@ impl EiraVM {
                     let dest = frame!().read_byte();
                     let spell = frame!().read_constant().clone();
                     let arg_start = frame!().read_byte();
-                    let argc = frame!().read_byte();
+                    let argc = frame!().read_byte() as usize;
 
-                    let res = match spell {
-                        Value::NativeSpell(ns) => {
-                            let start_idx = base + arg_start as usize;
-                            dispatch(self, ns, start_idx, argc as usize)
-                        }
-                        _ => {
-                            self.runtime_error("Expected a NativeSpell value to be casted!");
-                            return InterpretResult::RuntimeError;
-                        }
+                    let Value::NativeSpell(ns) = spell else {
+                        fail!("Expected a NativeSpell value to be casted!");
                     };
 
-                    match res {
+                    // Native handlers index their arguments directly, so make sure they exist.
+                    let start_idx = base + arg_start as usize;
+                    if start_idx + argc > self.stack.len() {
+                        fail!(
+                            "Native spell reagents (registers {}..{}) were not set. This is a compiler bug, please report it.",
+                            arg_start,
+                            arg_start as usize + argc
+                        );
+                    }
+
+                    match dispatch(self, ns, start_idx, argc) {
                         Ok(v) => set_register!(base, dest, v),
-                        Err(e) => {
-                            self.runtime_error(&format!("Error running a native spell.\n{}", e));
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => fail!("Error running a native spell.\n{}", e),
                     }
                 }
 
@@ -772,12 +825,7 @@ impl EiraVM {
                         (Value::Number(start), Value::Number(end)) => {
                             set_register!(base, dest, Value::Range(start, end));
                         }
-                        _ => {
-                            self.runtime_error(
-                                "CreateRange: Both start and end values must be numbers.",
-                            );
-                            return InterpretResult::RuntimeError;
-                        }
+                        _ => fail!("CreateRange: Both start and end values must be numbers."),
                     }
                 }
 
@@ -785,41 +833,25 @@ impl EiraVM {
                     let dest = frame!().read_byte();
                     let range_reg = frame!().read_byte();
 
-                    let range_val = get_register!(base, range_reg).clone();
-
-                    match range_val {
-                        Value::Range(start, _) => {
-                            set_register!(base, dest, Value::Number(start));
-                        }
-                        _ => {
-                            self.runtime_error("GetRangeStart: Value is not a Range.");
-                            return InterpretResult::RuntimeError;
-                        }
+                    match get_register!(base, range_reg).clone() {
+                        Value::Range(start, _) => set_register!(base, dest, Value::Number(start)),
+                        _ => fail!("GetRangeStart: Value is not a Range."),
                     }
                 }
                 OpCode::GetRangeEnd => {
                     let dest = frame!().read_byte();
                     let range_reg = frame!().read_byte();
 
-                    let range_val = get_register!(base, range_reg).clone();
-
-                    match range_val {
-                        Value::Range(_, end) => {
-                            set_register!(base, dest, Value::Number(end));
-                        }
-                        _ => {
-                            self.runtime_error("GetRangeEnd: Value is not a Range.");
-                            return InterpretResult::RuntimeError;
-                        }
+                    match get_register!(base, range_reg).clone() {
+                        Value::Range(_, end) => set_register!(base, dest, Value::Number(end)),
+                        _ => fail!("GetRangeEnd: Value is not a Range."),
                     }
                 }
                 OpCode::GetIterator => {
                     let dest = frame!().read_byte();
                     let iterable_reg = frame!().read_byte();
 
-                    let iterable_val = get_register!(base, iterable_reg).clone();
-
-                    let iter = match iterable_val {
+                    let iter = match get_register!(base, iterable_reg).clone() {
                         Value::Range(start, end) => IteratorObject {
                             state: IteratorState::Range {
                                 current: start,
@@ -829,10 +861,7 @@ impl EiraVM {
                         Value::Deck(d) => IteratorObject {
                             state: IteratorState::Deck { deck: d, index: 0 },
                         },
-                        _ => {
-                            self.runtime_error("GetIterator: Iterator for Value is not defined (not a Range or Deck).");
-                            return InterpretResult::RuntimeError;
-                        }
+                        _ => fail!("GetIterator: Iterator for Value is not defined (not a Range or Deck)."),
                     };
 
                     set_register!(base, dest, Value::Iterator(Rc::new(RefCell::new(iter))));
@@ -843,38 +872,37 @@ impl EiraVM {
                     let iterator_reg = frame!().read_byte();
                     let jump_offset = frame!().read_u16();
 
-                    let iterator_val = get_register!(base, iterator_reg).clone();
+                    let iter = match get_register!(base, iterator_reg) {
+                        Value::Iterator(iter) => iter.clone(),
+                        _ => fail!("IterNext: Value is not an Iterator."),
+                    };
 
-                    match iterator_val {
-                        Value::Iterator(iter) => {
-                            let mut iter_mut = iter.borrow_mut();
-                            match &mut iter_mut.state {
-                                IteratorState::Range { current, end } => {
-                                    if *current <= *end {
-                                        set_register!(base, dest, Value::Number(*current));
-                                        *current += 1.0;
-                                    } else {
-                                        // End of iteration
-                                        frame!().ip += jump_offset as usize;
-                                    }
-                                }
-                                IteratorState::Deck { deck, index } => {
-                                    let items = deck.items.borrow();
-                                    if *index < items.len() {
-                                        let val = items[*index].clone();
-                                        set_register!(base, dest, val);
-                                        *index += 1;
-                                    } else {
-                                        // End of iteration
-                                        frame!().ip += jump_offset as usize;
-                                    }
+                    let next = {
+                        let mut iter_mut = iter.borrow_mut();
+                        match &mut iter_mut.state {
+                            IteratorState::Range { current, end } => {
+                                if *current <= *end {
+                                    let value = Value::Number(*current);
+                                    *current += 1.0;
+                                    Some(value)
+                                } else {
+                                    None
                                 }
                             }
+                            IteratorState::Deck { deck, index } => {
+                                let item = deck.items.borrow().get(*index).cloned();
+                                if item.is_some() {
+                                    *index += 1;
+                                }
+                                item
+                            }
                         }
-                        _ => {
-                            self.runtime_error("IterNext: Value is not an Iterator.");
-                            return InterpretResult::RuntimeError;
-                        }
+                    };
+
+                    match next {
+                        Some(value) => set_register!(base, dest, value),
+                        // End of iteration
+                        None => frame!().ip += jump_offset as usize,
                     }
                 }
             }

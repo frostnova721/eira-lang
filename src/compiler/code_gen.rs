@@ -17,9 +17,12 @@ use crate::{
     values::{
         Value,
         native_spell::NativeSpell,
-        spell::{ClosureObject, SpellObject},
+        spell::{ClosureObject, LineEntry, LineTable, SpellObject},
     },
 };
+
+/// (file, line, column) of the source currently being generated.
+type Loc = (Rc<str>, usize, usize);
 
 #[derive(Debug)]
 pub struct GenError {
@@ -50,6 +53,18 @@ pub struct CodeGen {
     in_spell: bool, // track if context is within a spell
     curr_upval_count: usize,
     upval_map: HashMap<(usize, usize), usize>, // map of (depth, slot_idx) to register index
+
+    /// Registers of the locals declared so far in the current spell (or the module),
+    /// keyed by the symbol's (depth, slot_idx). The analyzer's slot indices are not
+    /// unique registers (top-level scopes reuse them), so registers are assigned here.
+    locals: HashMap<(usize, usize), u8>,
+
+    // Source location tracking for runtime errors
+    current_file: Rc<str>,
+    current_loc: Option<Loc>,
+    /// (instruction index, location) pairs for the instructions being generated.
+    loc_marks: Vec<(usize, Loc)>,
+    module_lines: LineTable,
 }
 
 impl CodeGen {
@@ -64,15 +79,77 @@ impl CodeGen {
             in_spell: false,
             curr_upval_count: 0,
             upval_map: HashMap::new(),
+            locals: HashMap::new(),
+            current_file: Rc::from("<scroll>"),
+            current_loc: None,
+            loc_marks: vec![],
+            module_lines: LineTable::default(),
             print_instructions,
             print_bytecode,
         }
     }
 
+    /// Sets the file name reported in runtime error locations.
+    pub fn with_source_name(mut self, name: &str) -> Self {
+        self.current_file = Rc::from(name);
+        self
+    }
+
     fn error<T>(&self, msg: &str) -> GenResult<T> {
-        Err(GenError {
-            msg: msg.to_owned(),
-        })
+        let msg = match &self.current_loc {
+            Some((file, line, column)) => format!("{}\nat {}:{}:{}", msg, file, line, column),
+            None => msg.to_owned(),
+        };
+        Err(GenError { msg })
+    }
+
+    //--------------- Source locations ---------------
+
+    fn token_loc(&self, token: &Token) -> Option<Loc> {
+        if token.line == 0 {
+            None
+        } else {
+            Some((self.current_file.clone(), token.line, token.column))
+        }
+    }
+
+    /// Makes `loc` the location of the instructions emitted from now on.
+    /// `None` keeps the previously recorded location.
+    fn set_loc(&mut self, loc: Option<Loc>) {
+        self.current_loc = loc.clone();
+        let Some(loc) = loc else { return };
+        let at = self.instructions.len();
+        match self.loc_marks.last_mut() {
+            Some((_, last)) if *last == loc => {}
+            Some((idx, last)) if *idx == at => *last = loc,
+            _ => self.loc_marks.push((at, loc)),
+        }
+    }
+
+    fn build_line_table(instructions: &[Instruction], marks: &[(usize, Loc)]) -> LineTable {
+        let mut offsets = Vec::with_capacity(instructions.len() + 1);
+        let mut offset = 0;
+        for inst in instructions {
+            offsets.push(offset);
+            offset += inst.len();
+        }
+        offsets.push(offset);
+
+        let entries = marks
+            .iter()
+            .filter(|(idx, _)| *idx < instructions.len())
+            .map(|(idx, (file, line, column))| LineEntry {
+                offset: offsets[*idx],
+                file: file.clone(),
+                line: *line,
+                column: *column,
+            })
+            .collect();
+        LineTable { entries }
+    }
+
+    pub fn get_line_table(&self) -> LineTable {
+        self.module_lines.clone()
     }
 
     //--------------- Interface/ Public fns ---------------
@@ -84,6 +161,7 @@ impl CodeGen {
         let _ = self.gen_from_decls(stmts)?;
 
         self.instructions.push(Instruction::Halt {});
+        self.module_lines = Self::build_line_table(&self.instructions, &self.loc_marks);
 
         if self.print_instructions {
             print_instructions(
@@ -241,7 +319,34 @@ impl CodeGen {
         Ok(0)
     }
 
+    /// Generates a declaration. Temporary registers used by it are released afterwards;
+    /// a declared local keeps exactly one register (see [Self::declare_symbol]).
     fn gen_decl(&mut self, decl: WovenDecl) -> GenResult<u8> {
+        let start = self.register_index;
+        let prev_loc = self.current_loc.clone();
+
+        let (token, declares_local) = match &decl {
+            WovenDecl::VarDeclaration { name, symbol, .. } => (Some(name), symbol.depth > 0),
+            WovenDecl::Spell { name, spell_symbol, .. } => (Some(name), spell_symbol.depth > 0),
+            WovenDecl::Sign { name, sign_symbol, .. } => (Some(name), sign_symbol.depth > 0),
+            WovenDecl::Statement { token, .. } => (Some(token), false),
+            WovenDecl::Attune { sign, .. } => (Some(sign), false),
+            _ => (None, false),
+        };
+        if let Some(loc) = token.and_then(|t| self.token_loc(t)) {
+            self.set_loc(Some(loc));
+        }
+
+        let result = self.gen_decl_inner(decl)?;
+
+        if !declares_local {
+            self.register_index = start;
+        }
+        self.set_loc(prev_loc);
+        Ok(result)
+    }
+
+    fn gen_decl_inner(&mut self, decl: WovenDecl) -> GenResult<u8> {
         match decl {
             WovenDecl::VarDeclaration {
                 name: _,
@@ -264,8 +369,14 @@ impl CodeGen {
             WovenDecl::Tether {
                 statements,
                 bind_to: _,
-                path: _,
-            } => self.gen_tether_instructions(statements),
+                path,
+            } => {
+                // Tethered code is inlined, but its tokens come from the tethered scroll.
+                let prev_file = std::mem::replace(&mut self.current_file, Rc::from(path.as_str()));
+                let result = self.gen_tether_instructions(statements);
+                self.current_file = prev_file;
+                result
+            }
             WovenDecl::Statement { stmt, token: _ } => self.gen_from_stmt(*stmt),
             WovenDecl::Cursed { .. } => todo!(),
         }
@@ -278,8 +389,35 @@ impl CodeGen {
         Ok(0) // dummy result, since statements doesnt care about values produced
     }
 
-    /// Match the type of stmt and generate corresponding instruction
+    /// Generates a statement and frees every register it allocated, except the
+    /// register of a local it declares. Values never live across statements in
+    /// temporaries, so this keeps register use bounded by the live locals.
     fn gen_from_stmt(&mut self, stmt: WovenStmt) -> GenResult<u8> {
+        let start = self.register_index;
+        let prev_loc = self.current_loc.clone();
+        let is_decl = matches!(stmt, WovenStmt::Declaration(_));
+
+        let token = match &stmt {
+            WovenStmt::Release { token, .. }
+            | WovenStmt::Sever { token }
+            | WovenStmt::Flow { token } => self.token_loc(token),
+            _ => None,
+        };
+        if token.is_some() {
+            self.set_loc(token);
+        }
+
+        let result = self.gen_from_stmt_inner(stmt)?;
+
+        if !is_decl {
+            self.register_index = start;
+        }
+        self.set_loc(prev_loc);
+        Ok(result)
+    }
+
+    /// Match the type of stmt and generate corresponding instruction
+    fn gen_from_stmt_inner(&mut self, stmt: WovenStmt) -> GenResult<u8> {
         match stmt {
             WovenStmt::ExprStmt { expr } => self.gen_from_expr(expr),
             WovenStmt::Fate {
@@ -303,8 +441,22 @@ impl CodeGen {
         }
     }
 
-    /// Match the type of expr and generate corresponding instruction
+    /// Generates an expression, attributing its instructions to the expression's token.
+    /// The previous location is restored afterwards, so a parent's instruction emitted
+    /// after its operands (e.g. `Add`) reports the parent's location.
     fn gen_from_expr(&mut self, expr: WovenExpr) -> GenResult<u8> {
+        let prev_loc = self.current_loc.clone();
+        let loc = self.token_loc(&expr.token());
+        if loc.is_some() {
+            self.set_loc(loc);
+        }
+        let result = self.gen_from_expr_inner(expr);
+        self.set_loc(prev_loc);
+        result
+    }
+
+    /// Match the type of expr and generate corresponding instruction
+    fn gen_from_expr_inner(&mut self, expr: WovenExpr) -> GenResult<u8> {
         match expr {
             WovenExpr::Binary {
                 left,
@@ -443,16 +595,21 @@ impl CodeGen {
         iterable: WovenExpr,
         body: WovenStmt,
     ) -> GenResult<u8> {
-        let iter_reg = self.gen_from_expr(iterable)?;
+        // The iterator gets its own register: the iterable may be a local that must
+        // not be overwritten, and the iterator has to survive the whole body.
+        let iterable_reg = self.gen_from_expr(iterable)?;
+        let iter_reg = self.get_next_register()?;
         self.instructions.push(Instruction::GetIterator {
             dest: iter_reg,
-            iterable_reg: iter_reg,
+            iterable_reg,
         });
 
-        let start = self.instructions.len();
-        // let exit = self.write_jump(Instruction::Jump { offset: 0xffff });
+        let var_reg = self.get_next_register()?;
+        self.locals
+            .insert((variable.depth, variable.slot_idx), var_reg);
 
-        let var_reg = variable.slot_idx as u8;
+        let start = self.instructions.len();
+
         let exit = self.write_jump(Instruction::IterNext {
             dest: var_reg,
             iterator_reg: iter_reg,
@@ -465,7 +622,7 @@ impl CodeGen {
 
         self.patch_jump(exit)?;
 
-        Ok(self.register_index - 1)
+        Ok(var_reg)
     }
 
     fn gen_range_instruction(
@@ -978,11 +1135,13 @@ impl CodeGen {
         _marks: Vec<WovenMark>,
         sign_symbol: Symbol,
     ) -> GenResult<u8> {
-        // unwrap cus its almost sure that sign info is contained it the symbol
-        let sign_info = sign_symbol.kind.borrow().get_sign_info().unwrap();
+        let Some(sign_info) = sign_symbol.kind.borrow().get_sign_info() else {
+            return self.error(&format!("'{}' is not a sign.", sign_symbol.name));
+        };
 
+        let start = self.register_index;
         let reg = self.write_constant(Value::SignSchema(Rc::new(sign_info.schema)))?;
-        self.set_value_instruction(sign_symbol, reg)?;
+        self.declare_symbol(&sign_symbol, reg, start)?;
 
         Ok(reg)
     }
@@ -1000,11 +1159,19 @@ impl CodeGen {
         let saved_curr_upval_count = self.curr_upval_count;
         let saved_inspell = self.in_spell;
         let saved_upval_map = self.upval_map.clone();
+        let saved_locals = std::mem::take(&mut self.locals);
+        let mut spell_marks = Vec::new();
 
-        let spell_info = spell_symbol.kind.borrow().get_spell_info().unwrap();
+        let Some(spell_info) = spell_symbol.kind.borrow().get_spell_info() else {
+            return self.error(&format!("'{}' is not a spell.", spell_symbol.name));
+        };
 
         // Temporarily swap instructions to compile spell body
         std::mem::swap(&mut self.instructions, &mut spell_instructions);
+        std::mem::swap(&mut self.loc_marks, &mut spell_marks);
+        // Start the spell's line table at the declaration
+        let decl_loc = self.current_loc.clone();
+        self.set_loc(decl_loc);
 
         // state modifications for upvalues management
         let upval_count = spell_info.upvalues.len();
@@ -1046,6 +1213,7 @@ impl CodeGen {
 
         // Get the compiled results
         let spell_bytecode = Assembler::convert_to_byte_code(&self.instructions);
+        let spell_lines = Self::build_line_table(&self.instructions, &self.loc_marks);
 
         if self.print_bytecode {
             println!("spell: {}", spell_info.name);
@@ -1061,22 +1229,36 @@ impl CodeGen {
             upvalue_count: upval_count as i32,
             constants: spell_constants,
             bytecode: spell_bytecode,
-        };
-        let closure = ClosureObject {
-            spell: Rc::new(spell),
-            upvalues: spell_info.upvalues.clone(),
+            lines: spell_lines,
         };
 
         // Restore the main instructions and register state
         std::mem::swap(&mut self.instructions, &mut spell_instructions);
+        std::mem::swap(&mut self.loc_marks, &mut spell_marks);
         self.register_index = saved_reg_idx;
         self.in_spell = saved_inspell;
         self.curr_upval_count = saved_curr_upval_count;
         self.upval_map = saved_upval_map;
+        self.locals = saved_locals;
+
+        // The VM captures upvalue `index` relative to the enclosing frame, so point
+        // each capture at the register the enclosing code actually keeps it in.
+        let mut upvalues = spell_info.upvalues.clone();
+        for upvalue in upvalues.iter_mut() {
+            if upvalue.depth > 0 {
+                upvalue.index = self.local_register(upvalue.depth, upvalue.index) as usize;
+            }
+        }
+
+        let closure = ClosureObject {
+            spell: Rc::new(spell),
+            upvalues,
+        };
 
         // Write the constant and set the value
+        let start = self.register_index;
         let const_idx = self.write_constant(Value::Closure(Rc::new(closure)))?;
-        self.set_value_instruction(spell_symbol, const_idx)?;
+        self.declare_symbol(&spell_symbol, const_idx, start)?;
 
         Ok(const_idx)
     }
@@ -1184,31 +1366,69 @@ impl CodeGen {
         initializer: Option<WovenExpr>,
         symbol: Symbol,
     ) -> GenResult<u8> {
+        let start = self.register_index;
         let src = match initializer {
             Some(init) => self.gen_from_expr(init)?,
             None => self.write_constant(Value::Emptiness)?,
         };
 
-        self.set_value_instruction(symbol, src)?;
+        self.declare_symbol(&symbol, src, start)?;
 
         Ok(src)
     }
 
+    /// Binds a newly declared symbol to the value in `src_reg`.
+    ///
+    /// Locals take the register `start`, which was the first free register when the
+    /// declaration began. Everything above it was a temporary of the initializer and is
+    /// freed. Globals are stored by name.
+    fn declare_symbol(&mut self, symbol: &Symbol, src_reg: u8, start: u8) -> GenResult<()> {
+        if symbol.depth == 0 {
+            let c_ind = self.add_constant(Value::String(symbol.name.clone().into()))?;
+            self.instructions.push(Instruction::SetGlobal {
+                src_reg,
+                const_index: c_ind,
+            });
+            return Ok(());
+        }
+
+        if src_reg != start {
+            self.instructions.push(Instruction::Move {
+                dest: start,
+                source: src_reg as u16,
+            });
+        }
+        self.locals.insert((symbol.depth, symbol.slot_idx), start);
+        let Some(next) = start.checked_add(1) else {
+            return self.error("Maximum registers allocated! Too many marks alive in one realm.");
+        };
+        self.register_index = next;
+        Ok(())
+    }
+
+    /// The register holding a local, parameter or upvalue in the current spell/module.
+    fn local_register(&self, depth: usize, slot_idx: usize) -> u8 {
+        if self.in_spell {
+            if let Some(upv_reg) = self.upval_map.get(&(depth, slot_idx)) {
+                return *upv_reg as u8;
+            }
+        }
+        if let Some(reg) = self.locals.get(&(depth, slot_idx)) {
+            return *reg;
+        }
+        // Parameters are not declared through `declare_symbol`. They sit right after
+        // the upvalues, in slot order.
+        if self.in_spell {
+            (self.curr_upval_count + slot_idx) as u8
+        } else {
+            slot_idx as u8
+        }
+    }
+
+    /// Assigns to an existing variable.
     fn set_value_instruction(&mut self, symbol: Symbol, src_reg: u8) -> GenResult<()> {
         if symbol.depth > 0 {
-            // Calculate the target register for this variable
-            let target_reg = if self.in_spell {
-                // Check if this variable is an upvalue
-                if let Some(upv_reg) = self.upval_map.get(&(symbol.depth, symbol.slot_idx)) {
-                    // It's an upvalue, use its register directly
-                    *upv_reg as u8
-                } else {
-                    // Inside a spell, locals are offset by upvalue count
-                    (self.curr_upval_count + symbol.slot_idx) as u8
-                }
-            } else {
-                symbol.slot_idx as u8
-            };
+            let target_reg = self.local_register(symbol.depth, symbol.slot_idx);
 
             // If src_reg != target_reg, we need to move the value
             if src_reg != target_reg {
@@ -1229,19 +1449,7 @@ impl CodeGen {
 
     fn gen_variable_instruction(&mut self, symbol: &Symbol) -> GenResult<u8> {
         if symbol.depth > 0 {
-            if self.in_spell {
-                // Check if this variable is an upvalue using (depth, slot_idx) as key
-                // This will prevent collision between upvalues and locals with same slot_idx
-                if let Some(upv_reg) = self.upval_map.get(&(symbol.depth, symbol.slot_idx)) {
-                    // The value is an upvalue! jst return its register
-                    return Ok(*upv_reg as u8);
-                }
-
-                // Not an upvalue, so it's a local/parameter in current spell
-                // Locals are offset by the upvalue count
-                return Ok((self.curr_upval_count + symbol.slot_idx) as u8);
-            }
-            Ok(symbol.slot_idx as u8)
+            Ok(self.local_register(symbol.depth, symbol.slot_idx))
         } else {
             let dest = self.get_next_register()?;
             let const_idx = self.add_constant(Value::String(symbol.name.clone().into()))?;

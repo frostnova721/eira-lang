@@ -24,6 +24,31 @@ fn initialized_vm(source: &str) -> EiraVM {
 }
 
 #[test]
+fn external_cast_error_carries_location_and_vm_stays_usable() {
+    let mut vm = initialized_vm(
+        "spell pick(i: Num):: Num {\n    bind xs: Deck<Num> = [10, 20];\n    release xs[i];\n}\n",
+    );
+
+    let error = vm.cast("pick", vec![Value::Number(7.0)]).unwrap_err();
+    assert!(error.message.contains("Index out of bounds"), "{error}");
+    let location = error.location().expect("error should have a location");
+    assert_eq!(location.file, "REPL");
+    assert_eq!(location.line, 3);
+    assert_eq!(error.trace[0].spell.as_deref(), Some("pick"));
+
+    // The failed call is cleaned up, so the next one works.
+    assert_eq!(vm.cast("pick", vec![Value::Number(1.0)]).unwrap(), Value::Number(20.0));
+}
+
+#[test]
+fn external_cast_rejects_unknown_spell_without_trace() {
+    let mut vm = initialized_vm("spell add(a: Num, b: Num):: Num { release a + b; }");
+    let error = vm.cast("missing", vec![]).unwrap_err();
+    assert!(error.message.contains("not found"), "{error}");
+    assert!(error.trace.is_empty());
+}
+
+#[test]
 fn external_cast_add() {
     let mut vm = initialized_vm("spell add(a: Num, b: Num):: Num { release a + b; }");
 

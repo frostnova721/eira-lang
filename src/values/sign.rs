@@ -34,8 +34,8 @@ impl SignObject {
         Ok(())
     }
 
-    pub fn get_field(&self, index: usize) -> Value {
-        self.marks[index].clone()
+    pub fn get_field(&self, index: usize) -> Option<Value> {
+        self.marks.get(index).cloned()
     }
 }
 
