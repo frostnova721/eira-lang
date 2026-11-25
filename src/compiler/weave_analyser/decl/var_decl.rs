@@ -56,7 +56,7 @@ impl WeaveAnalyzer<'_> {
         // take care of the checks)
         if let Some(ref sw) = specified_weave && w_initializer.is_some() {
             let init_weave = w_initializer.as_ref().unwrap().weave();
-            if *sw != init_weave {
+            if !sw.accepts(&init_weave) {
                 self.error(
                     &format!(
                         "The specified weave '{:?}' does not match the initializer's weave '{:?}'!",

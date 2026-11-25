@@ -25,6 +25,10 @@ impl WeaveAnalyzer<'_> {
         };
 
         let w_material = self.analyze_expression(*material, None)?;
+        // The material already reported an error, so its fields can't be known.
+        if w_material.is_cursed() {
+            return Ok(WovenExpr::Cursed { span: None });
+        }
         if let Weave::Module(module_name) = w_material.weave() {
             if is_safe_access {
                 self.error(

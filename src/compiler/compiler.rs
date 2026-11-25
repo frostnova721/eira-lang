@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::{
     CodeGen, Parser, Value, assembler::Assembler, compiler::{
-        diagnostics::Augury, scanner::{Scanner, Token}, scroll_reader::ScrollReader, weave_analyser::WeaveAnalyzerContext,
+        diagnostics::{Augury, CompilationPhase, SourceLocation}, scanner::{Scanner, Token}, scroll_reader::ScrollReader, weave_analyser::WeaveAnalyzerContext,
     }, print_ast, print_byte_code, print_woven_ast, project::config::Project, runtime::Instruction, values::spell::LineTable, weave_analyser::WeaveAnalyzer,
 };
 
@@ -175,7 +175,7 @@ impl Compiler {
     }
 
     fn gen_instructions(
-        &self,
+        &mut self,
         woven_ast: Vec<crate::compiler::ast::decl::WovenDecl>,
     ) -> Result<CompiledCode> {
         let mut cg = CodeGen::new(
@@ -186,9 +186,16 @@ impl Compiler {
         .with_source_name(&self.source_path);
         match cg.summon_instructions() {
             Err(gen_error) => {
-                // println!("CodeGen Error: {}", gen_error.msg);
+                // Report through Augury so every compile-time error reads the same way.
+                let location = gen_error.location.unwrap_or_else(|| SourceLocation {
+                    file: PathBuf::from(&self.source_path),
+                    line: 0,
+                    column: 0,
+                });
+                self.augury
+                    .forsee_curse(location, gen_error.msg, CompilationPhase::CodeGen);
                 return Err(CompileError {
-                    msg: format!("CodeGen Error: {}", gen_error.msg),
+                    msg: self.augury.list_curses().join("\n"),
                 });
             }
             Ok(instructions) => Ok(CompiledCode {

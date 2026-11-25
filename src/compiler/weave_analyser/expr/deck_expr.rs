@@ -56,9 +56,12 @@ impl WeaveAnalyzer<'_> {
         for element in &elements {
             let context = prev_elem_weave.as_ref().filter(|w| matches!(w, Weave::Vault(..)));
             let w_element = self.analyze_expression(element.clone(), context)?;
+            if w_element.is_cursed() {
+                return Ok(WovenExpr::Cursed { span: None });
+            }
             let elem_weave = w_element.weave();
             if let Some(prev_weave) = prev_elem_weave {
-                if elem_weave != prev_weave {
+                if !prev_weave.accepts(&elem_weave) {
                     self.error("All elements of a deck must be of the same weave!", token);
                     return Ok(WovenExpr::Cursed { span: None });
                 }

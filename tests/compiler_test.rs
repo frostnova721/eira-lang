@@ -23,6 +23,72 @@ fn collects_independent_errors_with_source_locations() {
 }
 
 #[test]
+fn oversized_deck_reports_one_error_at_its_opening_bracket() {
+    let elements = vec!["1"; 300].join(", ");
+    let project = SourceProject::new(&format!("bind xs: Deck<Num> = [{elements}];"));
+    let mut compiler = project.compiler();
+    let error = compiler.compile_to_bytecode().err().expect("reject big deck");
+    assert!(error.msg.contains("exceeds the maximum of 255"), "{}", error.msg);
+    assert_eq!(compiler.augury.curses.len(), 1, "{}", error.msg);
+    // Columns point just past a token, so the '[' at column 22 reports 23.
+    let location = &compiler.augury.curses[0].location;
+    assert_eq!((location.line, location.column), (1, 23));
+}
+
+#[test]
+fn failed_expressions_do_not_cascade_into_more_errors() {
+    // Each line has exactly one real mistake: an undefined name.
+    let project = SourceProject::new(
+        "chant missing + 1;\n\
+         mark x = missing;\n\
+         chant x * 2;\n\
+         chant cast nope with 1, x;\n\
+         bind xs: Deck<Num> = [1, missing, 3];\n\
+         chant xs[0];\n\
+         chant missing.field;\n\
+         n ~~ missing { chant n + 1; }\n",
+    );
+    let mut compiler = project.compiler();
+    let error = compiler.compile_to_bytecode().err().expect("reject source");
+    let lines: Vec<usize> = compiler.augury.curses.iter().map(|c| c.location.line).collect();
+    assert_eq!(lines, vec![1, 2, 4, 5, 7, 8], "{}", error.msg);
+    assert!(
+        compiler.augury.curses.iter().all(|c| c.message.contains("was undefined")),
+        "{}",
+        error.msg
+    );
+}
+
+#[test]
+fn codegen_errors_are_reported_through_augury() {
+    // One expression needing more than 255 live registers. It nests 300 levels deep,
+    // so run it with more stack than a test thread gets by default.
+    std::thread::Builder::new()
+        .stack_size(64 * 1024 * 1024)
+        .spawn(|| {
+            let terms = vec!["1"; 300].join(" + ");
+            let project = SourceProject::new(&format!("chant 0;\nchant {terms};"));
+            let mut compiler = project.compiler();
+            let error = compiler
+                .compile_to_bytecode()
+                .err()
+                .expect("reject register overflow");
+            assert!(error.msg.contains("Maximum registers allocated"), "{}", error.msg);
+            assert!(error.msg.starts_with("curse: "), "{}", error.msg);
+
+            assert_eq!(compiler.augury.curses.len(), 1);
+            let diagnostic = &compiler.augury.curses[0];
+            assert_eq!(diagnostic.phase, CompilationPhase::CodeGen);
+            assert_eq!(diagnostic.location.file, project.root.join("main.eira"));
+            assert_eq!(diagnostic.location.line, 2);
+            assert!(diagnostic.location.column > 0);
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+#[test]
 fn rejects_invalid_deck_literals_before_codegen() {
     for (source, message) in [
         ("bind xs = [1, \"text\"];", "same weave"),
@@ -45,16 +111,16 @@ fn rejects_wrong_spell_argument_weaves_for_literals_variables_and_expressions() 
         let project = SourceProject::new(&format!(
             "spell identity(n: Num):: Num {{ release n; }} bind text = \"text\"; chant cast identity with {argument};"
         ));
-        let error = project
-            .compiler()
-            .compile_to_bytecode()
-            .err()
-            .expect(argument);
+        let mut compiler = project.compiler();
+        let error = compiler.compile_to_bytecode().err().expect(argument);
+        // The argument is checked against the reagent's weave and reports once;
+        // the cast does not add a second error about the same argument.
         assert!(
-            error.msg.contains("reagent #1 was expected to be"),
+            error.msg.contains("does not match the expected weave 'Num'"),
             "{}",
             error.msg
         );
+        assert_eq!(compiler.augury.curses.len(), 1, "{}", error.msg);
     }
 }
 

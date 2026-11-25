@@ -38,7 +38,7 @@ impl WeaveAnalyzer<'_> {
                 }
 
                 if let Some(expected) = expected_weave {
-                    if *expected != native_info.release_weave {
+                    if !expected.accepts(&native_info.release_weave) {
                         self.error(
                             &format!(
                                 "The release weave of spell '{}' does not match the expected weave '{}'",
@@ -55,7 +55,7 @@ impl WeaveAnalyzer<'_> {
                 for (i, reagent) in reagents.iter().enumerate() {
                     let expected = native_info.reagents.get(i).unwrap();
                     let w_expr = self.analyze_expression(reagent.clone(), Some(&expected.weave))?;
-                    if w_expr.weave() != expected.weave {
+                    if !expected.weave.accepts(&w_expr.weave()) {
                         self.error(
                             &format!(
                                 "The reagent #{} was expected to be {}, but got {}",
@@ -94,7 +94,7 @@ impl WeaveAnalyzer<'_> {
             let spell_info = method_symbol.kind.borrow().get_spell_info().unwrap();
 
             if let Some(expected) = expected_weave {
-                if *expected != spell_info.release_weave {
+                if !expected.accepts(&spell_info.release_weave) {
                     self.error(
                                     &format!(
                                         "The release weave of spell '{}' does not match the expected weave '{}'",
@@ -118,7 +118,7 @@ impl WeaveAnalyzer<'_> {
                     r.clone(),
                     Some(&spell_info.reagents.get(i+1).unwrap().weave),
                 )?;
-                if w_r.weave() != spell_info.reagents[i + 1].weave {
+                if !spell_info.reagents[i + 1].weave.accepts(&w_r.weave()) {
                     self.error("Method argument has the wrong weave.", token.clone());
                     return Ok(WovenExpr::Cursed { span: None });
                 }
@@ -204,7 +204,7 @@ impl WeaveAnalyzer<'_> {
             }
 
             if let Some(expected) = expected_weave {
-                if *expected != native_info.release_weave {
+                if !expected.accepts(&native_info.release_weave) {
                     self.error(
                                     &format!(
                                         "The release weave of spell '{}' does not match the expected weave '{}'",
@@ -221,7 +221,7 @@ impl WeaveAnalyzer<'_> {
             for (i, reagent) in reagents.iter().enumerate() {
                 let expected = native_info.reagents.get(i).unwrap();
                 let w_expr = self.analyze_expression(reagent.clone(), Some(&expected.weave))?;
-                if w_expr.weave() != expected.weave {
+                if !expected.weave.accepts(&w_expr.weave()) {
                     self.error(
                         &format!(
                             "The reagent #{} was expected to be {}, but got {}",
@@ -245,6 +245,14 @@ impl WeaveAnalyzer<'_> {
         }
 
         let w_callee = w_callee?;
+
+        // The callee already reported its error (e.g. an undefined name).
+        if w_callee.is_cursed() {
+            for reagent in reagents {
+                self.analyze_expression(reagent, None)?;
+            }
+            return Ok(WovenExpr::Cursed { span: None });
+        }
 
         if !w_callee.weave().get_tapestry().has_strand(CALLABLE_STRAND) {
             self.error(
@@ -302,7 +310,7 @@ impl WeaveAnalyzer<'_> {
         }
 
         if let Some(expected) = expected_weave {
-            if *expected != spell_info.release_weave {
+            if !expected.accepts(&spell_info.release_weave) {
                 self.error(
                     &format!(
                         "The release weave of spell '{}' does not match the expected weave '{}'",
@@ -320,7 +328,7 @@ impl WeaveAnalyzer<'_> {
         for (i, r) in reagents.into_iter().enumerate() {
             let expected_reagent = &spell_info.reagents[i];
             let w_r = self.analyze_expression(r, Some(&expected_reagent.weave))?;
-            if w_r.weave() != expected_reagent.weave {
+            if !expected_reagent.weave.accepts(&w_r.weave()) {
                 self.error(
                     &format!(
                         "The reagent #{} was expected to be {}, but got {}",

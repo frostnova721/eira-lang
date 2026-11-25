@@ -1,10 +1,11 @@
-use std::{collections::HashMap, rc::Rc, str, u8, vec};
+use std::{collections::HashMap, path::PathBuf, rc::Rc, str, u8, vec};
 
 use crate::{
     assembler::Assembler,
     compiler::{
         WovenExpr, WovenStmt,
         ast::decl::WovenDecl,
+        diagnostics::SourceLocation,
         mark::{WovenEtchedMark, WovenMark},
         reagents::WovenReagent,
         scanner::Token,
@@ -27,6 +28,8 @@ type Loc = (Rc<str>, usize, usize);
 #[derive(Debug)]
 pub struct GenError {
     pub msg: String,
+    /// Where generation was when the error happened, if known.
+    pub location: Option<SourceLocation>,
 }
 
 type GenResult<T> = Result<T, GenError>;
@@ -96,11 +99,15 @@ impl CodeGen {
     }
 
     fn error<T>(&self, msg: &str) -> GenResult<T> {
-        let msg = match &self.current_loc {
-            Some((file, line, column)) => format!("{}\nat {}:{}:{}", msg, file, line, column),
-            None => msg.to_owned(),
-        };
-        Err(GenError { msg })
+        let location = self.current_loc.as_ref().map(|(file, line, column)| SourceLocation {
+            file: PathBuf::from(file.as_ref()),
+            line: *line,
+            column: *column,
+        });
+        Err(GenError {
+            msg: msg.to_owned(),
+            location,
+        })
     }
 
     //--------------- Source locations ---------------

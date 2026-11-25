@@ -308,6 +308,8 @@ impl Parser {
     }
 
     pub(super) fn deck(&mut self, _can_assign: bool) -> ParseResult<Expr> {
+        // The opening '[' locates the deck in diagnostics.
+        let open = self.previous.clone();
         let mut elements: Vec<Expr> = vec![];
 
         // Handle empty deck case []
@@ -315,7 +317,7 @@ impl Parser {
             self.advance();
             return Ok(Expr::Deck {
                 elements,
-                token: self.previous.clone(),
+                token: open,
             });
         }
 
@@ -333,7 +335,7 @@ impl Parser {
         self.consume(TokenType::SquareRight, "Expected ']' after deck elements.");
         Ok(Expr::Deck {
             elements,
-            token: self.previous.clone(),
+            token: open,
         })
     }
 

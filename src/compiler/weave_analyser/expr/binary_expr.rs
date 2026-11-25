@@ -13,6 +13,11 @@ impl WeaveAnalyzer<'_> {
         let w_left = self.analyze_expression(left, None)?;
         let w_right = self.analyze_expression(right, None)?;
 
+        // An operand already reported an error. The result weave can't be known.
+        if w_left.is_cursed() || w_right.is_cursed() {
+            return Ok(WovenExpr::Cursed { span: None });
+        }
+
         if operator.token_type == TokenType::Plus {
             let left_has_additive = w_left.weave().get_tapestry().has_strand(ADDITIVE_STRAND);
             let left_has_concat = w_left

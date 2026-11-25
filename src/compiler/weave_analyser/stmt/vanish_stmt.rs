@@ -9,6 +9,9 @@ impl WeaveAnalyzer<'_> {
         target: Expr,
     ) -> WeaveResult<WovenStmt> {
         let w_target = self.analyze_expression(target, None)?;
+        if w_target.is_cursed() {
+            return Ok(WovenStmt::Cursed { span: None });
+        }
 
         match w_target.weave() {
             Weave::Maybe(_) => {}

@@ -20,9 +20,23 @@ pub enum Weave {
     Module(String),
     Range,
     Empty,
+    /// The weave of an expression that already failed analysis. It is compatible with
+    /// every weave and has every strand, so one mistake is reported once instead of
+    /// cascading into errors about the expressions that use it.
+    Cursed,
 }
 
 impl Weave {
+    pub fn is_cursed(&self) -> bool {
+        matches!(self, Weave::Cursed)
+    }
+
+    /// Whether a value of weave `provided` satisfies `self` exactly, treating
+    /// an already-reported failure as satisfying anything.
+    pub fn accepts(&self, provided: &Weave) -> bool {
+        self == provided || self.is_cursed() || provided.is_cursed()
+    }
+
     pub fn can_sub_weave(&self) -> bool {
         return matches!(
             self,
@@ -50,6 +64,7 @@ impl Weave {
             Weave::Maybe(_) => Tapestry::new(MAYBE_STRAND | EQUATABLE_STRAND),
             Weave::Module(_) => Tapestry::new(NO_STRAND),
             Weave::Range => Tapestry::new(ITERABLE_STRAND | ORDINAL_STRAND),
+            Weave::Cursed => Tapestry::new(u64::MAX),
         }
     }
 
@@ -73,6 +88,7 @@ impl Weave {
             Weave::Maybe(base) => format!("Maybe<{}>", base.get_name()),
             Weave::Module(name) => format!("Module<{}>", name),
             Weave::Range => "Range".to_string(),
+            Weave::Cursed => "Cursed".to_string(),
         }
     }
 
@@ -89,6 +105,7 @@ impl Weave {
             Weave::Maybe(_) => "Maybe".to_string(),
             Weave::Module(_) => "Module".to_string(),
             Weave::Range => "Range".to_string(),
+            Weave::Cursed => "Cursed".to_string(),
         }
     }
 }

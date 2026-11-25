@@ -28,7 +28,7 @@ impl WeaveAnalyzer<'_> {
                     let weave = woven_expr.weave();
 
                     if let Some(expected_weave) = expected_weave {
-                        if *expected_weave != weave {
+                        if !expected_weave.accepts(&weave) {
                             self.error(
                                 &format!(
                                     "The weave of the value being assigned does not match the expected weave '{}'",
@@ -41,7 +41,7 @@ impl WeaveAnalyzer<'_> {
                     }
 
                     // Assignment requires an exact match of the tapestry!
-                    if resolved.weave == woven_expr.weave() {
+                    if resolved.weave.accepts(&woven_expr.weave()) {
                         return Ok(WovenExpr::Assignment {
                             name: name,
                             value: Box::new(woven_expr),

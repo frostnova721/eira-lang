@@ -198,7 +198,8 @@ mod weave_analyser_test {
     fn assignment_type_mismatch_errors() {
         let src = "mark x = 1; x = \"s\";";
         let err = analyze_helper(src).err().expect("should error");
-        assert!(err.contains("different Weaves"));
+        // The literal is checked against x's weave and reports the mismatch once.
+        assert!(err.contains("expected weave 'Num'. Got 'Text'"), "{err}");
     }
 
     #[test]
@@ -253,7 +254,7 @@ mod weave_analyser_test {
             chant cast add with 1, "string";
         "#;
         let err = analyze_helper(src).err().expect("should error");
-        assert!(err.contains("was expected to be"));
+        assert!(err.contains("expected weave 'Num'. Got 'Text'"), "{err}");
     }
 
     #[test]
@@ -310,7 +311,7 @@ mod weave_analyser_test {
             }
         "#;
         let err = analyze_helper(src).err().expect("should error");
-        assert!(err.contains("expected to release"));
+        assert!(err.contains("expected weave 'Num'. Got 'Text'"), "{err}");
     }
 
     #[test]

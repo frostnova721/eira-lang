@@ -13,6 +13,15 @@ impl WeaveAnalyzer<'_> {
         value: Expr,
     ) -> WeaveResult<WovenExpr> {
         let w_material_token = match self.analyze_expression(material, None)? {
+            // The material itself already reported an error
+            WovenExpr::Cursed { .. } => {
+                self.analyze_expression(value, None)?;
+                return Ok(WovenExpr::Cursed { span: None });
+            }
+            WovenExpr::Variable { weave: Weave::Cursed, .. } => {
+                self.analyze_expression(value, None)?;
+                return Ok(WovenExpr::Cursed { span: None });
+            }
             WovenExpr::Variable { name, .. } => name,
             _ => {
                 self.error(
@@ -94,7 +103,7 @@ impl WeaveAnalyzer<'_> {
 
         let expected = property_weave.clone();
         let w_value = self.analyze_expression(value, if matches!(expected, Weave::Vault(..)) { Some(&expected) } else { None })?;
-        if matches!(expected, Weave::Vault(..)) && w_value.weave() != expected {
+        if matches!(expected, Weave::Vault(..)) && !expected.accepts(&w_value.weave()) {
             self.error("Vault field assignment has the wrong weave.", property);
             return Ok(WovenExpr::Cursed { span: None });
         }

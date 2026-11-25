@@ -527,7 +527,7 @@ impl<'a> WeaveAnalyzer<'a> {
     }
 
     pub(super) fn can_assign(&self, expected: &Weave, provided: &Weave) -> bool {
-        if expected == provided {
+        if expected.accepts(provided) {
             return true;
         }
 

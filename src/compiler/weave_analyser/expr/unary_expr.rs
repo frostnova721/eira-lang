@@ -17,6 +17,9 @@ impl WeaveAnalyzer<'_> {
         }
         if let Some(strand) = self.strand_from_op(operator.token_type) {
             let expr = self.analyze_expression(operand, None)?;
+            if expr.is_cursed() {
+                return Ok(WovenExpr::Cursed { span: None });
+            }
             if !expr.weave().get_tapestry().has_strand(strand) {
                 self.error(
                             &format!(

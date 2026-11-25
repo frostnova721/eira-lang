@@ -16,6 +16,9 @@ impl WeaveAnalyzer<'_> {
         let weave_of_variable = match iterable.weave() {
             Weave::Deck(weave, _) => *weave,
             Weave::Range => Weave::Num,
+            // The iterable already reported an error. Still check the body,
+            // with the cycle variable defined so its uses don't add errors.
+            Weave::Cursed => Weave::Cursed,
             _ => {
                 self.error(
                     &format!(

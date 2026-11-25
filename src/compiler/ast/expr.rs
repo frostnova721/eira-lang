@@ -238,8 +238,13 @@ impl WovenExpr {
             WovenExpr::BoundSpell { weave, .. } => weave.clone(),
             WovenExpr::SafeCast { weave, .. } => weave.clone(),
             WovenExpr::Range {  weave, .. } => weave.clone(),
-            WovenExpr::Cursed { .. } => Weave::Empty,
+            WovenExpr::Cursed { .. } => Weave::Cursed,
         }
+    }
+
+    /// Whether this expression, or a value it was built from, already failed analysis.
+    pub fn is_cursed(&self) -> bool {
+        self.weave().is_cursed()
     }
 
     // might stay unused

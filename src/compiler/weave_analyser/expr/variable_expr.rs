@@ -17,7 +17,7 @@ impl WeaveAnalyzer<'_> {
             let weave = &symbol.weave;
 
             if let Some(expected) = expected_weave {
-                if *expected != *weave {
+                if !expected.accepts(weave) {
                     self.error(
                         &format!(
                             "The weave of the variable '{}' does not match the expected weave '{}'",

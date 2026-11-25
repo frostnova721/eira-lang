@@ -24,11 +24,12 @@ impl WeaveAnalyzer<'_> {
         };
 
         if let Some(expected) = expected_weave {
-            if *expected != weave {
+            if !expected.accepts(&weave) {
                 self.error(
                     &format!(
-                        "The weave of the literal value does not match the expected weave '{}'",
-                        expected.get_name()
+                        "The weave of the literal value does not match the expected weave '{}'. Got '{}'.",
+                        expected.get_name(),
+                        weave.get_name()
                     ),
                     token,
                 );

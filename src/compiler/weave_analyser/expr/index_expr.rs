@@ -13,9 +13,14 @@ impl WeaveAnalyzer<'_> {
         token: Token,
     ) -> WeaveResult<WovenExpr> {
         let w_collection = self.analyze_expression(collection, None)?;
+        if w_collection.is_cursed() {
+            // Still analyze the index so its own errors are reported.
+            self.analyze_expression(index, None)?;
+            return Ok(WovenExpr::Cursed { span: None });
+        }
         if let Weave::Vault(key, value, _) = w_collection.weave() {
             let w_index = self.analyze_expression(index, Some(&key))?;
-            if w_index.weave() != *key {
+            if !key.accepts(&w_index.weave()) {
                 self.error("Vault lookup key has the wrong type.", token);
                 return Ok(WovenExpr::Cursed { span: None });
             }
@@ -45,7 +50,7 @@ impl WeaveAnalyzer<'_> {
 
         let index_weave = w_index.weave();
 
-        if index_weave != Weave::Num {
+        if !Weave::Num.accepts(&index_weave) {
             self.error(
                 "The index expression of a Deck lookup must be of NumWeave!",
                 token.clone(),

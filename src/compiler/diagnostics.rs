@@ -1,11 +1,13 @@
 use std::path::PathBuf;
 
+#[derive(Debug)]
 pub struct Diagnostic {
     pub message: String,
     pub location: SourceLocation,
     pub phase: CompilationPhase,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompilationPhase {
     Scan,
     Parse,
@@ -13,6 +15,7 @@ pub enum CompilationPhase {
     CodeGen,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceLocation {
     pub file: PathBuf,
     pub line: usize,
